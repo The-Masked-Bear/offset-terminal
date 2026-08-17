@@ -15,6 +15,7 @@ from offset.ui import anim, brutal
 from offset.ui.canvas import Canvas
 from offset.ui.tokens import (
     CYAN,
+    GRID,
     Depth,
     G,
     INK,
@@ -75,34 +76,135 @@ def banner(width: int, t: float) -> str:
     return cv.render()
 
 
-def transcript(width: int, height: int, entries: Sequence[Entry], *, live: str = "", t: float = 0.0) -> str:
-    """The conversation, newest at the bottom."""
-    rows: list[tuple[str, str]] = []  # (kind, text)
-    for entry in entries:
-        if entry.type == MESSAGE:
-            role = entry.role or "user"
-            if role == "user":
-                rows.append(("user", entry.text))
-            else:
-                rows.append(("assistant", entry.text))
-        elif entry.type == TOOL_CALL:
-            rows.append(("call", f"{entry.data.get('tool', '?')}  {entry.data.get('summary', '')}"))
-        elif entry.type == TOOL_RESULT:
-            kind = "ok" if entry.data.get("ok", True) else "bad"
-            rows.append((kind, str(entry.data.get("summary") or entry.data.get("content", ""))[:400]))
-    if live:
-        rows.append(("assistant", live))
+def _lines_for(entry: Entry, body: int) -> list[tuple[str, str]]:
+    """One entry's wrapped display lines, as (kind, line) pairs."""
+    if entry.type == MESSAGE:
+        kind = "user" if (entry.role or "user") == "user" else "assistant"
+        text = entry.text
+    elif entry.type == TOOL_CALL:
+        kind = "call"
+        text = f"{entry.data.get('tool', '?')}  {entry.data.get('summary', '')}"
+    elif entry.type == TOOL_RESULT:
+        kind = "ok" if entry.data.get("ok", True) else "bad"
+        text = str(entry.data.get("summary") or entry.data.get("content", ""))[:400]
+    else:
+        kind = "assistant"
+        text = entry.text or str(entry.data.get("summary") or "")
+    indent = 2 if kind in ("call", "ok", "bad") else 0
+    out = [(kind, line) for line in _wrap(text, max(8, body - indent))]
+    out.append(("gap", ""))
+    return out
 
+
+class Transcript:
+    """The conversation as a scrollable buffer.
+
+    Wrapping is cached per (entry, width): the Pi repaints at 12fps and
+    re-wrapping the whole history every frame is the one thing here that would
+    actually be slow.
+
+    `offset` counts lines hidden BELOW the viewport, so 0 means "at the bottom".
+    Scrolling up stops the view following new output - a transcript that yanks
+    itself away while you are reading it is worse than no scrollback at all.
+    """
+
+    __slots__ = ("offset", "follow", "_cache", "_width", "_seen", "wraps")
+
+    def __init__(self) -> None:
+        self.offset = 0
+        self.follow = True
+        self._cache: dict[str, list[tuple[str, str]]] = {}
+        self._width = 0
+        #: The line count at the last paint, so appended output can be absorbed
+        #: without moving what the reader is looking at.
+        self._seen = 0
+        #: Counts calls to the wrapper, so a test can prove the cache works.
+        self.wraps = 0
+
+    def anchor(self, total: int, height: int) -> int:
+        """Keep the same content on screen as lines are appended.
+
+        `offset` is measured from the bottom, so when the bottom moves a fixed
+        offset would slide the viewport backwards in time. While scrolled up,
+        growth is added to the offset instead; at the bottom we simply follow.
+        """
+        if self.follow:
+            self.offset = 0
+        elif total > self._seen:
+            self.offset += total - self._seen
+        self._seen = total
+        self.offset = max(0, min(self.offset, max(0, total - height)))
+        return self.offset
+
+    def lines(self, width: int, entries: Sequence[Entry], live: str = "") -> list[tuple[str, str]]:
+        body = width - 2
+        if width != self._width:
+            self._cache.clear()  # every wrap is width-dependent
+            self._width = width
+        out: list[tuple[str, str]] = []
+        for entry in entries:
+            cached = self._cache.get(entry.id)
+            if cached is None:
+                self.wraps += 1
+                cached = _lines_for(entry, body)
+                self._cache[entry.id] = cached
+            out.extend(cached)
+        if live:
+            # Deliberately uncached: it changes on every frame by definition.
+            out.extend([("assistant", line) for line in _wrap(live, max(8, body))])
+        return out
+
+    # -- movement ---------------------------------------------------------
+
+    def scroll(self, delta: int, total: int = 0, height: int = 0) -> None:
+        """Positive scrolls up (back in time)."""
+        limit = max(0, total - height)
+        self.offset = max(0, min(self.offset + delta, limit))
+        self.follow = self.offset == 0
+
+    def page(self, direction: int, height: int, total: int = 0) -> None:
+        self.scroll(direction * max(1, height - 1), total, height)
+
+    def to_end(self) -> None:
+        self.offset = 0
+        self.follow = True
+
+    @property
+    def at_end(self) -> bool:
+        return self.offset == 0
+
+
+def transcript(
+    width: int,
+    height: int,
+    entries: Sequence[Entry],
+    *,
+    live: str = "",
+    t: float = 0.0,
+    view: Transcript | None = None,
+) -> str:
+    """The conversation, newest at the bottom.
+
+    Without a `view` this is the tail, which is what the tests and the demo
+    want; with one it is scrollable and shows how much is hidden.
+    """
     body = width - 2
-    painted: list[tuple[str, str]] = []
-    for kind, text in rows:
-        indent = 2 if kind in ("call", "ok", "bad") else 0
-        for line in _wrap(text, max(8, body - indent)):
-            painted.append((kind, line))
-        painted.append(("gap", ""))
+    if view is not None:
+        painted = view.lines(width, entries, live)
+    else:
+        painted = []
+        for entry in entries:
+            painted.extend(_lines_for(entry, body))
+        if live:
+            painted.extend([("assistant", line) for line in _wrap(live, max(8, body))])
+
+    total = len(painted)
+    offset = view.anchor(total, height) if view is not None else 0
+    end = total - offset
+    start = max(0, end - height)
+    visible = painted[start:end]
 
     cv = Canvas(width, height, bg=PAPER)
-    visible = painted[-height:] if len(painted) > height else painted
     for y, (kind, line) in enumerate(visible):
         if kind == "user":
             cv.fill_rect(0, y, width, 1, " ", INK, YELLOW)
@@ -118,7 +220,24 @@ def transcript(width: int, height: int, entries: Sequence[Entry], *, live: str =
         elif kind == "bad":
             cv.put(1, y, G.HALF_LEFT, RED, PAPER)
             cv.text(3, y, line, RED, PAPER, False, max_w=body - 2)
+
+    if offset > 0 and height > 0:
+        cv.fill_rect(0, height - 1, width, 1, " ", INK, CYAN)
+        cv.text(1, height - 1, fit(f"{offset} more below  \u2193 to follow", width - 2), INK, CYAN, True)
+    _scrollbar(cv, width, height, total, start)
     return cv.render()
+
+
+def _scrollbar(cv: Canvas, width: int, height: int, total: int, start: int) -> None:
+    """A hard block thumb in the last column.  No gradient, no rounded cap."""
+    if total <= height or height < 3 or width < 3:
+        return
+    span = max(1, round(height * height / total))
+    top = round(start / total * height)
+    top = min(top, height - span)
+    for y in range(height):
+        inside = top <= y < top + span
+        cv.put(width - 1, y, G.BLOCK if inside else " ", INK if inside else GRID, PAPER if inside else GRID)
 
 
 def prompt_row(width: int, text: str, *, busy: bool, t: float) -> str:

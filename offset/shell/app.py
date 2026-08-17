@@ -49,7 +49,7 @@ from offset.tools.builtin import builtin_tools
 from offset.tools.custom import default_dirs, discover
 from offset.tools.runtime import Approval, Runtime
 from offset.ui.tokens import detect_depth
-from offset.core import permissions
+from offset.core import context, permissions, settings
 from offset.shell.consent import Consent, decide, permission_badge, render_consent, summary_lines
 from offset.tools.agents import subagent_tools
 from offset.tools.system import system_tools
@@ -86,6 +86,9 @@ class Shell:
         self.worker: threading.Thread | None = None
         self.approval_gate: threading.Event | None = None
         self.approval_answer = False
+        #: The scrollable transcript. Without this the history was a fixed tail
+        #: with no way to read back.
+        self.view = render.Transcript()
         #: Present until the user has chosen a blast radius.  A workspace that
         #: was already granted skips the question entirely.
         self.consent: Consent | None = (
@@ -156,7 +159,7 @@ class Shell:
         width, rows = self.size
         height = max(3, rows - 3 - self._message_rows())
         entries = [e for e in self.state.session.transcript() if e.type in CONVERSATIONAL]
-        return ANSI(render.transcript(width, height, entries, live=self.live, t=self.now()))
+        return ANSI(render.transcript(width, height, entries, live=self.live, t=self.now(), view=self.view))
 
     def _messages(self) -> ANSI:
         rows = self._message_rows()
@@ -276,6 +279,7 @@ class Shell:
         self.busy = True
         self.live = ""
         self.messages.clear()
+        self.view.to_end()  # you asked for this output; show it
 
         def work() -> None:
             try:
@@ -417,6 +421,33 @@ class Shell:
             elif panel.kind == "login" and data.isprintable():
                 panel.buffer += data
 
+        def scroll_by(lines: int) -> None:
+            width, rows = self.size
+            entries = [e for e in self.state.session.transcript() if e.type in CONVERSATIONAL]
+            height = max(3, rows - 3 - self._message_rows())
+            total = len(self.view.lines(width, entries, self.live))
+            self.view.scroll(lines, total, height)
+
+        @keys.add("pageup")
+        def _(event):
+            scroll_by(max(1, self.size[1] - 6))
+
+        @keys.add("pagedown")
+        def _(event):
+            scroll_by(-max(1, self.size[1] - 6))
+
+        @keys.add("s-up")
+        def _(event):
+            scroll_by(1)
+
+        @keys.add("s-down")
+        def _(event):
+            scroll_by(-1)
+
+        @keys.add("end")
+        def _(event):
+            self.view.to_end()
+
         @keys.add("backspace")
         def _(event):
             panel = self.state.overlay
@@ -482,9 +513,13 @@ class Shell:
 # -- construction -----------------------------------------------------------
 
 
-def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: str = "auto-edit") -> ShellState:
+def build_state(workspace: Path | str = ".", *, model: str | None = None, approval: str | None = None) -> ShellState:
     """Assemble a session, every tool, the eggs, and an agent."""
     workspace = Path(workspace).resolve()
+    settings.configure(workspace)
+    approval = approval or settings.get("tools.approvalMode", "auto-edit")
+    # An explicit flag beats configuration; configuration beats the built-in.
+    model = model or settings.get("model.default", None) or "mock"
     home = CONFIG_DIR  # honours OFFSET_HOME, so a test can isolate everything
     session = Session.create(home / "sessions")
 
@@ -512,7 +547,7 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
     # startup question instead, and until it is answered the boundary is the
     # workspace. `root=None` only ever comes from an explicit grant.
     grant = permissions.current(workspace)
-    context = ToolContext(
+    tool_context = ToolContext(
         cwd=workspace,
         root=permissions.root_for(workspace) if grant else workspace,
         timeout=120.0,
@@ -526,8 +561,12 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
         if paths:
             capture_all(session, paths, tool=tool.name, root=workspace)
 
-    runtime = Runtime(toolbox, context, policy, before_write=snapshot)
-    agent = Agent(session, runtime, AgentConfig(model=model, system=SYSTEM_PROMPT))
+    runtime = Runtime(toolbox, tool_context, policy, before_write=snapshot)
+    # Project instructions belong in the system prompt, not in the first user
+    # message: they are standing orders, not part of the conversation.
+    instructions = context.assemble(workspace)
+    system = f"{SYSTEM_PROMPT}\n\n{instructions}" if instructions else SYSTEM_PROMPT
+    agent = Agent(session, runtime, AgentConfig(model=model, system=system))
 
     # MCP servers are optional and must never delay startup: a server that is
     # slow or absent costs its own tools, nothing else.
@@ -557,6 +596,6 @@ files. When several approaches are plausible, say so in one line and pick one.
 Never claim a command succeeded without running it."""
 
 
-def main(workspace: str = ".", model: str = "mock", approval: str = "auto-edit") -> int:
+def main(workspace: str = ".", model: str | None = None, approval: str | None = None) -> int:
     Shell(build_state(workspace, model=model, approval=approval)).run()
     return 0

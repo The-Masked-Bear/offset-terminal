@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from offset.core.agent import Agent
-from offset.core import compaction, snapshots
+from offset.core import compaction, context, snapshots
+from offset.ui import theme
 from offset.core.agent import to_messages
 from offset.core.branches import BranchRun, approaches, run_branches
 from offset.core.entries import CONVERSATIONAL, MESSAGE
@@ -522,6 +523,29 @@ def _sessions(state: ShellState, args: list[str]) -> Outcome:
     return Outcome(lines, TONE_INFO)
 
 
+def _context(state: ShellState, args: list[str]) -> Outcome:
+    """Which project instruction files offset is obeying."""
+    lines = context.summary(state.workspace)
+    block = context.assemble(state.workspace)
+    if block:
+        lines = [*lines, "", f"{len(block)} characters appended to the system prompt"]
+    return Outcome(lines, TONE_INFO)
+
+
+def _theme(state: ShellState, args: list[str]) -> Outcome:
+    """Switch palette, or say which one is in force."""
+    if not args:
+        current = theme.active()
+        lines = [f"theme: {getattr(current, 'name', 'default')}",
+                 "available: " + ", ".join(theme.names()),
+                 f"a custom palette goes in {theme.path()}"]
+        return Outcome(lines, TONE_INFO)
+    problem = theme.use(args[0].lower())
+    if problem:
+        return Outcome.error(problem)
+    return Outcome([f"theme: {args[0].lower()}", "redraw is immediate"], TONE_OK)
+
+
 def _usage(state: ShellState, args: list[str]) -> Outcome:
     meta = info(state.model)
     key = credential(provider_for(meta.provider))
@@ -565,6 +589,8 @@ COMMANDS: list[Command] = [
     Command("compact", "summarise old history to free up context", _compact, usage="/compact [now]"),
     Command("rewind", "restore files to an earlier point", _rewind, usage="/rewind [n]"),
     Command("mcp", "MCP servers and their remote tools", _mcp),
+    Command("context", "project instruction files in force", _context),
+    Command("theme", "switch palette", _theme, usage="/theme [name]"),
     Command("eggs", "the trophy room", _trophies, aliases=("trophies",)),
     Command("usage", "current model, key, tools, approval", _usage),
     Command("clear", "drop the context, keep the history", _clear),

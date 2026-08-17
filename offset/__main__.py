@@ -11,9 +11,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd")
 
     chat = sub.add_parser("chat", help="start an interactive session")
-    chat.add_argument("--model", default="mock", help="model id (default: the scripted mock)")
+    chat.add_argument("--model", default=None,
+                  help="model id; defaults to model.default from config, else the scripted mock")
     chat.add_argument("--workspace", default=".", help="directory the tools may touch")
-    chat.add_argument("--approve", default="auto-edit", choices=("safe", "auto-edit", "yolo"))
+    chat.add_argument("--approve", default=None,
+                  choices=("safe", "auto-edit", "yolo", "full"),
+                  help="approval mode; defaults to the stored permission grant")
 
     demo = sub.add_parser("demo", help="render the design system")
     demo.add_argument("--once", action="store_true", help="print one frame and exit")
@@ -37,8 +40,8 @@ def main(argv: list[str] | None = None) -> int:
 
         return chat_main(
             workspace=getattr(args, "workspace", "."),
-            model=getattr(args, "model", "mock"),
-            approval=getattr(args, "approve", "auto-edit"),
+            model=getattr(args, "model", None),
+            approval=getattr(args, "approve", None),
         )
 
     parser.error(f"unknown command {args.cmd!r}")

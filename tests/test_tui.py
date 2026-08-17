@@ -92,6 +92,11 @@ class Terminal:
             "down": b"\x1b[B",
             "up": b"\x1b[A",
             "escape": b"\x1b",
+            "pageup": b"\x1b[5~",
+            "pagedown": b"\x1b[6~",
+            "end": b"\x1b[4~",
+            "s-up": b"\x1b[1;2A",
+            "s-down": b"\x1b[1;2B",
             "ctrl-d": b"\x04",
             "ctrl-c": b"\x03",
         }
@@ -331,3 +336,44 @@ def test_the_document_and_system_tools_are_registered(term):
     for tool in ("document", "system", "file", "open"):
         assert tool in squeezed, f"{tool} missing from the tool list:\n{term.text}"
     assert "danger" in squeezed
+
+
+# -- scrollback and project context -----------------------------------------
+
+
+def test_you_can_scroll_back_through_history(term):
+    """Before this the transcript was a fixed tail with no way to read back."""
+    for i in range(16):
+        term.type(f"question {i}")
+        term.key("enter", settle=0.12)
+    assert term.wait_for("question 15"), term.text
+
+    term.key("pageup", settle=0.8)
+    squeezed = term.squeeze()
+    assert "MOREBELOW" in squeezed, f"no hidden-line indicator:\n{term.text}"
+    assert "question15" not in squeezed, "the view should have moved off the bottom"
+    assert "\u2588" in term.text, "the scrollbar thumb should be drawn"
+
+
+def test_end_returns_to_following(term):
+    for i in range(16):
+        term.type(f"item {i}")
+        term.key("enter", settle=0.12)
+    term.key("pageup", settle=0.6)
+    assert "MOREBELOW" in term.squeeze()
+    term.key("end", settle=0.6)
+    assert "MOREBELOW" not in term.squeeze(), "END must jump back to the bottom"
+
+
+def test_project_instructions_are_discovered(raw_term, tmp_path):
+    (tmp_path / "AGENTS.md").write_text(
+        "# House rules\nAlways run the tests before claiming a fix.\n", encoding="utf-8"
+    )
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
+    raw_term.key("enter")
+    assert raw_term.wait_for("CTRL-D QUIT")
+
+    raw_term.type("/context")
+    raw_term.key("enter")
+    assert raw_term.wait_for("AGENTS.md"), raw_term.text
+    assert "appended to the system prompt" in raw_term.text
