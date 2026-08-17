@@ -51,7 +51,13 @@ from offset.tools.runtime import Approval, Runtime
 from offset.ui.tokens import detect_depth
 from offset.core import permissions
 from offset.shell.consent import Consent, decide, permission_badge, render_consent, summary_lines
+from offset.tools.agents import subagent_tools
 from offset.tools.system import system_tools
+from offset.tools.todo import todo_tools
+from offset.tools.websearch import web_search_tools
+from offset.core.snapshots import capture_all, target_paths
+from offset.tools.mcp import Manager as MCPManager
+from offset.tools.mcp import load_config as load_mcp_config
 
 
 class SlashCompleter(Completer):
@@ -484,7 +490,13 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
 
     # Every tool ships enabled; what varies is whether a call is allowed.
     # `system_tools()` is the whole-machine set and already carries `document`.
-    toolbox = Toolbox([*builtin_tools(), *system_tools()])
+    toolbox = Toolbox([
+        *builtin_tools(),
+        *system_tools(),
+        *todo_tools(home / "todo"),
+        *web_search_tools(),
+        *subagent_tools(),
+    ])
     found = discover(default_dirs(workspace))
     for tool in found:
         try:
@@ -508,9 +520,34 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
     # `ask` is attached by the Shell, which is the only thing that can put a
     # question on screen; until then a dangerous call simply has no approver.
     policy = Approval(mode=permissions.mode_for(workspace, approval) if grant else approval)
-    runtime = Runtime(toolbox, context, policy)
+    def snapshot(tool, args) -> None:
+        """Record what a writing tool is about to overwrite, so /rewind works."""
+        paths = target_paths(args)
+        if paths:
+            capture_all(session, paths, tool=tool.name, root=workspace)
+
+    runtime = Runtime(toolbox, context, policy, before_write=snapshot)
     agent = Agent(session, runtime, AgentConfig(model=model, system=SYSTEM_PROMPT))
-    return ShellState(session, agent, toolbox, policy, eggs, workspace)
+
+    # MCP servers are optional and must never delay startup: a server that is
+    # slow or absent costs its own tools, nothing else.
+    mcp_manager = None
+    try:
+        mcp_config = load_mcp_config(workspace)
+        if mcp_config.servers:
+            mcp_manager = MCPManager(mcp_config)
+            mcp_manager.connect_all()
+            for remote in mcp_manager.tools():
+                try:
+                    toolbox.register(remote)
+                except ValueError:
+                    pass
+    except Exception:
+        mcp_manager = None
+
+    state = ShellState(session, agent, toolbox, policy, eggs, workspace)
+    state.mcp = mcp_manager
+    return state
 
 
 SYSTEM_PROMPT = """You are offset, a terminal coding agent.

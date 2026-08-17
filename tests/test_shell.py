@@ -68,8 +68,11 @@ def test_every_command_is_reachable_and_documented(state):
         assert command.summary, f"{command.name} has no summary"
         assert BY_NAME[command.name] is command
     listing = dispatch(state, "/help")
+    body = "\n".join(listing.lines)
     for command in COMMANDS:
-        assert any(line.startswith(f"/{command.name}") for line in listing.lines)
+        # /help is laid out in two columns, so a name need not start its line.
+        assert f"/{command.name}" in body, f"/{command.name} is not documented"
+        assert command.summary in body
 
 
 def test_aliases_work(state):
@@ -467,3 +470,88 @@ def test_always_allow_is_remembered(state):
     assert "bash" in state.approval.remembered
     allowed, _ = state.approval.check(Bash(), {"command": "ls"})
     assert allowed, "a remembered tool must not ask again"
+
+
+# -- the newly wired commands ----------------------------------------------
+
+
+def test_compact_reports_headroom_before_doing_anything(state):
+    got = dispatch(state, "/compact")
+    assert got.job is None, "an idle session must not summarise anything"
+    assert "nothing to compact yet" in got.lines[0]
+    assert "/compact now" in got.lines[1]
+
+
+def test_compact_can_be_forced(state):
+    state.session.say("user", "something to summarise")
+    got = dispatch(state, "/compact now")
+    assert got.job is not None, "forcing must actually queue the work"
+
+
+def test_rewind_lists_nothing_before_any_write(state):
+    assert "nothing has been snapshotted" in dispatch(state, "/rewind").lines[0]
+
+
+def test_rewind_lists_snapshots_and_restores_one(state, tmp_path):
+    from offset.core.snapshots import capture
+
+    target = tmp_path / "app.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    capture(state.session, "app.py", tool="write", root=tmp_path)
+    target.write_text("VALUE = 2\n", encoding="utf-8")
+
+    listed = dispatch(state, "/rewind")
+    assert "app.py" in listed.lines[0]
+    assert "/rewind <number>" in "\n".join(listed.lines)
+
+    restored = dispatch(state, "/rewind 1")
+    assert restored.tone == "ok", restored.lines
+    assert target.read_text() == "VALUE = 1\n"
+
+
+def test_rewind_refuses_a_bad_number(state, tmp_path):
+    from offset.core.snapshots import capture
+
+    (tmp_path / "a.py").write_text("x", encoding="utf-8")
+    capture(state.session, "a.py", tool="write", root=tmp_path)
+    assert dispatch(state, "/rewind 99").tone == "err"
+    assert dispatch(state, "/rewind banana").tone == "err"
+
+
+def test_mcp_says_so_when_nothing_is_configured(state):
+    got = dispatch(state, "/mcp")
+    assert "no MCP servers configured" in got.lines[0]
+    assert any("mcp.json" in line for line in got.lines)
+
+
+def test_sessions_lists_the_current_one(state):
+    state.session.say("user", "hello from this session")
+    got = dispatch(state, "/sessions")
+    assert any("hello from this session"[:20] in line for line in got.lines)
+
+
+def test_a_writing_tool_snapshots_before_it_writes(state, tmp_path):
+    """The /rewind safety net only exists if the runtime takes the snapshot."""
+    from offset.core.snapshots import records
+    from offset.providers.base import ToolCall
+
+    target = tmp_path / "notes.txt"
+    target.write_text("before\n", encoding="utf-8")
+
+    taken: list[str] = []
+    state.agent.runtime.before_write = lambda tool, args: taken.append(tool.name)
+    state.approval.mode = "yolo"
+    state.agent.runtime.execute(ToolCall("c", "write", {"path": "notes.txt", "content": "after\n"}))
+
+    assert taken == ["write"], "the hook must fire for a writing tool"
+    assert target.read_text() == "after\n"
+
+
+def test_a_reading_tool_does_not_snapshot(state, tmp_path):
+    from offset.providers.base import ToolCall
+
+    (tmp_path / "r.txt").write_text("x\n", encoding="utf-8")
+    taken: list[str] = []
+    state.agent.runtime.before_write = lambda tool, args: taken.append(tool.name)
+    state.agent.runtime.execute(ToolCall("c", "read", {"path": "r.txt"}))
+    assert taken == [], "reads cannot lose data, so they cost nothing"

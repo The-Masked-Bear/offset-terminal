@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from offset.core.agent import Agent
+from offset.core import compaction, snapshots
+from offset.core.agent import to_messages
 from offset.core.branches import BranchRun, approaches, run_branches
 from offset.core.entries import CONVERSATIONAL, MESSAGE
 from offset.core.multimodel import Ensemble, Seat
@@ -91,6 +93,7 @@ class ShellState:
     overlay: Overlay | None = None
     verify_command: str | None = None
     spec_run: BranchRun | None = None
+    mcp: Any = None
 
     @property
     def model(self) -> str:
@@ -113,8 +116,17 @@ class Command:
 
 
 def _help(state: ShellState, args: list[str]) -> Outcome:
-    width = max(len(c.name) for c in COMMANDS) + 2
-    lines = [f"/{c.name:<{width}}{c.summary}" for c in COMMANDS]
+    """Two columns: the list outgrew a single one, and then outgrew the pane."""
+    names = [f"/{c.name}" for c in COMMANDS]
+    width = max(len(n) for n in names) + 1
+    cells = [f"{n:<{width}} {c.summary}" for n, c in zip(names, COMMANDS)]
+    half = (len(cells) + 1) // 2
+    left, right = cells[:half], cells[half:]
+    gutter = max(len(row) for row in left) + 3
+    lines = [
+        f"{a:<{gutter}}{b}".rstrip() if b else a
+        for a, b in zip(left, right + [""] * (len(left) - len(right)))
+    ]
     found, total = state.eggs.progress()
     lines += ["", f"{found}/{total} easter eggs found. Some of them are commands. Keep typing."]
     return Outcome(lines, TONE_INFO)
@@ -417,6 +429,99 @@ def _verify(state: ShellState, args: list[str]) -> Outcome:
     return Outcome([f"verification command: {state.verify_command}"], TONE_OK)
 
 
+def _compact(state: ShellState, args: list[str]) -> Outcome:
+    """Summarise the old part of the conversation so a long session can go on."""
+    messages = to_messages(state.session.transcript())
+    budget = compaction.budget_for(state.model)
+    tokens = compaction.estimate_tokens(messages)
+    forced = bool(args and args[0] == "now")
+    if not forced and not compaction.needs_compaction(messages, budget):
+        return Outcome([
+            f"about {tokens:,} tokens of roughly {budget:,}; nothing to compact yet",
+            "force it with /compact now",
+        ], TONE_INFO)
+
+    def job() -> Outcome:
+        try:
+            report = compaction.compact(
+                state.session,
+                compaction.model_summariser(state.model),
+                budget=budget,
+                threshold=0.0 if forced else 0.8,
+            )
+        except Exception as exc:
+            return Outcome.error(f"could not compact: {exc}")
+        after = compaction.estimate_tokens(to_messages(state.session.transcript()))
+        return Outcome([
+            f"compacted: about {tokens:,} tokens -> {after:,}",
+            "the original entries are still on disk and still reachable in /tree",
+        ], TONE_OK)
+
+    return Outcome([f"summarising {tokens:,} tokens of history..."], TONE_INFO, job=job)
+
+
+def _rewind(state: ShellState, args: list[str]) -> Outcome:
+    """Put files back the way they were at a point in this session."""
+    marks = snapshots.records(state.session)
+    if not marks:
+        return Outcome(["nothing has been snapshotted in this session yet"], TONE_INFO)
+    if not args:
+        lines = [f"{i + 1}. {m.path}  ({m.tool}, {m.skipped or 'stored'})" for i, m in enumerate(marks[-12:])]
+        lines.append("")
+        lines.append("rewind to one with /rewind <number>")
+        return Outcome(lines, TONE_INFO)
+    try:
+        index = int(args[0]) - 1
+    except ValueError:
+        return Outcome.error("usage: /rewind <number from the /rewind list>")
+    recent = marks[-12:]
+    if not 0 <= index < len(recent):
+        return Outcome.error(f"pick a number between 1 and {len(recent)}")
+    # `restore` puts files back to how they were *as of* an entry, using the
+    # snapshots taken after it. To undo snapshot N we therefore anchor on the
+    # entry just before it.
+    chosen = recent[index]
+    entries = list(state.session.all_entries())
+    at = next((i for i, e in enumerate(entries) if e.id == chosen.id), 0)
+    anchor = entries[at - 1].id if at > 0 else None  # None = before everything
+    got = snapshots.restore(state.session, anchor, root=state.workspace)
+    lines = [f"restored {len(got.restored)} file(s)"] + [f"  {p}" for p in got.restored[:10]]
+    for path, why in got.failed[:6]:
+        lines.append(f"  could not restore {path}: {why}")
+    return Outcome(lines, TONE_OK if got.ok else TONE_ERR)
+
+
+def _mcp(state: ShellState, args: list[str]) -> Outcome:
+    """What MCP servers are configured, and whether they answered."""
+    manager = state.mcp
+    if manager is None:
+        return Outcome([
+            "no MCP servers configured",
+            "add them to .offset/mcp.json or ~/.offset/mcp.json",
+        ], TONE_INFO)
+    rows = []
+    for status in manager.status():
+        rows.append(f"{status.name:<16} {status.state:<12} {status.tools:>3} tools  {status.detail[:40]}")
+    for problem in manager.config.errors[:5]:
+        rows.append(f"config: {problem}")
+    remote = [t.name for t in state.toolbox if t.name.startswith("mcp__")]
+    rows.append("")
+    rows.append(f"{len(remote)} remote tool(s) registered")
+    return Outcome(rows or ["no servers"], TONE_INFO)
+
+
+def _sessions(state: ShellState, args: list[str]) -> Outcome:
+    """Recent sessions, newest first."""
+    listed = Session.list(state.session.path.parent)
+    if not listed:
+        return Outcome(["no other sessions"], TONE_INFO)
+    lines = []
+    for i, meta in enumerate(listed[:15], 1):
+        here = "*" if Path(meta.path) == state.session.path else " "
+        lines.append(f"{here}{i:>3}. {meta.messages:>4} msgs  {meta.first_line[:44]}")
+    return Outcome(lines, TONE_INFO)
+
+
 def _usage(state: ShellState, args: list[str]) -> Outcome:
     meta = info(state.model)
     key = credential(provider_for(meta.provider))
@@ -456,6 +561,10 @@ COMMANDS: list[Command] = [
     Command("discard", "delete the branch worktrees", _discard),
     Command("verify", "the command branches must pass", _verify, usage="/verify pytest -q"),
     Command("session", "where this session lives and how big it is", _session),
+    Command("sessions", "recent sessions, newest first", _sessions),
+    Command("compact", "summarise old history to free up context", _compact, usage="/compact [now]"),
+    Command("rewind", "restore files to an earlier point", _rewind, usage="/rewind [n]"),
+    Command("mcp", "MCP servers and their remote tools", _mcp),
     Command("eggs", "the trophy room", _trophies, aliases=("trophies",)),
     Command("usage", "current model, key, tools, approval", _usage),
     Command("clear", "drop the context, keep the history", _clear),

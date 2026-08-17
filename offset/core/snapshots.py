@@ -402,7 +402,7 @@ def _target_of(record: Record, root: str | os.PathLike[str] | None) -> Path:
 
 def restore(
     session: Session,
-    target_entry_id: str,
+    target_entry_id: str | None,
     *,
     root: str | os.PathLike[str] | None = None,
 ) -> Rewind:
@@ -414,9 +414,14 @@ def restore(
     because a file already holding the wanted bytes is left alone.
     """
     entries = list(session.all_entries())
-    at = next((i for i, e in enumerate(entries) if e.id == target_entry_id), -1)
-    if at < 0:
-        return Rewind(error=f"no such entry: {target_entry_id}")
+    if target_entry_id is None:
+        # "Before everything": every snapshot in the session counts, which is
+        # the only way to undo a write that was the session's first entry.
+        at = -1
+    else:
+        at = next((i for i, e in enumerate(entries) if e.id == target_entry_id), -2)
+        if at < 0:
+            return Rewind(error=f"no such entry: {target_entry_id}")
 
     first: dict[Path, Record] = {}
     for entry in entries[at + 1 :]:

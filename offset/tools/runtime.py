@@ -78,7 +78,7 @@ class Invocation:
 
 
 class Runtime:
-    __slots__ = ("toolbox", "approval", "context", "abort", "_pool_size")
+    __slots__ = ("toolbox", "approval", "context", "abort", "before_write", "_pool_size")
 
     def __init__(
         self,
@@ -87,11 +87,17 @@ class Runtime:
         approval: Approval | None = None,
         *,
         pool_size: int = 8,
+        before_write: Callable[[Tool, dict], None] | None = None,
     ) -> None:
         self.toolbox = toolbox
         self.context = context
         self.approval = approval or Approval()
         self._pool_size = max(1, pool_size)
+        #: Called just before a tool that can modify files runs, so a snapshot
+        #: can be taken. Kept as a callback because the runtime has no business
+        #: knowing about sessions; the shell supplies one that records to the
+        #: session it owns.
+        self.before_write = before_write
         #: A user abort for the whole turn.  Deliberately NOT the same signal
         #: as a per-call timeout: one means "stop everything", the other means
         #: "this one call ran long". Conflating them ends turns that should
@@ -120,6 +126,14 @@ class Runtime:
         allowed, why = self.approval.check(tool, call.args)
         if not allowed:
             return Invocation(call, ToolResult.fail(why), approved=False)
+
+        if self.before_write is not None and tool.danger >= Danger.WRITE:
+            try:
+                self.before_write(tool, call.args)
+            except Exception as exc:
+                # A snapshot that cannot be taken is worth saying out loud, but
+                # it must never be the reason a tool call fails.
+                self.context.emit(f"snapshot skipped for {tool.name}: {exc}")
 
         return self._done(call, self._run_guarded(tool, call.args), started)
 
