@@ -303,7 +303,17 @@ def _parse_items(items: Sequence[Any]) -> tuple[list[tuple[str, str]], list[str]
 
 
 def store_for(ctx: ToolContext, override: Path | None = None) -> Path:
-    return override if override is not None else ctx.cwd / STORE
+    """Where the list lives.
+
+    An override that names a directory gets the store placed inside it. Without
+    this, being handed a directory produced `<dir>.json.tmp` and an
+    `os.replace` onto the directory itself - an error at the far end of a
+    wiring mistake rather than at the point of it.
+    """
+    if override is None:
+        return ctx.cwd / STORE
+    override = Path(override)
+    return override / STORE if override.is_dir() else override
 
 
 class Todo(Tool):

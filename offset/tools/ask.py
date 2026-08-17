@@ -127,12 +127,12 @@ class Ask(Tool):
             return _unanswered(question, UNAVAILABLE, "there is no human attached to this session")
 
         budget = self._budget(args, ctx)
-        answer, failure = self._wait(question, budget, ctx)
-        if failure:
-            return _unanswered(question, TIMEOUT, failure)
+        answer, reason, message = self._wait(question, budget, ctx)
+        if reason:
+            return _unanswered(question, reason, message)
         if answer is None or not answer.answered:
-            reason = answer.reason if answer else DECLINED
-            return _unanswered(question, reason, "the user did not choose an option")
+            return _unanswered(question, answer.reason if answer else DECLINED,
+                               "the user did not choose an option")
 
         return ToolResult(
             content=f"the user chose: {answer.chosen}",
@@ -158,19 +158,36 @@ class Ask(Tool):
             return wanted
         return max(0.5, min(wanted, ctx.timeout - 0.5))
 
-    @staticmethod
-    def _wait(question: Question, budget: float, ctx: ToolContext) -> tuple[Answer | None, str]:
-        """Run the asker off-thread so a blocking UI cannot pin the runtime."""
+    def _wait(self, question: Question, budget: float, ctx: ToolContext) -> tuple[Answer | None, str, str]:
+        """Run the asker off-thread so a blocking UI cannot pin the runtime.
+
+        Returns `(answer, reason, message)`; `reason` is empty on success. The
+        worker is a daemon and is abandoned once the budget is spent: a UI still
+        showing the question must not keep the process alive, and an answer that
+        arrives late is discarded rather than applied to a finished turn.
+        """
+        asker = self.asker
+        if asker is None:
+            return None, UNAVAILABLE, "there is no human attached to this session"
+
         box: list[Answer] = []
 
         def target() -> None:
             try:
-                box.append(_normalise(question, Ask._call(question)))
+                box.append(_normalise(question, asker(question)))
             except Exception as exc:  # a broken asker is a declined question
-                box.append(Answer(reason=DECLINED if not str(exc) else DECLINED))
+                box.append(Answer.no(DECLINED))
 
-        Ask._call = staticmethod(lambda q: q)  # placeholder, replaced below
-        raise AssertionError("unreachable")
+        worker = threading.Thread(target=target, name="offset-ask", daemon=True)
+        worker.start()
+        deadline = time.monotonic() + budget
+        while worker.is_alive():
+            worker.join(0.05)
+            if ctx.cancel.is_set():
+                return None, DECLINED, "the turn was cancelled before the question was answered"
+            if time.monotonic() >= deadline:
+                return None, TIMEOUT, f"nobody answered within {budget:g}s"
+        return (box[0] if box else Answer.no(DECLINED)), "", ""
 
 
 def _normalise(question: Question, raw: Any) -> Answer:
