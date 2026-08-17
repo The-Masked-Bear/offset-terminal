@@ -56,8 +56,9 @@ class Trigger:
         return Trigger("command", commands=tuple(n.lower() for n in names))
 
     @staticmethod
-    def keys(sequence: Sequence[str]) -> "Trigger":
-        return Trigger("keys", keys=tuple(sequence))
+    def sequence(keys: Sequence[str]) -> "Trigger":
+        # Not named `keys`: the slots descriptor for the field would shadow it.
+        return Trigger("keys", keys=tuple(keys))
 
     @staticmethod
     def count(event: str, threshold: int) -> "Trigger":
@@ -201,6 +202,9 @@ class EggEngine:
         egg = self._by_command.get(name)
         if egg is None:
             return None
+        # Counted so an egg can escalate across repeat invocations.
+        key = f"cmd:{name}"
+        self._counters[key] = self._counters.get(key, 0) + 1
         return self._fire(egg, {"input": text, "engine": self})
 
     def key(self, key: str) -> Reveal | None:
