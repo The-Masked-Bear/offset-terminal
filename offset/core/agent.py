@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterator, Sequence
 
-from offset.core.entries import MESSAGE, TOOL_CALL, TOOL_RESULT, Entry
+from offset.core.entries import BRANCH_SUMMARY, COMPACTION, MESSAGE, TOOL_CALL, TOOL_RESULT, Entry
 from offset.core.session import Session
 from offset.providers.base import (
     Event,
@@ -69,31 +69,69 @@ def to_messages(entries: Sequence[Entry]) -> list[Message]:
     Tool calls are stored as their own entries so the session tree can show
     them individually; here they are folded back onto the assistant turn that
     produced them, which is the shape every provider expects.
+
+    Two repairs happen on the way, both for histories a cancelled turn leaves
+    behind. Every provider rejects a tool call with no result, so an
+    unanswered call gets a synthetic one, and a result whose call is no longer
+    on this branch is dropped rather than sent as an orphan.
     """
     out: list[Message] = []
+    known_calls: dict[str, str] = {}  # call id -> tool name
+    answered: set[str] = set()
+
     for entry in entries:
         if entry.type == MESSAGE:
             role = entry.role or "user"
             if role == "system":
                 continue
             out.append(Message(role=role, text=entry.text, thinking=entry.data.get("thinking") or ""))
+        elif entry.type in (BRANCH_SUMMARY, COMPACTION):
+            # A summary stands in for history the model can no longer see, so
+            # it has to reach the model as content rather than be skipped.
+            summary = entry.text or entry.data.get("summary") or ""
+            if summary:
+                out.append(Message(role="user", text=f"[earlier conversation, summarised]\n{summary}"))
         elif entry.type == TOOL_CALL:
             call = ToolCall(
                 id=entry.data.get("id") or entry.id,
                 name=entry.data.get("tool") or "",
                 args=entry.data.get("args") or {},
             )
+            known_calls[call.id] = call.name
             if not out or out[-1].role != "assistant":
                 out.append(Message(role="assistant"))
             out[-1].tool_calls.append(call)
         elif entry.type == TOOL_RESULT:
+            cid = entry.data.get("id")
+            if cid is not None and cid not in known_calls:
+                continue  # orphan: the call it answers is not on this branch
+            if cid is not None:
+                answered.add(cid)
             out.append(Message(
                 role="tool",
                 text=entry.data.get("content") or "",
-                tool_call_id=entry.data.get("id"),
+                tool_call_id=cid,
                 name=entry.data.get("tool"),
             ))
-    return out
+
+    if len(answered) == len(known_calls):
+        return out
+
+    repaired: list[Message] = []
+    for message in out:
+        repaired.append(message)
+        if message.role != "assistant":
+            continue
+        for call in message.tool_calls:
+            if call.id in answered:
+                continue
+            repaired.append(Message(
+                role="tool",
+                text="tool call was interrupted before it produced a result",
+                tool_call_id=call.id,
+                name=call.name,
+            ))
+    return repaired
 
 
 # -- configuration ----------------------------------------------------------

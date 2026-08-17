@@ -13,10 +13,12 @@ import re
 import signal
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 from offset.tools.base import Danger, Tool, ToolContext, ToolResult
+from offset.tools.walk import walk as ignore_aware_walk
 
 #: Directories never worth walking; skipping them is the difference between a
 #: glob that answers instantly and one that reads a virtualenv.
@@ -148,7 +150,11 @@ class Glob(Tool):
     danger = Danger.SAFE
     schema = {
         "type": "object",
-        "properties": {"pattern": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 2000}},
+        "properties": {
+            "pattern": {"type": "string"},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
+            "ignored": {"type": "boolean", "description": "include files .gitignore excludes"},
+        },
         "required": ["pattern"],
     }
 
@@ -156,13 +162,18 @@ class Glob(Tool):
         root = ctx.cwd.resolve()
         limit = int(args.get("limit", 200))
         found: list[tuple[float, str]] = []
-        for path in root.rglob("*"):
-            ctx.check()
+        for path in ignore_aware_walk(
+            root,
+            respect_gitignore=not args.get("ignored"),
+            prune=PRUNE,
+            check=ctx.check,
+        ):
             rel = path.relative_to(root)
-            if _prune(rel.parts) or path.is_dir():
-                continue
             if fnmatch.fnmatch(str(rel), args["pattern"]) or fnmatch.fnmatch(path.name, args["pattern"]):
-                found.append((path.stat().st_mtime, str(rel)))
+                try:
+                    found.append((path.stat().st_mtime, str(rel)))
+                except OSError:
+                    continue
         found.sort(reverse=True)
         rows = [name for _, name in found[:limit]]
         return ToolResult(
@@ -183,6 +194,7 @@ class Grep(Tool):
             "path": {"type": "string"},
             "glob": {"type": "string"},
             "limit": {"type": "integer", "minimum": 1, "maximum": 2000},
+            "ignored": {"type": "boolean", "description": "include files .gitignore excludes"},
         },
         "required": ["pattern"],
     }
@@ -196,17 +208,25 @@ class Grep(Tool):
         limit = int(args.get("limit", 200))
         pattern = args.get("glob")
         hits: list[str] = []
-        files = [root] if root.is_file() else root.rglob("*")
         base = ctx.cwd.resolve()
+        files = (
+            iter([root])
+            if root.is_file()
+            else ignore_aware_walk(
+                root,
+                respect_gitignore=not args.get("ignored"),
+                prune=PRUNE,
+                check=ctx.check,
+            )
+        )
         for path in files:
-            ctx.check()
-            if len(hits) >= limit or path.is_dir():
-                continue
+            if len(hits) >= limit:
+                break
             try:
                 rel = path.relative_to(base)
             except ValueError:
                 rel = path
-            if _prune(rel.parts) or (pattern and not fnmatch.fnmatch(path.name, pattern)):
+            if pattern and not fnmatch.fnmatch(path.name, pattern):
                 continue
             try:
                 if path.stat().st_size > MAX_BYTES:
@@ -227,8 +247,21 @@ class Grep(Tool):
 
 
 class Bash(Tool):
+    """A shell whose working directory and exports survive between calls.
+
+    `cd /tmp` followed by `pwd` has to print /tmp, or every multi-step shell
+    recipe a model knows is wrong. Rather than babysitting a long-lived shell -
+    which has to be restarted when it dies, and wedges if a command reads stdin
+    - each call reports its final state on the way out and the next call
+    restores it. A killed or timed-out command simply leaves the previous state
+    in place.
+    """
+
     name = "bash"
-    description = "Run a shell command in the workspace and capture its output."
+    description = (
+        "Run a shell command. The working directory and exported variables "
+        "persist between calls, so `cd` sticks."
+    )
     danger = Danger.DESTRUCTIVE
     parallel_safe = False
     schema = {
@@ -236,18 +269,38 @@ class Bash(Tool):
         "properties": {
             "command": {"type": "string"},
             "timeout": {"type": "number", "minimum": 1, "maximum": 3600},
+            "reset": {"type": "boolean", "description": "forget the persisted cwd and exports"},
         },
         "required": ["command"],
     }
 
+    #: Variables that are meaningless to carry across calls.
+    VOLATILE = frozenset({"_", "PWD", "OLDPWD", "SHLVL", "RANDOM", "LINENO", "BASHPID", "PPID"})
+
+    def __init__(self) -> None:
+        self._cwd: str | None = None
+        self._exports: dict[str, str] = {}
+
     def run(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        if args.get("reset"):
+            self._cwd, self._exports = None, {}
         budget = float(args.get("timeout") or min(ctx.timeout, 120.0))
         started = time.monotonic()
+        where = self._cwd if self._cwd and os.path.isdir(self._cwd) else str(ctx.cwd)
+        sentinel = f"__offset_{uuid.uuid4().hex}__"
+        script = (
+            f"{args['command']}\n"
+            f"__offset_rc=$?\n"
+            f"printf '%s' {sentinel}\n"
+            f"printf '%s\\0' \"$PWD\"\n"
+            f"env -0\n"
+            f"exit $__offset_rc\n"
+        )
         proc = subprocess.Popen(
-            args["command"],
+            script,
             shell=True,
-            cwd=str(ctx.cwd),
-            env={**os.environ, **ctx.env},
+            cwd=where,
+            env={**os.environ, **self._exports, **ctx.env},
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -263,13 +316,17 @@ class Bash(Tool):
                     if ctx.cancel.is_set() or time.monotonic() - started > budget:
                         self._kill(proc)
                         reason = "cancelled" if ctx.cancel.is_set() else f"timed out after {budget:g}s"
-                        tail = (proc.communicate()[0] or "")[-2000:]
+                        tail = (proc.communicate()[0] or "").split(sentinel)[0][-2000:]
                         return ToolResult.fail(f"{reason}\n{tail}".strip())
         finally:
             if proc.poll() is None:
                 self._kill(proc)
+
         code = proc.returncode
-        body = (out or "").strip()
+        body, state = self._split(out or "", sentinel)
+        if state is not None:
+            self._absorb(state)
+        body = body.strip()
         if len(body) > 40_000:
             body = body[:20_000] + "\n... [truncated] ...\n" + body[-20_000:]
         return ToolResult(
@@ -277,8 +334,29 @@ class Bash(Tool):
             content=body or f"(no output, exit {code})",
             display=f"$ {args['command'][:70]} -> exit {code}",
             error=None if code == 0 else f"exit {code}",
-            data={"exit": code},
+            data={"exit": code, "cwd": self._cwd or where},
         )
+
+    @staticmethod
+    def _split(out: str, sentinel: str) -> tuple[str, str | None]:
+        """Separate the command's own output from the trailing state report."""
+        head, marker, tail = out.rpartition(sentinel)
+        return (head, tail) if marker else (out, None)
+
+    def _absorb(self, state: str) -> None:
+        fields = [f for f in state.split("\0") if f]
+        if not fields:
+            return
+        self._cwd = fields[0]
+        captured: dict[str, str] = {}
+        for field in fields[1:]:
+            key, sep, value = field.partition("=")
+            if sep and key and key not in self.VOLATILE:
+                captured[key] = value
+        if captured:
+            # Only keep what differs from this process's own environment, so the
+            # persisted set stays the user's exports rather than a whole copy.
+            self._exports = {k: v for k, v in captured.items() if os.environ.get(k) != v}
 
     @staticmethod
     def _kill(proc: subprocess.Popen) -> None:
