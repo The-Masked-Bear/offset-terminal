@@ -1,0 +1,169 @@
+"""Executing tool calls: approval, timeouts, cancellation, concurrency.
+
+The three rules this module exists to enforce:
+
+  * a call is validated before it runs, and a rejected call returns a message
+    the model can act on rather than an exception;
+  * a call that hangs is abandoned, not waited on forever, and cancellation is
+    cooperative so a tool can clean up;
+  * calls run concurrently only when every tool in the batch says it is safe —
+    one unsafe tool serialises the whole batch, because a half-parallel batch
+    is the hardest kind of bug to reproduce.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from typing import Callable, Literal, Sequence
+
+from offset.providers.base import ToolCall
+from offset.tools.base import Cancelled, Danger, Tool, ToolContext, ToolResult, Toolbox, validate
+
+Mode = Literal["safe", "auto-edit", "yolo"]
+
+#: What each mode approves without asking.
+THRESHOLD: dict[Mode, Danger] = {
+    "safe": Danger.SAFE,
+    "auto-edit": Danger.WRITE,
+    "yolo": Danger.DESTRUCTIVE,
+}
+
+
+@dataclass(slots=True)
+class Approval:
+    """Decides whether a call may proceed.
+
+    `ask` is only consulted for calls above the mode's threshold.  Answers can
+    be remembered per tool for the rest of the session, which is what makes
+    `safe` mode usable instead of merely annoying.
+    """
+
+    mode: Mode = "auto-edit"
+    ask: Callable[[Tool, dict], bool] | None = None
+    remembered: set[str] = field(default_factory=set)
+    denied: set[str] = field(default_factory=set)
+
+    def check(self, tool: Tool, args: dict) -> tuple[bool, str]:
+        if tool.name in self.denied:
+            return False, f"{tool.name} was denied earlier in this session"
+        if tool.danger <= THRESHOLD[self.mode] or tool.name in self.remembered:
+            return True, ""
+        if self.ask is None:
+            return False, (
+                f"{tool.name} needs approval ({tool.danger.name.lower()}) and no approver is attached"
+            )
+        return (True, "") if self.ask(tool, args) else (False, f"{tool.name} was declined by the user")
+
+    def remember(self, name: str) -> None:
+        self.remembered.add(name)
+        self.denied.discard(name)
+
+    def deny(self, name: str) -> None:
+        self.denied.add(name)
+        self.remembered.discard(name)
+
+
+@dataclass(slots=True)
+class Invocation:
+    """A finished call: what was asked, what happened, how long it took."""
+
+    call: ToolCall
+    result: ToolResult
+    approved: bool = True
+
+
+class Runtime:
+    __slots__ = ("toolbox", "approval", "context", "_pool_size")
+
+    def __init__(
+        self,
+        toolbox: Toolbox,
+        context: ToolContext,
+        approval: Approval | None = None,
+        *,
+        pool_size: int = 8,
+    ) -> None:
+        self.toolbox = toolbox
+        self.context = context
+        self.approval = approval or Approval()
+        self._pool_size = max(1, pool_size)
+
+    # -- single call ------------------------------------------------------
+
+    def execute(self, call: ToolCall) -> Invocation:
+        started = time.monotonic()
+
+        if call.raw is not None:
+            return self._done(call, ToolResult.fail(
+                f"arguments for {call.name} were not valid JSON; resend them as a JSON object"
+            ), started)
+
+        tool = self.toolbox.get(call.name)
+        if tool is None:
+            close = ", ".join(sorted(self.toolbox.names())[:12])
+            return self._done(call, ToolResult.fail(f"no tool named {call.name!r}. available: {close}"), started)
+
+        problems = validate(call.args, tool.schema)
+        if problems:
+            return self._done(call, ToolResult.fail("; ".join(problems)), started)
+
+        allowed, why = self.approval.check(tool, call.args)
+        if not allowed:
+            return Invocation(call, ToolResult.fail(why), approved=False)
+
+        return self._done(call, self._run_guarded(tool, call.args), started)
+
+    def _run_guarded(self, tool: Tool, args: dict) -> ToolResult:
+        """Run with a deadline.  A timed-out tool is signalled, then dropped."""
+        ctx = self.context
+        box: list[ToolResult] = []
+
+        def target() -> None:
+            try:
+                box.append(tool.run(args, ctx))
+            except Cancelled as exc:
+                box.append(ToolResult.fail(str(exc) or "cancelled"))
+            except PermissionError as exc:
+                box.append(ToolResult.fail(f"refused: {exc}"))
+            except Exception as exc:  # a broken tool must not kill the turn
+                box.append(ToolResult.fail(f"{type(exc).__name__}: {exc}"))
+
+        worker = threading.Thread(target=target, name=f"tool-{tool.name}", daemon=True)
+        worker.start()
+        worker.join(ctx.timeout)
+        if worker.is_alive():
+            ctx.cancel.set()  # ask it to stop; it owns its own cleanup
+            worker.join(min(2.0, ctx.timeout))
+            return ToolResult.fail(f"{tool.name} exceeded its {ctx.timeout:g}s budget")
+        return box[0] if box else ToolResult.fail(f"{tool.name} returned nothing")
+
+    @staticmethod
+    def _done(call: ToolCall, result: ToolResult, started: float) -> Invocation:
+        result.duration = time.monotonic() - started
+        return Invocation(call, result)
+
+    # -- batches ----------------------------------------------------------
+
+    def parallelisable(self, calls: Sequence[ToolCall]) -> bool:
+        if len(calls) < 2:
+            return False
+        tools = [self.toolbox.get(c.name) for c in calls]
+        return all(t is not None and t.parallel_safe for t in tools)
+
+    def execute_all(self, calls: Sequence[ToolCall]) -> list[Invocation]:
+        """Run a batch, preserving order regardless of completion order."""
+        if not calls:
+            return []
+        if not self.parallelisable(calls):
+            return [self.execute(c) for c in calls]
+        with ThreadPoolExecutor(max_workers=min(self._pool_size, len(calls))) as pool:
+            return list(pool.map(self.execute, calls))
+
+    def cancel(self) -> None:
+        self.context.cancel.set()
+
+    def reset(self) -> None:
+        self.context.cancel = threading.Event()
