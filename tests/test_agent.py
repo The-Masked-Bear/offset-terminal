@@ -175,6 +175,73 @@ def test_cancellation_stops_the_loop_but_keeps_results(tmp_path):
     assert any(e.type == TOOL_RESULT for e in session.transcript()), "the result must still be recorded"
 
 
+class Slow(Tool):
+    """Runs longer than any budget it will be given."""
+
+    name = "slow"
+    danger = Danger.SAFE
+    schema = {"type": "object", "properties": {}}
+
+    def run(self, args, ctx):
+        for _ in range(300):
+            ctx.check()
+            time.sleep(0.01)
+        return ToolResult.text("finished")
+
+
+def test_a_tool_timeout_is_not_a_user_cancel(tmp_path):
+    """A slow tool ends its own call, never the turn.
+
+    Regression: the per-call deadline used to set the same event the loop
+    reads for user aborts, so one slow tool ended the run and marked it
+    cancelled instead of handing the timeout back to the model.
+    """
+    agent, session, _, runtime = make(
+        tmp_path,
+        [script(tool_calls=[("c1", "slow", {})]), script("recovered")],
+        tools=[Slow()],
+    )
+    runtime.context.timeout = 0.3
+    got = agent.send("do the slow thing")
+
+    assert got.stop_reason == "stop", "a tool timeout must not read as a user cancel"
+    assert got.steps == 2, "the loop must continue and tell the model what happened"
+    assert got.text == "recovered"
+    assert "budget" in got.invocations[0].result.error
+    assert not runtime.aborted, "a timeout must leave the runtime usable"
+
+
+def test_a_timeout_does_not_poison_later_calls(tmp_path):
+    """The second turn's tools must still run after the first one timed out."""
+    agent, _, _, runtime = make(
+        tmp_path,
+        [
+            script(tool_calls=[("c1", "slow", {})]),
+            script("gave up on that"),
+            script(tool_calls=[("c2", "echo", {"say": "again"})]),
+            script("worked this time"),
+        ],
+        tools=[Slow(), Echo()],
+    )
+    runtime.context.timeout = 0.3
+    agent.send("first")
+    second = agent.send("second")
+
+    assert second.stop_reason == "stop"
+    assert [i.result.content for i in second.invocations] == ["echoed again"]
+
+
+def test_a_user_abort_survives_into_the_reason(tmp_path):
+    agent, _, _, runtime = make(
+        tmp_path,
+        [script(tool_calls=[("c1", "slow", {})]), script("unreachable")],
+        tools=[Slow()],
+    )
+    threading.Timer(0.15, runtime.cancel).start()
+    got = agent.send("go")
+    assert got.stop_reason == "cancelled" and runtime.aborted
+
+
 def test_the_model_only_sees_the_active_branch(tmp_path):
     agent, session, provider, _ = make(tmp_path, [script("A"), script("B")])
     agent.send("first question")

@@ -166,6 +166,33 @@ def test_a_crashing_tool_does_not_kill_the_turn(ctx):
     assert not got.result.ok and "RuntimeError: kaboom" in got.result.error
 
 
+def test_a_timeout_does_not_set_the_user_abort(tmp_path):
+    """Per-call deadlines and turn-level aborts are separate signals."""
+
+    class Hang(Tool):
+        name = "hang"
+        schema = {"type": "object", "properties": {}}
+
+        def run(self, args, ctx):
+            for _ in range(300):
+                ctx.check()
+                time.sleep(0.01)
+            return ToolResult.text("never")
+
+    class Quick(Tool):
+        name = "quick"
+        schema = {"type": "object", "properties": {}}
+
+        def run(self, args, ctx):
+            return ToolResult.text("instant")
+
+    ctx = ToolContext(cwd=tmp_path, timeout=0.25)
+    runtime = Runtime(Toolbox([Hang(), Quick()]), ctx)
+    assert "budget" in runtime.execute(call("hang")).result.error
+    assert not runtime.aborted, "a timeout is not an abort"
+    assert runtime.execute(call("quick")).result.content == "instant", "the runtime must stay usable"
+
+
 def test_a_hung_tool_is_abandoned(tmp_path):
     class Hang(Tool):
         name = "hang"

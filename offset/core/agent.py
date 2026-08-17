@@ -185,6 +185,9 @@ class Agent:
         """Run until the model stops asking for tools.  Yields as it goes."""
         if prompt is not None:
             self.session.say("user", prompt)
+        # A new prompt is new intent: clear any abort left over from the
+        # previous turn, so one cancellation cannot brick the session.
+        self.runtime.reset()
 
         provider, meta = self._endpoint()
         key = self._key if self._key is not None else credential(provider)
@@ -222,7 +225,7 @@ class Agent:
             # the work already happened and the session already recorded it.
             for invocation in self._dispatch(turn.tool_calls):
                 yield ToolFinished(invocation)
-            if self.runtime.context.cancel.is_set():
+            if self.runtime.aborted:
                 reason = "cancelled"
                 break
         else:

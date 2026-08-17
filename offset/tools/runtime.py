@@ -16,7 +16,7 @@ from __future__ import annotations
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Literal, Sequence
 
 from offset.providers.base import ToolCall
@@ -76,7 +76,7 @@ class Invocation:
 
 
 class Runtime:
-    __slots__ = ("toolbox", "approval", "context", "_pool_size")
+    __slots__ = ("toolbox", "approval", "context", "abort", "_pool_size")
 
     def __init__(
         self,
@@ -90,6 +90,11 @@ class Runtime:
         self.context = context
         self.approval = approval or Approval()
         self._pool_size = max(1, pool_size)
+        #: A user abort for the whole turn.  Deliberately NOT the same signal
+        #: as a per-call timeout: one means "stop everything", the other means
+        #: "this one call ran long". Conflating them ends turns that should
+        #: have carried on, and poisons every later call in the session.
+        self.abort = threading.Event()
 
     # -- single call ------------------------------------------------------
 
@@ -117,8 +122,9 @@ class Runtime:
         return self._done(call, self._run_guarded(tool, call.args), started)
 
     def _run_guarded(self, tool: Tool, args: dict) -> ToolResult:
-        """Run with a deadline.  A timed-out tool is signalled, then dropped."""
-        ctx = self.context
+        """Run with a deadline, on a signal private to this call."""
+        deadline = self.context.timeout
+        ctx = replace(self.context, cancel=threading.Event())
         box: list[ToolResult] = []
 
         def target() -> None:
@@ -133,11 +139,17 @@ class Runtime:
 
         worker = threading.Thread(target=target, name=f"tool-{tool.name}", daemon=True)
         worker.start()
-        worker.join(ctx.timeout)
-        if worker.is_alive():
-            ctx.cancel.set()  # ask it to stop; it owns its own cleanup
-            worker.join(min(2.0, ctx.timeout))
-            return ToolResult.fail(f"{tool.name} exceeded its {ctx.timeout:g}s budget")
+        limit = time.monotonic() + deadline
+        while worker.is_alive():
+            worker.join(0.05)
+            if self.abort.is_set():
+                ctx.cancel.set()
+                worker.join(min(2.0, deadline))
+                return ToolResult.fail(f"{tool.name} was cancelled by the user")
+            if time.monotonic() >= limit:
+                ctx.cancel.set()  # ask it to stop; it owns its own cleanup
+                worker.join(min(2.0, deadline))
+                return ToolResult.fail(f"{tool.name} exceeded its {deadline:g}s budget")
         return box[0] if box else ToolResult.fail(f"{tool.name} returned nothing")
 
     @staticmethod
@@ -163,7 +175,14 @@ class Runtime:
             return list(pool.map(self.execute, calls))
 
     def cancel(self) -> None:
+        """Abort the whole turn.  Reaches calls that are already running."""
+        self.abort.set()
         self.context.cancel.set()
 
+    @property
+    def aborted(self) -> bool:
+        return self.abort.is_set()
+
     def reset(self) -> None:
+        self.abort = threading.Event()
         self.context.cancel = threading.Event()
