@@ -7,6 +7,8 @@ pty, because that is the only honest way to test a TUI.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from offset.core.agent import Agent, AgentConfig
@@ -253,8 +255,62 @@ def test_clear_keeps_the_history_on_disk(state):
 def test_spec_validates_its_arguments(state):
     assert dispatch(state, "/spec").tone == "err"
     got = dispatch(state, "/spec 4 make the parser faster")
-    assert "4 speculative branches" in got.lines[0]
-    assert "9 speculative" not in dispatch(state, "/spec 99 x").lines[0]
+    assert "running 4 branches" in got.lines[0]
+    assert got.job is not None, "/spec must actually queue work, not just say so"
+    assert dispatch(state, "/spec 99 x").lines[0].startswith("running 6 branches"), "count is capped"
+
+
+def test_spec_names_the_angles_and_models_up_front(state):
+    got = dispatch(state, "/spec 3 speed up the parser")
+    body = "\n".join(got.lines)
+    for angle in ("minimal", "rewrite", "test-first"):
+        assert angle in body
+    assert "nothing touches your files until /adopt" in body
+
+
+def test_spec_really_runs_when_its_job_is_executed(state, tmp_path, monkeypatch):
+    """The job the command hands back must produce real ranked attempts."""
+    from offset.providers.mock import Mock, script
+    from offset.providers.registry import PROVIDERS
+
+    (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setitem(PROVIDERS, "mock", lambda: Mock([
+        script(tool_calls=[("c1", "write", {"path": "app.py", "content": "VALUE = 2\n"})]),
+        script("done"),
+    ]))
+    outcome = dispatch(state, "/spec 2 bump the value")
+    report = outcome.job()
+
+    assert state.spec_run is not None and len(state.spec_run.attempts) == 2
+    assert any("/adopt 1" in line for line in report.lines)
+    assert (tmp_path / "app.py").read_text() == "VALUE = 1\n", "the workspace must be untouched"
+
+    adopted = dispatch(state, "/adopt 1")
+    assert adopted.tone == "ok", adopted.lines
+    assert (tmp_path / "app.py").read_text() == "VALUE = 2\n"
+
+    assert dispatch(state, "/discard").tone == "ok"
+    assert state.spec_run is None
+
+
+def test_spec_with_no_arguments_shows_the_last_run(state):
+    from offset.core.branches import BranchRun
+
+    assert dispatch(state, "/spec").tone == "err"
+    state.spec_run = BranchRun(task="earlier")
+    assert dispatch(state, "/spec").lines == ["no branches ran"]
+
+
+def test_adopt_needs_a_run_first(state):
+    assert dispatch(state, "/adopt").tone == "err"
+    assert "run /spec first" in dispatch(state, "/adopt 1").lines[0]
+
+
+def test_verify_command_is_remembered(state):
+    assert "(none" in dispatch(state, "/verify").lines[0]
+    dispatch(state, "/verify pytest -q")
+    assert state.verify_command == "pytest -q"
+    assert "pytest -q" in dispatch(state, "/verify").lines[0]
 
 
 def test_quit_asks_to_leave(state):
@@ -302,3 +358,112 @@ def test_reveal_panel_animates_frames(state):
     first = render.reveal_panel(50, reveal, 0.0)
     later = render.reveal_panel(50, reveal, 0.4)
     assert first != later, "frames must advance with time"
+
+
+# -- approval handshake -----------------------------------------------------
+
+
+def test_the_shell_actually_asks_before_a_dangerous_call(state):
+    """Regression: `ask` used to be `lambda: False`, so `safe` mode silently
+    denied every write instead of putting a question on screen."""
+    import threading
+    import types
+
+    from offset.shell.app import Shell
+    from offset.tools.builtin import Bash
+
+    shell = object.__new__(Shell)
+    shell.state = state
+    shell.messages = []
+    shell.approval_gate = None
+    shell.approval_answer = False
+    shell.app = types.SimpleNamespace(invalidate=lambda: None)
+    state.approval.ask = shell.ask_approval
+    state.approval.mode = "safe"
+
+    answers: list[bool] = []
+    asking = threading.Thread(
+        target=lambda: answers.append(state.approval.check(Bash(), {"command": "rm -rf /"})[0]),
+        daemon=True,
+    )
+    asking.start()
+
+    for _ in range(200):
+        if state.overlay is not None:
+            break
+        time.sleep(0.01)
+    assert state.overlay is not None, "no approval question was ever shown"
+    assert state.overlay.kind == "approve"
+    assert "bash" in state.overlay.title
+    assert any("rm -rf /" in line for line in state.overlay.items)
+
+    shell.answer_approval(True)
+    asking.join(timeout=5)
+    assert answers == [True]
+    assert state.overlay is None
+
+
+def test_denying_a_call_reaches_the_waiting_tool(state):
+    import threading
+    import types
+
+    from offset.shell.app import Shell
+    from offset.tools.builtin import Bash
+
+    shell = object.__new__(Shell)
+    shell.state = state
+    shell.messages = []
+    shell.approval_gate = None
+    shell.approval_answer = False
+    shell.app = types.SimpleNamespace(invalidate=lambda: None)
+    state.approval.ask = shell.ask_approval
+    state.approval.mode = "safe"
+
+    verdicts: list[tuple[bool, str]] = []
+    asking = threading.Thread(
+        target=lambda: verdicts.append(state.approval.check(Bash(), {"command": "ls"})),
+        daemon=True,
+    )
+    asking.start()
+    for _ in range(200):
+        if state.overlay is not None:
+            break
+        time.sleep(0.01)
+
+    shell.answer_approval(False)
+    asking.join(timeout=5)
+    assert verdicts and verdicts[0][0] is False
+    assert "declined" in verdicts[0][1]
+
+
+def test_always_allow_is_remembered(state):
+    import threading
+    import types
+
+    from offset.shell.app import Shell
+    from offset.tools.builtin import Bash
+
+    shell = object.__new__(Shell)
+    shell.state = state
+    shell.messages = []
+    shell.approval_gate = None
+    shell.approval_answer = False
+    shell.app = types.SimpleNamespace(invalidate=lambda: None)
+    state.approval.ask = shell.ask_approval
+    state.approval.mode = "safe"
+
+    asking = threading.Thread(
+        target=lambda: state.approval.check(Bash(), {"command": "ls"}),
+        daemon=True,
+    )
+    asking.start()
+    for _ in range(200):
+        if state.overlay is not None:
+            break
+        time.sleep(0.01)
+    shell.answer_approval(True, remember=True)
+    asking.join(timeout=5)
+
+    assert "bash" in state.approval.remembered
+    allowed, _ = state.approval.check(Bash(), {"command": "ls"})
+    assert allowed, "a remembered tool must not ask again"

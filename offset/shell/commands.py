@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from offset.core.agent import Agent
+from offset.core.branches import BranchRun, approaches, run_branches
 from offset.core.entries import CONVERSATIONAL, MESSAGE
 from offset.core.multimodel import Ensemble, Seat
 from offset.core.session import Session
@@ -62,6 +63,9 @@ class Outcome:
     reveal: Reveal | None = None
     quit: bool = False
     handled: bool = True
+    #: Work too slow for the keypress that asked for it.  The app runs this on
+    #: a worker thread and applies whatever Outcome comes back.
+    job: Callable[[], "Outcome"] | None = None
 
     @classmethod
     def say(cls, *lines: str, tone: str = "plain") -> "Outcome":
@@ -86,6 +90,8 @@ class ShellState:
     workspace: Path
     ensemble: Ensemble | None = None
     overlay: Overlay | None = None
+    verify_command: str | None = None
+    spec_run: BranchRun | None = None
 
     @property
     def model(self) -> str:
@@ -253,7 +259,10 @@ def _trophies(state: ShellState, args: list[str]) -> Outcome:
 
 
 def _spec(state: ShellState, args: list[str]) -> Outcome:
+    """Really run N approaches in isolated worktrees, then rank them."""
     if not args:
+        if state.spec_run is not None:
+            return Outcome(state.spec_run.report(), TONE_INFO)
         return Outcome.error("usage: /spec <how many> <task>", "example: /spec 3 make the parser faster")
     try:
         count = int(args[0])
@@ -263,10 +272,79 @@ def _spec(state: ShellState, args: list[str]) -> Outcome:
     if not task:
         return Outcome.error("give the branches something to attempt")
     count = max(2, min(count, 6))
+    models = [s.model for s in state.ensemble] if state.ensemble else None
+
+    def job() -> Outcome:
+        run = run_branches(
+            task, count,
+            workspace=state.workspace,
+            config=state.agent.config,
+            models=models,
+            verify_command=state.verify_command,
+            keep=True,
+        )
+        state.spec_run = run
+        for _ in run.attempts:
+            state.eggs.event("branch_created")
+        states = [a.state for a in run.attempts]
+        if "pass" in states:
+            state.eggs.event("branch_passed")
+        if states and set(states) == {"pass"}:
+            state.eggs.event("all_branches_passed")
+        return Outcome(run.report(), TONE_OK)
+
+    plan = approaches(count, task, models)
+    return Outcome(
+        [f"running {count} branches for: {task}"]
+        + [f"  {a.name:<10} {(a.model or state.model)}" for a in plan]
+        + ["", "each gets its own worktree; nothing touches your files until /adopt"],
+        TONE_INFO,
+        job=job,
+    )
+
+
+def _adopt(state: ShellState, args: list[str]) -> Outcome:
+    run = state.spec_run
+    if run is None or not run.attempts:
+        return Outcome.error("no branch results yet; run /spec first")
+    ranked = run.ranked
+    try:
+        index = int(args[0]) - 1 if args else 0
+    except ValueError:
+        return Outcome.error("usage: /adopt <number from the /spec list>")
+    if not 0 <= index < len(ranked):
+        return Outcome.error(f"pick a number between 1 and {len(ranked)}")
+    attempt = ranked[index]
+    if attempt.error:
+        return Outcome.error(f"{attempt.approach.name} failed; adopting it would apply nothing useful")
+    ok, message = run.speculation.adopt(attempt)
+    if not ok:
+        return Outcome.error(f"could not apply {attempt.approach.name}: {message}")
     return Outcome([
-        f"queued {count} speculative branches for: {task}",
-        "each gets its own worktree; the winner is chosen by the verification command",
+        f"adopted {attempt.approach.name} ({attempt.churn} lines)",
+        message,
+        "the other branches are still on disk; /discard removes them",
     ], TONE_OK)
+
+
+def _discard(state: ShellState, args: list[str]) -> Outcome:
+    run = state.spec_run
+    if run is None or run.speculation is None:
+        return Outcome.error("nothing to discard")
+    run.speculation.keep = False
+    run.speculation.cleanup(run.attempts)
+    state.spec_run = None
+    return Outcome(["removed the branch worktrees"], TONE_OK)
+
+
+def _verify(state: ShellState, args: list[str]) -> Outcome:
+    if not args:
+        return Outcome([
+            f"verification command: {state.verify_command or '(none - branches will be unranked)'}",
+            "set one with /verify pytest -q",
+        ], TONE_INFO)
+    state.verify_command = " ".join(args)
+    return Outcome([f"verification command: {state.verify_command}"], TONE_OK)
 
 
 def _usage(state: ShellState, args: list[str]) -> Outcome:
@@ -302,7 +380,10 @@ COMMANDS: list[Command] = [
     Command("tree", "navigate the session tree", _tree),
     Command("branch", "reopen the previous user message as a new branch", _branch),
     Command("fork", "copy this session to a new file", _fork),
-    Command("spec", "run several approaches in parallel", _spec, usage="/spec <n> <task>"),
+    Command("spec", "really run several approaches in parallel worktrees", _spec, usage="/spec <n> <task>"),
+    Command("adopt", "apply one branch's changes to your workspace", _adopt, usage="/adopt <n>"),
+    Command("discard", "delete the branch worktrees", _discard),
+    Command("verify", "the command branches must pass", _verify, usage="/verify pytest -q"),
     Command("session", "where this session lives and how big it is", _session),
     Command("eggs", "the trophy room", _trophies, aliases=("trophies",)),
     Command("usage", "current model, key, tools, approval", _usage),

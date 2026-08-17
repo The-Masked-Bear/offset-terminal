@@ -232,3 +232,27 @@ def test_ctrl_d_exits_cleanly(term):
         time.sleep(0.1)
     else:
         pytest.fail("the shell did not exit on ctrl-d")
+
+
+def test_spec_really_runs_and_ranks_branches(term):
+    """The old /spec claimed success and did nothing; this one must produce a
+    ranked report from three isolated worktrees."""
+    term.type("/spec 3 speed up the parser")
+    term.key("enter")
+    assert term.wait_for("adopttheleaderwith/adopt1"), term.text
+    squeezed = term.squeeze()
+    for angle in ("minimal", "rewrite", "test-first"):
+        assert angle in squeezed, f"{angle} missing from:\n{term.text}"
+    assert "lines" in squeezed, "the report should say how much each branch changed"
+
+
+def test_adopt_without_a_run_is_refused(term):
+    term.type("/adopt 1")
+    term.key("enter")
+    assert term.wait_for("run/specfirst"), term.text
+
+
+def test_verify_command_is_settable(term):
+    term.type("/verify pytest -q")
+    term.key("enter")
+    assert term.wait_for("pytest-q"), term.text

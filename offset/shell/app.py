@@ -34,7 +34,7 @@ from offset.eggs.catalogue import build_engine
 from offset.providers.base import TextDelta, ThinkingDelta
 from offset.providers.registry import CONFIG_DIR
 from offset.shell import render
-from offset.shell.commands import Outcome, ShellState, complete, dispatch, resolve_overlay
+from offset.shell.commands import Outcome, Overlay, ShellState, complete, dispatch, resolve_overlay
 from offset.tools.base import Toolbox, ToolContext
 from offset.tools.builtin import builtin_tools
 from offset.tools.custom import default_dirs, discover
@@ -66,6 +66,8 @@ class Shell:
         self.note = ""
         self.events: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
+        self.approval_gate: threading.Event | None = None
+        self.approval_answer = False
 
         self.buffer = Buffer(
             completer=SlashCompleter(),
@@ -74,6 +76,9 @@ class Shell:
             accept_handler=self._accept,
         )
         self.app = self._build()
+        # The policy now has a human behind it, so `safe` mode asks instead of
+        # refusing everything.
+        self.state.approval.ask = self.ask_approval
 
     # -- geometry ---------------------------------------------------------
 
@@ -156,6 +161,62 @@ class Shell:
             self.reveal_until = self.now() + outcome.reveal.duration
         if outcome.quit:
             self.app.exit()
+        if outcome.job is not None:
+            self._start_job(outcome.job)
+
+    def _start_job(self, job) -> None:
+        """Run slow command work off the UI thread (branch fan-outs, mostly)."""
+        self.busy = True
+
+        def work() -> None:
+            try:
+                self.events.put(("job", job()))
+            except Exception as exc:
+                self.events.put(RuntimeError(f"{type(exc).__name__}: {exc}"))
+            finally:
+                self.events.put(None)
+
+        self.worker = threading.Thread(target=work, name="offset-job", daemon=True)
+        self.worker.start()
+
+    # -- approval ---------------------------------------------------------
+
+    def ask_approval(self, tool, args: dict) -> bool:
+        """Called on a tool thread; blocks until the UI answers.
+
+        Without this the approval modes are a lie: `safe` would deny silently
+        instead of asking.
+        """
+        gate = threading.Event()
+        self.approval_answer = False
+        self.approval_gate = gate
+        self.state.overlay = Overlay(
+            kind="approve",
+            title=f"allow {tool.name}?",
+            items=[tool.preview(args)[:200], "", "Y allow    N deny    A always allow this tool"],
+            payload=tool.name,
+        )
+        self.app.invalidate()
+        if not gate.wait(timeout=180.0):
+            self.state.overlay = None
+            return False
+        return self.approval_answer
+
+    def answer_approval(self, allow: bool, *, remember: bool = False) -> None:
+        """Called on the UI thread when the user presses a key."""
+        panel = self.state.overlay
+        if panel is None or panel.kind != "approve":
+            return
+        name = str(panel.payload or "")
+        if remember and allow:
+            self.state.approval.remember(name)
+        self.approval_answer = allow
+        self.state.overlay = None
+        self.messages.append(("ok" if allow else "err", f"{name}: {'allowed' if allow else 'denied'}"))
+        gate = self.approval_gate
+        self.approval_gate = None
+        if gate is not None:
+            gate.set()
 
     # -- the turn ---------------------------------------------------------
 
@@ -191,6 +252,10 @@ class Shell:
             if isinstance(event, RuntimeError):
                 self.messages.append(("err", str(event)))
                 continue
+            if isinstance(event, tuple) and event and event[0] == "job":
+                self.messages.clear()
+                self._apply(event[1])
+                continue
             if isinstance(event, TextDelta):
                 self.live += event.text
             elif isinstance(event, ThinkingDelta):
@@ -217,9 +282,15 @@ class Shell:
         def _(event):
             event.app.exit()
 
+        def approving() -> bool:
+            panel = self.state.overlay
+            return panel is not None and panel.kind == "approve"
+
         @keys.add("c-c")
         def _(event):
-            if self.busy:
+            if approving():
+                self.answer_approval(False)
+            elif self.busy:
                 self.state.agent.runtime.cancel()
                 self.messages.append(("err", "cancelling"))
             elif self.state.overlay is not None:
@@ -229,7 +300,9 @@ class Shell:
 
         @keys.add("escape", eager=True)
         def _(event):
-            if self.state.overlay is not None:
+            if approving():
+                self.answer_approval(False)
+            elif self.state.overlay is not None:
                 self._apply(resolve_overlay(self.state, self.state.overlay, accepted=False))
 
         @keys.add("up")
@@ -251,7 +324,9 @@ class Shell:
         @keys.add("enter")
         def _(event):
             panel = self.state.overlay
-            if panel is not None:
+            if approving():
+                self.answer_approval(True)
+            elif panel is not None:
                 self._apply(resolve_overlay(self.state, panel, accepted=True))
             else:
                 self.buffer.validate_and_handle()
@@ -261,6 +336,15 @@ class Shell:
             """Typing feeds the overlay when one is open, otherwise the buffer."""
             panel = self.state.overlay
             data = event.data
+            if approving():
+                answer = data.lower()
+                if answer == "y":
+                    self.answer_approval(True)
+                elif answer == "n":
+                    self.answer_approval(False)
+                elif answer == "a":
+                    self.answer_approval(True, remember=True)
+                return
             if panel is None:
                 self.state.eggs.touch()
                 reveal = self.state.eggs.key(data)
@@ -348,7 +432,9 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
     if found.tools:
         eggs.event("custom_tool_loaded", count=len(found.tools))
 
-    policy = Approval(mode=approval, ask=lambda tool, args: False)
+    # `ask` is attached by the Shell, which is the only thing that can put a
+    # question on screen; until then a dangerous call simply has no approver.
+    policy = Approval(mode=approval)
     runtime = Runtime(toolbox, ToolContext(cwd=workspace, timeout=120.0), policy)
     agent = Agent(session, runtime, AgentConfig(model=model, system=SYSTEM_PROMPT))
     return ShellState(session, agent, toolbox, policy, eggs, workspace)

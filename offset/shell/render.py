@@ -145,6 +145,17 @@ def overlay(width: int, height: int, panel: Overlay, t: float) -> str:
         brutal.masked_input(cv, 0, 0, width, caption=panel.title, filled=len(panel.buffer), t=t)
         return cv.render()
 
+    if panel.kind == "approve":
+        # Red frame, because the question is always "may I do something that
+        # changes your machine".
+        rows = [line for line in panel.items if line != ""]
+        height = len(rows) + 4
+        x, y, iw, _ = brutal.slab(cv, 0, 0, width, height, fill=RED, weight=Weight.SLAB)
+        cv.text(x, y, display(panel.title, 1), INK, RED, True, max_w=iw)
+        for i, line in enumerate(rows):
+            cv.text(x, y + 2 + i, line, INK, RED, i == len(rows) - 1, max_w=iw)
+        return cv.render()
+
     rows = max(1, height - 5)
     start = max(0, min(panel.selected - rows // 2, len(panel.items) - rows))
     window = panel.items[start : start + rows]
