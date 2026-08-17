@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterator
 
 from offset.providers.base import (
+    auth_header,
     Event,
     Message,
     Provider,
@@ -116,8 +117,11 @@ class Anthropic(Provider):
         self.base_url = base_url.rstrip("/")
         self.version = version
 
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
-        headers = {"x-api-key": api_key or "", "anthropic-version": self.version}
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
+        headers = auth_header(api_key, credential, {"x-api-key": api_key or ""})
+        headers["anthropic-version"] = self.version
         try:
             lines = post_lines(
                 f"{self.base_url}/v1/messages",

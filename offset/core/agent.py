@@ -29,7 +29,8 @@ from offset.providers.base import (
     TurnBuilder,
     Usage,
 )
-from offset.providers.registry import ModelInfo, credential, resolve
+from offset.providers.auth import load as load_credential
+from offset.providers.registry import ModelInfo, resolve
 from offset.tools.runtime import Invocation, Runtime
 
 
@@ -228,7 +229,11 @@ class Agent:
         self.runtime.reset()
 
         provider, meta = self._endpoint()
-        key = self._key if self._key is not None else credential(provider)
+        # An explicit api_key beats everything (tests and branch agents pass one).
+        # Otherwise resolve a Credential, which also covers OAuth and refreshes
+        # a token that is about to expire before the request goes out.
+        cred = None if self._key is not None else load_credential(provider.name)
+        key = self._key if self._key is not None else (cred.value if cred and cred.kind == "api_key" else None)
         specs = self.runtime.toolbox.specs()
         total = Usage()
         last_text = ""
@@ -240,7 +245,7 @@ class Agent:
             yield StepStarted(step, self.config.model)
 
             builder = TurnBuilder()
-            for event in provider.stream(self._request(specs), api_key=key):
+            for event in provider.stream(self._request(specs), api_key=key, credential=cred):
                 yield builder.feed(event)
             turn = builder.finish()
 

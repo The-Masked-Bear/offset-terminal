@@ -18,16 +18,15 @@ from offset.core.entries import CONVERSATIONAL, MESSAGE
 from offset.core.multimodel import Ensemble, Seat
 from offset.core.session import Session
 from offset.eggs.engine import EggEngine, Reveal
+from offset.providers import auth, oauth
 from offset.providers.registry import (
     MODELS,
     ModelInfo,
     available,
     credential,
-    forget_credential,
     info,
     provider_for,
     search,
-    store_credential,
 )
 from offset.tools.base import Danger, Toolbox
 from offset.tools.runtime import Approval
@@ -161,18 +160,75 @@ def _models(state: ShellState, args: list[str]) -> Outcome:
     return Outcome(lines, TONE_INFO)
 
 
+#: Providers a person can plausibly hold an account with.
+LOGIN_TARGETS: tuple[str, ...] = ("anthropic", "openai", "google", "deepseek", "openrouter")
+
+
 def _login(state: ShellState, args: list[str]) -> Outcome:
-    provider = args[0].lower() if args else info(state.model).provider
-    overlay = Overlay(kind="login", title=f"{provider} api key", secret=True, payload=provider)
+    """No argument opens the account picker; an argument goes straight there."""
+    if args:
+        return _login_provider(state, args[0].lower())
+
+    ready = auth.oauth_providers()
+    held = {c.provider: c for c in auth.accounts()}
+    items, notes = [], []
+    for name in LOGIN_TARGETS:
+        items.append(name)
+        cred = held.get(name)
+        if cred is not None:
+            notes.append(cred.label().split(": ", 1)[-1])
+        elif name in ready and not auth.missing_config(name):
+            notes.append("sign in with browser")
+        else:
+            notes.append("paste an api key")
+    overlay = Overlay(kind="account", title="sign in", items=items, notes=notes, payload=list(LOGIN_TARGETS))
     state.overlay = overlay
     return Outcome(overlay=overlay)
 
 
+def _login_provider(state: ShellState, provider: str) -> Outcome:
+    """Browser flow when the provider offers one, otherwise a masked field."""
+    if provider in auth.oauth_providers() and not auth.missing_config(provider):
+        def job() -> Outcome:
+            try:
+                cred = auth.login_browser(provider, announce=lambda p: None)
+            except Exception as exc:
+                return Outcome.error(f"{provider} sign-in failed: {exc}", "try /login again, or paste a key")
+            return Outcome([f"signed in: {cred.label()}"], TONE_OK)
+
+        entry = oauth.app(provider)
+        return Outcome(
+            [f"opening your browser to sign in to {provider}", entry.note or "", "waiting for the callback..."],
+            TONE_INFO,
+            job=job,
+        )
+
+    absent = auth.missing_config(provider) if provider in auth.oauth_providers() else ()
+    overlay = Overlay(kind="login", title=f"{provider} api key", secret=True, payload=provider)
+    state.overlay = overlay
+    lines = []
+    if absent:
+        lines = [f"{provider} browser sign-in needs {', '.join(absent)} in ~/.offset/config.json"]
+    return Outcome(lines, TONE_INFO, overlay=overlay)
+
+
 def _logout(state: ShellState, args: list[str]) -> Outcome:
     provider = args[0].lower() if args else info(state.model).provider
-    if forget_credential(provider):
-        return Outcome([f"forgot the stored key for {provider}"], TONE_OK)
-    return Outcome.error(f"no stored key for {provider}")
+    if auth.forget(provider):
+        return Outcome([f"signed out of {provider}"], TONE_OK)
+    return Outcome.error(f"no stored credential for {provider}")
+
+
+def _accounts(state: ShellState, args: list[str]) -> Outcome:
+    held = auth.accounts()
+    if not held:
+        return Outcome(["no accounts yet. /login to add one."], TONE_INFO)
+    lines = [c.label() for c in held]
+    lines.append("")
+    lines.append("browser sign-in available: " + (", ".join(
+        p for p in auth.oauth_providers() if not auth.missing_config(p)
+    ) or "none configured"))
+    return Outcome(lines, TONE_INFO)
 
 
 #: A missing entry here used to crash `/tools` outright, so the lookup falls
@@ -387,8 +443,9 @@ COMMANDS: list[Command] = [
     Command("help", "this list", _help, aliases=("?",)),
     Command("model", "switch model, or open the picker", _model, usage="/model [name]"),
     Command("models", "list every model and whether it is usable", _models),
-    Command("login", "store an API key (masked input)", _login, usage="/login [provider]"),
-    Command("logout", "forget a stored API key", _logout, usage="/logout [provider]"),
+    Command("login", "sign in with your account, or paste an API key", _login, usage="/login [provider]"),
+    Command("logout", "forget a stored credential", _logout, usage="/logout [provider]"),
+    Command("accounts", "which accounts offset can use", _accounts),
     Command("tools", "every tool, its danger class and concurrency", _tools),
     Command("approve", "set the approval mode", _approve, usage="/approve safe|auto-edit|yolo"),
     Command("tree", "navigate the session tree", _tree),
@@ -462,12 +519,25 @@ def resolve_overlay(state: ShellState, overlay: Overlay, *, accepted: bool) -> O
         chosen = catalogue[overlay.selected]
         return _model(state, [chosen.id])
 
+    if overlay.kind == "account":
+        targets: Sequence[str] = overlay.payload or []
+        if not targets:
+            return Outcome.error("no providers to choose from")
+        return _login_provider(state, targets[overlay.selected])
+
     if overlay.kind == "login":
         provider = str(overlay.payload or "")
         if not overlay.buffer:
             return Outcome.error("no key entered")
-        store_credential(provider, overlay.buffer)
-        return Outcome([f"stored a key for {provider}", "it lives in ~/.offset/credentials.json, mode 600"], TONE_OK)
+        try:
+            cred = auth.login_api_key(provider, overlay.buffer)
+        except auth.AuthError as exc:
+            return Outcome.error(str(exc))
+        return Outcome([
+            f"stored a key for {provider}",
+            "it lives in ~/.offset/credentials.json, mode 600",
+            cred.label(),
+        ], TONE_OK)
 
     if overlay.kind == "tree":
         ids: Sequence[str] = overlay.payload or []

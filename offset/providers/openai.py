@@ -10,6 +10,7 @@ import json
 from typing import Any, Iterator
 
 from offset.providers.base import (
+    auth_header,
     Event,
     Provider,
     Request,
@@ -135,8 +136,12 @@ class OpenAI(Provider):
             # OpenAI default, or a local server receives a real credential.
             self.env_keys = env_keys
 
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
+        headers = auth_header(
+            api_key, credential, {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        )
         try:
             lines = post_lines(
                 f"{self.base_url}/chat/completions",

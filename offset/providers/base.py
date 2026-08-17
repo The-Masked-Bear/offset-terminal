@@ -227,9 +227,29 @@ class Provider(ABC):
     env_keys: tuple[str, ...] = ()
 
     @abstractmethod
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
         """Yield events until the turn ends.  Must not raise for HTTP errors;
-        yield `StreamError` instead so the caller can decide."""
+        yield `StreamError` instead so the caller can decide.
 
-    def complete(self, request: Request, *, api_key: str | None = None) -> Turn:
-        return TurnBuilder().consume(self.stream(request, api_key=api_key)).finish()
+        `credential` is an `offset.providers.auth.Credential` when the caller has
+        one; it wins over `api_key` because it also covers OAuth, which needs a
+        different header and may have just been refreshed.
+        """
+
+    def complete(self, request: Request, *, api_key: str | None = None, credential: Any = None) -> Turn:
+        events = self.stream(request, api_key=api_key, credential=credential)
+        return TurnBuilder().consume(events).finish()
+
+
+def auth_header(api_key: str | None, credential: Any, fallback: dict[str, str]) -> dict[str, str]:
+    """One place decides how a request is authenticated.
+
+    A `Credential` knows its own header, including the Bearer form OAuth needs;
+    without one we fall back to whatever the provider does with a bare key.
+    """
+    if credential is None:
+        return fallback
+    name, value = credential.header()
+    return {name: value} if name else {}

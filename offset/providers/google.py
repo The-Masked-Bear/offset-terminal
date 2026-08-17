@@ -11,6 +11,7 @@ import json
 from typing import Any, Iterator
 
 from offset.providers.base import (
+    auth_header,
     Event,
     Provider,
     Request,
@@ -117,9 +118,11 @@ class Google(Provider):
     def __init__(self, base_url: str = "https://generativelanguage.googleapis.com/v1beta") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
         url = f"{self.base_url}/models/{request.model}:streamGenerateContent?alt=sse"
-        headers = {"x-goog-api-key": api_key} if api_key else {}
+        headers = auth_header(api_key, credential, {"x-goog-api-key": api_key} if api_key else {})
         try:
             lines = post_lines(url, build_payload(request), headers, timeout=request.timeout, retry=Retry())
             yield from parse(lines)

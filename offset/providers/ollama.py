@@ -89,7 +89,9 @@ class Ollama(Provider):
     def __init__(self, base_url: str = "http://127.0.0.1:11434") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
         try:
             lines = post_lines(
                 f"{self.base_url}/api/chat",

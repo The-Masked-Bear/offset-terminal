@@ -124,7 +124,11 @@ def _stored() -> dict[str, str]:
         raw = json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+    if not isinstance(raw, dict):
+        return {}
+    # Richer entries (OAuth tokens) are objects; `offset.providers.auth`
+    # owns those. Here we only surface plain API-key strings.
+    return {str(k): v for k, v in raw.items() if isinstance(v, str)}
 
 
 def credential(provider: Provider | str) -> str | None:

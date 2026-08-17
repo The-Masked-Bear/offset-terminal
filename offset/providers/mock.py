@@ -65,7 +65,9 @@ class Mock(Provider):
         self._turn = 0
         self.requests: list[Request] = []
 
-    def stream(self, request: Request, *, api_key: str | None = None) -> Iterator[Event]:
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
         self.requests.append(request)
         source = self._scripts
         if source is None:
