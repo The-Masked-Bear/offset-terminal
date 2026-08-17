@@ -23,7 +23,16 @@ from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import Float, FloatContainer, HSplit, Layout, VSplit, Window
+from prompt_toolkit.filters import Condition
+from prompt_toolkit.layout import (
+    ConditionalContainer,
+    Float,
+    FloatContainer,
+    HSplit,
+    Layout,
+    VSplit,
+    Window,
+)
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 
@@ -40,6 +49,9 @@ from offset.tools.builtin import builtin_tools
 from offset.tools.custom import default_dirs, discover
 from offset.tools.runtime import Approval, Runtime
 from offset.ui.tokens import detect_depth
+from offset.core import permissions
+from offset.shell.consent import Consent, decide, permission_badge, render_consent, summary_lines
+from offset.tools.system import system_tools
 
 
 class SlashCompleter(Completer):
@@ -68,6 +80,11 @@ class Shell:
         self.worker: threading.Thread | None = None
         self.approval_gate: threading.Event | None = None
         self.approval_answer = False
+        #: Present until the user has chosen a blast radius.  A workspace that
+        #: was already granted skips the question entirely.
+        self.consent: Consent | None = (
+            None if permissions.current(state.workspace) else Consent(workspace=state.workspace)
+        )
 
         self.buffer = Buffer(
             completer=SlashCompleter(),
@@ -79,6 +96,35 @@ class Shell:
         # The policy now has a human behind it, so `safe` mode asks instead of
         # refusing everything.
         self.state.approval.ask = self.ask_approval
+
+    # -- permission consent -----------------------------------------------
+
+    def _consent(self) -> ANSI:
+        width, rows = self.size
+        return ANSI(render_consent(width, rows, self.state.workspace, self.now(), self.consent))
+
+    def _answer_consent(self, event) -> None:
+        """Route one keypress to a scope.  Enter alone must never mean `full`."""
+        raw = event.data or ""
+        if not raw or not raw.isprintable():
+            raw = {"c-m": "enter", "c-j": "enter", "escape": "escape"}.get(
+                str(event.key_sequence[0].key), raw
+            )
+        scope = decide(raw)
+        if scope is None:
+            return
+        self.apply_consent(scope)
+
+    def apply_consent(self, scope: str) -> None:
+        """Persist the grant and widen (or keep) the permission boundary."""
+        permissions.grant(scope, self.state.workspace)
+        context = self.state.agent.runtime.context
+        context.root = permissions.root_for(self.state.workspace)
+        self.state.approval.mode = permissions.mode_for(self.state.workspace)
+        if self.consent is not None:
+            self.consent.choice = scope
+        for line in summary_lines(scope, self.state.workspace):
+            self.messages.append(("err" if scope == "full" else "ok", line))
 
     # -- geometry ---------------------------------------------------------
 
@@ -278,6 +324,17 @@ class Shell:
     def _keys(self) -> KeyBindings:
         keys = KeyBindings()
 
+        def deciding() -> bool:
+            return self.consent is not None and self.consent.choice is None
+
+        pending = Condition(deciding)
+
+        @keys.add("<any>", filter=pending, eager=True)
+        @keys.add("enter", filter=pending, eager=True)
+        @keys.add("escape", filter=pending, eager=True)
+        def _(event):
+            self._answer_consent(event)
+
         @keys.add("c-d")
         def _(event):
             event.app.exit()
@@ -376,8 +433,13 @@ class Shell:
             ], height=1),
             Window(FormattedTextControl(self._status), height=1),
         ])
+        deciding = Condition(lambda: self.consent is not None and self.consent.choice is None)
         root = FloatContainer(
-            content=body,
+            content=HSplit([
+                # Until a blast radius is chosen, the consent screen IS the app.
+                ConditionalContainer(Window(FormattedTextControl(self._consent)), filter=deciding),
+                ConditionalContainer(body, filter=~deciding),
+            ]),
             floats=[Float(Window(FormattedTextControl(self._overlay)), top=3, left=4)],
         )
         app = Application(
@@ -420,7 +482,9 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
     home = CONFIG_DIR  # honours OFFSET_HOME, so a test can isolate everything
     session = Session.create(home / "sessions")
 
-    toolbox = Toolbox(builtin_tools())
+    # Every tool ships enabled; what varies is whether a call is allowed.
+    # `system_tools()` is the whole-machine set and already carries `document`.
+    toolbox = Toolbox([*builtin_tools(), *system_tools()])
     found = discover(default_dirs(workspace))
     for tool in found:
         try:
@@ -432,10 +496,19 @@ def build_state(workspace: Path | str = ".", *, model: str = "mock", approval: s
     if found.tools:
         eggs.event("custom_tool_loaded", count=len(found.tools))
 
+    # A grant from a previous run is honoured; a fresh workspace gets the
+    # startup question instead, and until it is answered the boundary is the
+    # workspace. `root=None` only ever comes from an explicit grant.
+    grant = permissions.current(workspace)
+    context = ToolContext(
+        cwd=workspace,
+        root=permissions.root_for(workspace) if grant else workspace,
+        timeout=120.0,
+    )
     # `ask` is attached by the Shell, which is the only thing that can put a
     # question on screen; until then a dangerous call simply has no approver.
-    policy = Approval(mode=approval)
-    runtime = Runtime(toolbox, ToolContext(cwd=workspace, timeout=120.0), policy)
+    policy = Approval(mode=permissions.mode_for(workspace, approval) if grant else approval)
+    runtime = Runtime(toolbox, context, policy)
     agent = Agent(session, runtime, AgentConfig(model=model, system=SYSTEM_PROMPT))
     return ShellState(session, agent, toolbox, policy, eggs, workspace)
 

@@ -175,14 +175,28 @@ def _logout(state: ShellState, args: list[str]) -> Outcome:
     return Outcome.error(f"no stored key for {provider}")
 
 
+#: A missing entry here used to crash `/tools` outright, so the lookup falls
+#: back to the enum's own name rather than raising on a tier added later.
+DANGER_LABEL: dict[Danger, str] = {
+    Danger.SAFE: "safe",
+    Danger.WRITE: "write",
+    Danger.DESTRUCTIVE: "danger",
+    Danger.FULL: "SYSTEM",
+}
+
+
 def _tools(state: ShellState, args: list[str]) -> Outcome:
     rows = []
-    for tool in state.toolbox:
-        mark = {Danger.SAFE: "safe", Danger.WRITE: "write", Danger.DESTRUCTIVE: "danger"}[tool.danger]
+    for tool in sorted(state.toolbox, key=lambda t: (t.danger, t.name)):
+        mark = DANGER_LABEL.get(tool.danger, tool.danger.name.lower())
         parallel = "parallel" if tool.parallel_safe else "serial"
-        rows.append(f"{tool.name:<12} {mark:<7} {parallel:<9} {tool.description[:60]}")
+        rows.append(f"{tool.name:<12} {mark:<7} {parallel:<9} {tool.description[:58]}")
     rows.append("")
-    rows.append(f"{len(state.toolbox)} tools, all enabled. approval mode: {state.approval.mode}")
+    scope = "whole machine" if state.agent.runtime.context.root is None else "this workspace"
+    rows.append(
+        f"{len(state.toolbox)} tools, all enabled. approval mode: {state.approval.mode}, "
+        f"reach: {scope}"
+    )
     return Outcome(rows, TONE_INFO)
 
 

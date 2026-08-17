@@ -29,10 +29,12 @@ from typing import Any, Iterable, Iterator
 
 from offset.core.entries import (
     BOOKKEEPING,
+    COLLAPSIBLE,
     CONVERSATIONAL,
     LABEL,
     LEAF,
     MESSAGE,
+    SNAPSHOT,
     Entry,
     new_id,
 )
@@ -45,6 +47,19 @@ class Node:
     active: bool
     label: str | None
     children: list["Node"]
+
+
+@dataclass(slots=True, frozen=True)
+class SessionInfo:
+    """What a session picker needs without opening the session for writing."""
+
+    id: str
+    path: Path
+    mtime: float
+    messages: int
+    first_line: str
+    size: int
+    skipped: int = 0
 
 
 class Session:
@@ -78,6 +93,92 @@ class Session:
         s = cls(path)
         s.load()
         return s
+
+    @classmethod
+    def resume(cls, path: str | os.PathLike[str]) -> "Session":
+        """Reopen an existing session at its recorded leaf.
+
+        Unlike `open`, a missing file is an error rather than an empty log:
+        resuming something that was never written would silently hand the user
+        a fresh conversation wearing an old session's name.
+        """
+        p = Path(path)
+        if not p.is_file():
+            raise FileNotFoundError(f"no session at {p}")
+        s = cls(p)
+        s.load()
+        s._repair_leaf()
+        return s
+
+    @classmethod
+    def list(cls, root: str | os.PathLike[str]) -> list[SessionInfo]:
+        """Newest-first metadata for a session picker.
+
+        Builds no indexes on purpose: the picker has to stay fast with hundreds
+        of logs.  A file that yields nothing usable — truncated, binary, not a
+        session at all — is left out instead of breaking the picker.
+        """
+        base = Path(root)
+        if not base.is_dir():
+            return []
+        out: list[SessionInfo] = []
+        for path in base.glob("*.jsonl"):
+            info = cls._describe(path)
+            if info is not None:
+                out.append(info)
+        # mtime first, then the id, which is chronological: ties stay stable.
+        out.sort(key=lambda i: (i.mtime, i.id), reverse=True)
+        return out
+
+    @staticmethod
+    def _describe(path: Path) -> SessionInfo | None:
+        try:
+            stat = path.stat()
+            raw = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None
+        messages = skipped = 0
+        first_line = ""
+        usable = False
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = Entry.from_obj(json.loads(line))
+            except (ValueError, json.JSONDecodeError):
+                skipped += 1
+                continue
+            usable = True
+            if entry.type != MESSAGE:
+                continue
+            messages += 1
+            if not first_line and entry.role == "user":
+                first_line = " ".join(entry.text.split())
+        if not usable:
+            return None
+        return SessionInfo(
+            id=path.stem,
+            path=path,
+            mtime=stat.st_mtime,
+            messages=messages,
+            first_line=first_line,
+            size=stat.st_size,
+            skipped=skipped,
+        )
+
+    def _repair_leaf(self) -> None:
+        """A leaf pointing at something the log cannot hold a conversation on
+        (truncated file, hand edit, a leaf aimed at bookkeeping) would present
+        the session as empty.  Fall back to the newest usable entry."""
+        target = self._by_id.get(self._leaf) if self._leaf is not None else None
+        if self._leaf is None or (target is not None and target.type not in BOOKKEEPING):
+            return
+        self._leaf = None
+        for e in reversed(self._entries):
+            if e.type not in BOOKKEEPING:
+                self._leaf = e.id
+                return
 
     def load(self) -> "Session":
         self._entries.clear()
@@ -135,6 +236,10 @@ class Session:
                     self._labels[target] = str(text)
                 else:
                     self._labels.pop(target, None)
+            return
+        if entry.type == SNAPSHOT:
+            # Recorded and addressable, but it is a fact about the workspace,
+            # not a turn: it must never become a parent or the leaf.
             return
         parent = entry.parent
         if parent == entry.id or (parent is not None and parent not in self._by_id):

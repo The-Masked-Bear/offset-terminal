@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Final, Iterator
 
 from offset.providers.base import ToolSpec
 
@@ -28,6 +28,14 @@ class Danger(IntEnum):
     SAFE = 0  # reads, searches, queries
     WRITE = 1  # creates or modifies files inside the workspace
     DESTRUCTIVE = 2  # deletes, runs arbitrary commands, touches the network
+    FULL = 3  # reaches outside the workspace: any file, any app, the machine
+
+
+#: Default for `ToolContext.root`.  A plain `None` default would make the
+#: unrestricted case the accident rather than the decision, so "not given"
+#: (this sentinel, replaced by `cwd`) and "explicitly unrestricted" (`None`)
+#: have to be different values.
+WORKSPACE: Final = Path("<workspace>")
 
 
 class Cancelled(Exception):
@@ -57,10 +65,17 @@ class ToolContext:
     """Everything a tool is allowed to know about the world."""
 
     cwd: Path
+    #: Permission boundary for `resolve`.  `None` is the whole machine and is
+    #: only ever set from an explicit user grant.
+    root: Path | None = WORKSPACE
     cancel: threading.Event = field(default_factory=threading.Event)
     timeout: float = 120.0
     env: dict[str, str] = field(default_factory=dict)
     emit: Callable[[str], None] = lambda _line: None
+
+    def __post_init__(self) -> None:
+        if self.root is WORKSPACE:
+            self.root = self.cwd
 
     def check(self) -> None:
         """Cooperative cancellation: long tools must call this in their loops."""
@@ -68,13 +83,19 @@ class ToolContext:
             raise Cancelled("cancelled by user")
 
     def resolve(self, path: str) -> Path:
-        """Resolve a tool-supplied path, refusing escapes from the workspace."""
-        target = (self.cwd / path).expanduser() if not Path(path).is_absolute() else Path(path).expanduser()
-        target = target.resolve()
-        root = self.cwd.resolve()
-        if root not in target.parents and target != root:
+        """Absolute path, refusing escapes from `root` unless `root` is None."""
+        supplied = Path(path).expanduser()
+        target = (supplied if supplied.is_absolute() else self.cwd / supplied).resolve()
+        if self.root is None:
+            return target
+        root = self.root.resolve()
+        if root != target and root not in target.parents:
             raise PermissionError(f"path escapes the workspace: {path}")
         return target
+
+    def unrestricted(self) -> "ToolContext":
+        """A copy with no boundary, for a tool the user granted full access."""
+        return ToolContext(cwd=self.cwd, root=None, cancel=self.cancel, timeout=self.timeout, env=self.env, emit=self.emit)
 
 
 class Tool(ABC):

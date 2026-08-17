@@ -137,14 +137,25 @@ class Terminal:
 
 
 @pytest.fixture()
-def term(tmp_path):
+def raw_term(tmp_path):
+    """A terminal parked on the startup permission question."""
     (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     terminal = Terminal(tmp_path)
-    # The banner is a marquee, so its words scroll off; the status bar is the
-    # only text guaranteed to be on screen at any instant.
-    assert terminal.wait_for("CTRL-D QUIT"), f"the shell never drew its chrome:\n{terminal.text}"
     yield terminal
     terminal.close()
+
+
+@pytest.fixture()
+def term(raw_term):
+    """Past the permission question, on the safe choice."""
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE"), (
+        f"the startup permission question never appeared:\n{raw_term.text}"
+    )
+    raw_term.key("enter")
+    # The banner is a marquee, so its words scroll off; the status bar is the
+    # only text guaranteed to be on screen at any instant.
+    assert raw_term.wait_for("CTRL-D QUIT"), f"the shell never drew its chrome:\n{raw_term.text}"
+    return raw_term
 
 
 # -- it starts --------------------------------------------------------------
@@ -256,3 +267,67 @@ def test_verify_command_is_settable(term):
     term.type("/verify pytest -q")
     term.key("enter")
     assert term.wait_for("pytest-q"), term.text
+
+
+# -- the startup permission question ----------------------------------------
+
+
+def test_it_asks_for_permission_before_doing_anything(raw_term):
+    """The user asked for this explicitly: decide the blast radius at startup."""
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE"), raw_term.text
+    squeezed = raw_term.squeeze()
+    assert "WORKSPACEONLY" in squeezed
+    assert "FULLSYSTEMACCESS" in squeezed
+    # The cards sit side by side, so a squeezed full-screen dump interleaves
+    # their rows: match fragments that fit on one row, not whole sentences.
+    lowered = squeezed.lower()
+    for fragment in ("readandwriteany", "notjustthisfolder", "runarbitraryshell"):
+        assert fragment in lowered, (
+            f"the prompt must say plainly what full access means; missing {fragment!r}:\n{raw_term.text}"
+        )
+    assert "CTRL-DQUIT" not in squeezed, "the shell must not be usable before answering"
+
+
+def test_enter_alone_never_grants_full_access(raw_term):
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
+    raw_term.key("enter")
+    assert raw_term.wait_for("CTRL-D QUIT"), raw_term.text
+    squeezed = raw_term.squeeze()
+    assert "workspaceonly" in squeezed.lower(), raw_term.text
+    assert "fullsystemaccess,granted" not in squeezed.lower(), "Enter must pick the safe option"
+
+
+def test_pressing_f_grants_full_access(raw_term):
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
+    raw_term.type("f", settle=0.8)
+    assert raw_term.wait_for("CTRL-D QUIT"), raw_term.text
+    assert "FULL" in raw_term.squeeze()
+
+
+def test_the_answer_is_remembered_for_next_time(tmp_path):
+    """A second launch in the same workspace must not re-ask."""
+    (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    first = Terminal(tmp_path)
+    try:
+        assert first.wait_for("HOW MUCH OF THIS MACHINE")
+        first.key("enter")
+        assert first.wait_for("CTRL-D QUIT")
+    finally:
+        first.close()
+
+    second = Terminal(tmp_path)
+    try:
+        assert second.wait_for("CTRL-D QUIT"), f"the second launch never got going:\n{second.text}"
+        assert "HOWMUCHOFTHISMACHINE" not in second.squeeze(), "the grant was not remembered"
+    finally:
+        second.close()
+
+
+def test_the_document_and_system_tools_are_registered(term):
+    term.type("/tools")
+    term.key("enter")
+    assert term.wait_for("allenabled"), term.text
+    squeezed = term.squeeze()
+    for tool in ("document", "system", "file", "open"):
+        assert tool in squeezed, f"{tool} missing from the tool list:\n{term.text}"
+    assert "danger" in squeezed

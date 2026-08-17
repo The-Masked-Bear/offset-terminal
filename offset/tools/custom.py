@@ -125,9 +125,12 @@ class ExternalTool(Tool):
 
 def _danger(value: Any) -> Danger:
     if isinstance(value, str):
-        return {"safe": Danger.SAFE, "write": Danger.WRITE, "destructive": Danger.DESTRUCTIVE}.get(
-            value.lower(), Danger.WRITE
-        )
+        return {
+            "safe": Danger.SAFE,
+            "write": Danger.WRITE,
+            "destructive": Danger.DESTRUCTIVE,
+            "full": Danger.FULL,
+        }.get(value.lower(), Danger.WRITE)
     return Danger.WRITE
 
 

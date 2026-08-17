@@ -22,13 +22,15 @@ from typing import Callable, Literal, Sequence
 from offset.providers.base import ToolCall
 from offset.tools.base import Cancelled, Danger, Tool, ToolContext, ToolResult, Toolbox, validate
 
-Mode = Literal["safe", "auto-edit", "yolo"]
+Mode = Literal["safe", "auto-edit", "yolo", "full"]
 
-#: What each mode approves without asking.
+#: What each mode approves without asking.  "yolo" stops at DESTRUCTIVE on
+#: purpose: leaving the workspace is a separate decision the user has to make.
 THRESHOLD: dict[Mode, Danger] = {
     "safe": Danger.SAFE,
     "auto-edit": Danger.WRITE,
     "yolo": Danger.DESTRUCTIVE,
+    "full": Danger.FULL,
 }
 
 

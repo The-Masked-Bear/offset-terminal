@@ -59,13 +59,22 @@ CHECKPOINT: Final = "checkpoint"
 MODEL_CHANGE: Final = "model_change"
 LABEL: Final = "label"
 LEAF: Final = "leaf"
+COMPACTION: Final = "compaction"
+SNAPSHOT: Final = "snapshot"
 
-#: Bookkeeping entries live in the log but never appear in the tree: they
-#: record *how the tree was navigated*, not what was said.
-BOOKKEEPING: Final = frozenset({LABEL, LEAF})
+#: Entries that live in the log but never appear in the tree: LABEL and LEAF
+#: record *how the tree was navigated*, SNAPSHOT records what the workspace
+#: looked like.  None of them is something that was said.
+BOOKKEEPING: Final = frozenset({LABEL, LEAF, SNAPSHOT})
 
-#: Entries a model actually sees when the prompt is rebuilt.
-CONVERSATIONAL: Final = frozenset({MESSAGE, TOOL_CALL, TOOL_RESULT, BRANCH_SUMMARY})
+#: The bookkeeping `Session.compact` may collapse to its final state.  A
+#: snapshot is a fact about the world, not a navigation step, so "the latest
+#: one" cannot stand in for the rest and it must survive a rewrite.
+COLLAPSIBLE: Final = frozenset({LABEL, LEAF})
+
+#: Entries a model actually sees when the prompt is rebuilt.  COMPACTION is
+#: here because its entire purpose is to stand in for the turns it replaced.
+CONVERSATIONAL: Final = frozenset({MESSAGE, TOOL_CALL, TOOL_RESULT, BRANCH_SUMMARY, COMPACTION})
 
 
 @dataclass(slots=True)
@@ -123,6 +132,9 @@ class Entry:
             head = f"-> {self.data.get('summary', 'result')}"
         elif self.type == BRANCH_SUMMARY:
             head = f"summary: {' '.join(self.text.split())}"
+        elif self.type == COMPACTION:
+            n = len(self.data.get("replaced") or ())
+            head = f"compacted {n}: {' '.join(self.text.split())}"
         elif self.type == CHECKPOINT:
             head = f"checkpoint {self.data.get('ref', '')}"
         elif self.type == MODEL_CHANGE:
