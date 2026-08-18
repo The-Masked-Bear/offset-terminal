@@ -35,6 +35,21 @@ def _hex(value: int) -> RGB:
     return RGB((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
 
 
+def luminance(c: RGB) -> float:
+    """Perceptual brightness, 0..1.  Rec. 601 is plenty for picking text."""
+    return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255.0
+
+
+def ink_on(background: RGB) -> RGB:
+    """The text colour that stays legible on `background`.
+
+    Accent blocks are bright in both themes and want near-black on top; the
+    page and panel surfaces flip with the theme. Deciding by luminance means a
+    new accent, or a user theme, cannot produce unreadable text by accident.
+    """
+    return ON_ACCENT if luminance(background) > 0.55 else INK
+
+
 def blend(over: RGB, under: RGB, alpha: float) -> RGB:
     """Composite `over` onto `under` at `alpha` opacity."""
     inv = 1.0 - alpha
@@ -45,20 +60,44 @@ def blend(over: RGB, under: RGB, alpha: float) -> RGB:
     )
 
 
-# Palette — exact values from the reference stylesheet.
-INK: Final = _hex(0x111111)  # --black
-PAPER: Final = _hex(0xF4F4F0)  # --bg
-SURFACE: Final = _hex(0xFFFFFF)  # --surface
-MUTED: Final = _hex(0x555555)  # --text-secondary
+# Accents, exact values from the reference stylesheet. These do NOT change
+# between themes: they are the identity, and black-on-bright is the whole look.
+_BLACK: Final = _hex(0x111111)
+_PAPER: Final = _hex(0xF4F4F0)
+
+#: Which palette to build. Dark is the default because this is a terminal
+#: program: a full-screen light surface in a dark terminal looks like a bug,
+#: and every other tool the user has open is dark.
+THEME: Final = (os.environ.get("OFFSET_THEME") or "dark").strip().lower()
+DARK: Final = THEME not in ("light", "paper", "day")
+
+if DARK:
+    # The same two colours, swapped. Borders stay hard and light, shadows go
+    # to true black so a shadow still reads as absence of light.
+    INK: Final = _hex(0xF4F4F0)
+    PAPER: Final = _hex(0x111111)
+    SURFACE: Final = _hex(0x1C1C1A)
+    MUTED: Final = _hex(0x8A8A82)
+    SHADOW: Final = _hex(0x000000)
+else:
+    INK: Final = _hex(0x111111)  # --black
+    PAPER: Final = _hex(0xF4F4F0)  # --bg
+    SURFACE: Final = _hex(0xFFFFFF)  # --surface
+    MUTED: Final = _hex(0x555555)  # --text-secondary
+    SHADOW: Final = _hex(0x111111)
 YELLOW: Final = _hex(0xFFDE59)  # --yellow
 PINK: Final = _hex(0xFF90E8)  # --pink
 CYAN: Final = _hex(0x8CFFFB)  # --blue
 MINT: Final = _hex(0xB2FF9E)  # --mint
 RED: Final = _hex(0xFF5A5F)  # --red
-GRID: Final = blend(INK, PAPER, 0.06)  # --grid-color over --bg
+GRID: Final = blend(INK, PAPER, 0.10)  # --grid-color over --bg
 
-#: Semantic roles.  Accents are all light, so the ink on top is always INK —
-#: that black-on-bright contrast IS the style; never invert it.
+#: Text drawn ON an accent block. The accents are bright pastels in both
+#: themes, so this is near-black either way - inverting it would destroy the
+#: contrast that makes the style work.
+ON_ACCENT: Final = _BLACK
+
+#: Semantic roles.
 TONES: Final[dict[str, RGB]] = {
     "plain": SURFACE,
     "accent": YELLOW,  # primary action, focus
@@ -68,6 +107,7 @@ TONES: Final[dict[str, RGB]] = {
     "err": RED,  # failure, diff deletions
     "ink": INK,
     "paper": PAPER,
+    "shadow": SHADOW,
     "muted": MUTED,
     "grid": GRID,
 }
@@ -226,11 +266,24 @@ class G:
     GLITCH_POOL = "!<>-_\\/[]{}=+*^?#" if ASCII else "!<>-_\\/[]{}=+*^?#\u2591\u2592\u2593\u2588"
 
 
+#: Width is a pure function of the character, and the renderer asks about the
+#: same few hundred characters thousands of times a second.
+_WIDTHS: dict[str, int] = {}
+
+
 def char_width(ch: str) -> int:
     """1 for everything we ship; 2 for wide characters a user might paste."""
-    if unicodedata.combining(ch):
-        return 0
-    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    known = _WIDTHS.get(ch)
+    if known is not None:
+        return known
+    if ch.isascii() and ch.isprintable():
+        width = 1
+    elif unicodedata.combining(ch):
+        width = 0
+    else:
+        width = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    _WIDTHS[ch] = width
+    return width
 
 
 def text_width(s: str) -> int:

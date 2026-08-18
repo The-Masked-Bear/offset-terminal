@@ -50,6 +50,8 @@ HEADERS: Final[dict[str, tuple[str, str]]] = {
     "deepseek": ("Authorization", "Authorization"),
     "google": ("x-goog-api-key", "Authorization"),
     "llamacpp": ("Authorization", "Authorization"),
+    "opencode": ("Authorization", "Authorization"),
+    "opencode-go": ("Authorization", "Authorization"),
     "ollama": ("", ""),
     "mock": ("", ""),
 }
@@ -247,7 +249,8 @@ def accounts() -> list[Credential]:
         if cred is not None:
             out.append(cred)
             seen.add(provider)
-    for provider in ("anthropic", "openai", "google", "deepseek", "openrouter"):
+    for provider in ("anthropic", "openai", "google", "deepseek", "openrouter",
+                     "opencode", "opencode-go"):
         if provider in seen:
             continue
         cred = from_env(provider)

@@ -203,14 +203,34 @@ class Shell:
     def _status(self) -> ANSI:
         return ANSI(render.status(self.size[0], self.state, busy=self.busy, t=self.now(), note=self.note))
 
+    def _overlay_size(self) -> tuple[int, int]:
+        """Explicit size for the floating panel.
+
+        A Float wrapping a Window whose content is computed per frame has no
+        preferred size to fall back on, so it collapses to nothing and the
+        panel silently never appears.
+        """
+        width, rows = self.size
+        panel = self.state.overlay
+        if panel is None:
+            if self.reveal is not None and self.now() < self.reveal_until:
+                lines = self.reveal.frames[0] if self.reveal.frames else self.reveal.lines
+                return min(64, width - 4), len(lines) + (4 if self.reveal.title else 3)
+            return 0, 0
+        if panel.kind == "login":
+            return min(72, width - 4), 6
+        if panel.kind == "approve":
+            return min(72, width - 4), len([r for r in panel.items if r]) + 4
+        return min(72, width - 4), max(5, min(len(panel.items) + 5, rows - 6))
+
     def _overlay(self) -> ANSI:
         panel = self.state.overlay
         if panel is None:
             if self.reveal and self.now() < self.reveal_until:
                 return ANSI(render.reveal_panel(min(64, self.size[0] - 4), self.reveal, self.now()))
             return ANSI("")
-        width, rows = self.size
-        return ANSI(render.overlay(min(72, width - 4), min(len(panel.items) + 5, rows - 6), panel, self.now()))
+        width, height = self._overlay_size()
+        return ANSI(render.overlay(width, height, panel, self.now()))
 
     def _has_overlay(self) -> bool:
         return self.state.overlay is not None or bool(self.reveal and self.now() < self.reveal_until)
@@ -516,7 +536,15 @@ class Shell:
                 ConditionalContainer(body, filter=~deciding),
             ]),
             floats=[
-                Float(Window(FormattedTextControl(self._overlay)), top=3, left=4),
+                Float(
+                    Window(
+                        FormattedTextControl(self._overlay),
+                        width=lambda: Dimension.exact(self._overlay_size()[0]),
+                        height=lambda: Dimension.exact(self._overlay_size()[1]),
+                    ),
+                    top=3,
+                    left=4,
+                ),
                 # Without this the completer computed suggestions that nothing
                 # ever drew, so slash commands had no discoverability at all.
                 Float(
@@ -530,23 +558,69 @@ class Shell:
             layout=Layout(root, focused_element=self.buffer),
             key_bindings=self._keys(),
             full_screen=True,
-            refresh_interval=0.08,
+            # No timer-driven redraw: prompt_toolkit repaints on input, and the
+            # pump thread invalidates when something actually changed. A fixed
+            # interval here redrew the whole screen 12 times a second forever.
+            refresh_interval=None,
             mouse_support=False,
             style=MENU_STYLE,
         )
         return app
 
+    def _signature(self) -> tuple:
+        """A cheap fingerprint of everything the screen shows.
+
+        Repainting only when this changes is the difference between 78% of a
+        core at idle and nothing at all: prompt_toolkit redraws the whole
+        surface on every invalidate, and at 12fps on a Pi that is most of a
+        CPU spent drawing an unchanged screen.
+        """
+        panel = self.state.overlay
+        return (
+            self.busy,
+            len(self.live),
+            len(self.messages),
+            len(self.state.session),
+            self.state.model,
+            self.state.approval.mode,
+            self.note,
+            panel.kind if panel else "",
+            panel.selected if panel else -1,
+            len(panel.buffer) if panel else 0,
+            self.consent.choice if self.consent else "",
+            self.view.offset,
+            self.size,
+        )
+
+    def _animating(self) -> bool:
+        """True only while something on screen genuinely needs new frames."""
+        if self.busy:
+            return True  # the working spinner
+        if self.reveal is not None and self.now() < self.reveal_until:
+            return True  # an easter egg mid-animation
+        panel = self.state.overlay
+        return panel is not None and panel.kind == "login"  # the cursor blink
+
     def run(self) -> None:
         stop = threading.Event()
 
         def pump() -> None:
+            last: tuple | None = None
+            last_tick = 0.0
             while not stop.is_set():
                 self.drain()
-                reveal = self.state.eggs.tick()
-                if reveal:
-                    self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
-                self.app.invalidate()
-                time.sleep(0.08)
+                now = self.now()
+                if now - last_tick > 1.0:  # time-of-day eggs, once a second
+                    last_tick = now
+                    reveal = self.state.eggs.tick()
+                    if reveal:
+                        self.reveal, self.reveal_until = reveal, now + reveal.duration
+                animating = self._animating()
+                signature = self._signature()
+                if animating or signature != last:
+                    last = signature
+                    self.app.invalidate()
+                time.sleep(0.07 if animating else 0.3)
 
         ticker = threading.Thread(target=pump, name="offset-ui", daemon=True)
         ticker.start()
@@ -556,6 +630,8 @@ class Shell:
             stop.set()
             self.state.eggs.save()
             self.state.session.close()
+            if self.state.mcp is not None:
+                self.state.mcp.disconnect_all()
 
 
 # -- construction -----------------------------------------------------------

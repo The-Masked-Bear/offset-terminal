@@ -22,6 +22,7 @@ from offset.providers.base import Provider
 from offset.providers.google import Google
 from offset.providers.mock import Mock
 from offset.providers.ollama import Ollama
+from offset.providers.opencode import OpenCodeGo, OpenCodeZen
 from offset.providers.openai import OpenAI, deepseek, llamacpp, openrouter
 
 CONFIG_DIR: Final = Path(os.environ.get("OFFSET_HOME") or (Path.home() / ".offset"))
@@ -56,6 +57,27 @@ MODELS: Final[tuple[ModelInfo, ...]] = (
     ModelInfo("deepseek-reasoner", "deepseek", "deepseek r1", 64_000, 8_192, thinking=True, role_hint="critic"),
     ModelInfo("qwen2.5-coder:7b", "ollama", "qwen2.5 coder 7b", 32_768, 4_096, local=True, role_hint="bulk"),
     ModelInfo("llama3.2:3b", "ollama", "llama 3.2 3b", 131_072, 4_096, local=True, role_hint="cheap"),
+    # OpenCode Zen - pay as you go. Only models offset can actually speak to
+    # are listed; GPT and Grok there need the Responses API.
+    ModelInfo("opencode/claude-opus-5", "opencode", "zen: claude opus 5", 200_000, 32_000, thinking=True, role_hint="planner"),
+    ModelInfo("opencode/claude-sonnet-5", "opencode", "zen: claude sonnet 5", 200_000, 64_000, thinking=True, role_hint="implementer"),
+    ModelInfo("opencode/claude-haiku-4-5", "opencode", "zen: claude haiku 4.5", 200_000, 8_192, role_hint="cheap"),
+    ModelInfo("opencode/qwen3.7-max", "opencode", "zen: qwen3.7 max", 256_000, 32_000, role_hint="implementer"),
+    ModelInfo("opencode/glm-5.2", "opencode", "zen: glm 5.2", 200_000, 32_000, role_hint="implementer"),
+    ModelInfo("opencode/kimi-k3", "opencode", "zen: kimi k3", 256_000, 32_000, role_hint="planner"),
+    ModelInfo("opencode/deepseek-v4-pro", "opencode", "zen: deepseek v4 pro", 128_000, 16_384, role_hint="critic"),
+    ModelInfo("opencode/minimax-m3", "opencode", "zen: minimax m3", 200_000, 16_384, role_hint="bulk"),
+    ModelInfo("opencode/deepseek-v4-flash-free", "opencode", "zen: deepseek v4 flash (free)", 128_000, 16_384, role_hint="cheap"),
+    ModelInfo("opencode/big-pickle", "opencode", "zen: big pickle (free)", 128_000, 16_384, role_hint="cheap"),
+    # OpenCode Go - $10/month subscription for open models.
+    ModelInfo("opencode-go/kimi-k3", "opencode-go", "go: kimi k3", 256_000, 32_000, role_hint="planner"),
+    ModelInfo("opencode-go/kimi-k2.7-code", "opencode-go", "go: kimi k2.7 code", 256_000, 32_000, role_hint="implementer"),
+    ModelInfo("opencode-go/glm-5.3", "opencode-go", "go: glm 5.3", 200_000, 32_000, role_hint="implementer"),
+    ModelInfo("opencode-go/qwen3.8-max", "opencode-go", "go: qwen3.8 max", 256_000, 32_000, role_hint="planner"),
+    ModelInfo("opencode-go/minimax-m3", "opencode-go", "go: minimax m3", 200_000, 16_384, role_hint="bulk"),
+    ModelInfo("opencode-go/deepseek-v4-pro", "opencode-go", "go: deepseek v4 pro", 128_000, 16_384, role_hint="critic"),
+    ModelInfo("opencode-go/deepseek-v4-flash", "opencode-go", "go: deepseek v4 flash", 128_000, 16_384, role_hint="cheap"),
+    ModelInfo("opencode-go/mimo-v2.5", "opencode-go", "go: mimo v2.5", 128_000, 16_384, role_hint="cheap"),
     ModelInfo("mock", "mock", "scripted mock", 8_192, 4_096, local=True, role_hint="test"),
 )
 
@@ -69,6 +91,8 @@ PROVIDERS: Final[dict[str, Callable[[], Provider]]] = {
     "openrouter": openrouter,
     "llamacpp": llamacpp,
     "ollama": Ollama,
+    "opencode": OpenCodeZen,
+    "opencode-go": OpenCodeGo,
     "mock": Mock,
 }
 
@@ -81,6 +105,8 @@ PREFIXES: Final[tuple[tuple[str, str], ...]] = (
     ("o4", "openai"),
     ("gemini", "google"),
     ("deepseek", "deepseek"),
+    ("opencode-go/", "opencode-go"),
+    ("opencode/", "opencode"),
     ("mock", "mock"),
 )
 

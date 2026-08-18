@@ -175,7 +175,10 @@ def _models(state: ShellState, args: list[str]) -> Outcome:
 
 
 #: Providers a person can plausibly hold an account with.
-LOGIN_TARGETS: tuple[str, ...] = ("anthropic", "openai", "google", "deepseek", "openrouter")
+LOGIN_TARGETS: tuple[str, ...] = (
+    "anthropic", "openai", "google", "deepseek", "openrouter",
+    "opencode", "opencode-go",
+)
 
 
 def _login(state: ShellState, args: list[str]) -> Outcome:

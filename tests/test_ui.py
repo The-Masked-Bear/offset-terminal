@@ -147,11 +147,48 @@ def test_colour_is_emitted_only_on_change():
     assert cv.render(Depth.TRUE).count("\x1b[") == 2  # one pen set, one reset
 
 
-def test_truecolor_uses_the_exact_palette():
+def test_truecolor_emits_the_active_palette():
     cv = Canvas(3, 1, fg=INK, bg=PAPER)
     out = cv.render(Depth.TRUE)
-    assert "38;2;17;17;17" in out  # #111111
-    assert "48;2;244;244;240" in out  # #F4F4F0
+    assert f"38;2;{INK.r};{INK.g};{INK.b}" in out
+    assert f"48;2;{PAPER.r};{PAPER.g};{PAPER.b}" in out
+
+
+def test_the_default_theme_is_dark():
+    """A full-screen light surface inside a dark terminal reads as a bug."""
+    from offset.ui.tokens import DARK, luminance
+
+    assert DARK, "dark is the default for a terminal program"
+    assert luminance(PAPER) < 0.2, "the page must actually be dark"
+    assert luminance(INK) > 0.8, "text on it must actually be light"
+
+
+def test_the_accents_are_identical_in_both_themes():
+    """The accents are the identity; only the page and the ink flip."""
+    from offset.ui.tokens import CYAN, MINT, PINK, RED, RGB, YELLOW
+
+    assert (YELLOW, PINK, CYAN, MINT, RED) == (
+        RGB(255, 222, 89), RGB(255, 144, 232), RGB(140, 255, 251),
+        RGB(178, 255, 158), RGB(255, 90, 95),
+    )
+
+
+def test_text_on_any_accent_stays_legible():
+    """ink_on decides by luminance, so a new accent cannot go unreadable."""
+    from offset.ui.tokens import CYAN, MINT, PINK, RED, SURFACE, YELLOW, ink_on, luminance
+
+    for block in (YELLOW, PINK, CYAN, MINT, RED):
+        chosen = ink_on(block)
+        gap = abs(luminance(block) - luminance(chosen))
+        assert gap > 0.4, f"text on {block} has only {gap:.2f} contrast"
+    assert ink_on(SURFACE) == INK, "panel text follows the theme, not the accents"
+    assert ink_on(PAPER) == INK
+
+
+def test_a_shadow_is_darker_than_the_page():
+    from offset.ui.tokens import SHADOW, luminance
+
+    assert luminance(SHADOW) <= luminance(PAPER), "a shadow must read as absent light"
 
 
 def test_degradation_ladder_stays_in_range():

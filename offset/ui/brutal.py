@@ -29,12 +29,14 @@ from offset.ui.tokens import (
     RED,
     RGB,
     SHADOW_MD,
+    SHADOW,
     SHADOW_SM,
     SURFACE,
     TONES,
     Weight,
     display,
     fit,
+    ink_on,
     label,
     text_width,
     track,
@@ -61,7 +63,7 @@ def slab(
     fill: RGB = SURFACE,
     edge: RGB = INK,
     shadow: tuple[int, int] = SHADOW_MD,
-    shadow_color: RGB = INK,
+    shadow_color: RGB = SHADOW,
     pressed: bool = False,
     title: str | None = None,
     title_tone: str | RGB = "accent",
@@ -100,7 +102,7 @@ def slab(
     if title is not None and h >= 4:
         band = tone(title_tone)
         cv.fill_rect(x + 1, y + 1, w - 2, 1, " ", INK, band)
-        cv.text(x + 2, y + 1, fit(title, w - 4, spacing=tracking - 1), INK, band, True, max_w=w - 4)
+        cv.text(x + 2, y + 1, fit(title, w - 4, spacing=tracking - 1), ink_on(band), band, True, max_w=w - 4)
         cv.hline(x + 1, y + 2, w - 2, BORDERS[Weight.HAIRLINE].t, INK, fill)
         inner = (x + 2, y + 3, w - 4, h - 4)
     return inner
@@ -193,14 +195,14 @@ def button(
     caption = display(text, tracking)
     w = text_width(caption) + 4
     ix, iy, iw, _ = slab(cv, x, y, w, 3, weight=weight, fill=tone(fill), shadow=shadow, pressed=pressed)
-    cv.text(ix, iy, caption, INK, tone(fill), True, max_w=iw)
+    cv.text(ix, iy, caption, ink_on(tone(fill)), tone(fill), True, max_w=iw)
     return w
 
 
 def badge(cv: Canvas, x: int, y: int, text: str, *, fill: str | RGB = "info", tracking: int = 1) -> int:
     """A single-row filled chip; no border, no shadow — it is a label, not a control."""
     s = " " + display(text, tracking) + " "
-    cv.text(x, y, s, INK, tone(fill), True)
+    cv.text(x, y, s, ink_on(tone(fill)), tone(fill), True)
     return text_width(s)
 
 
@@ -247,7 +249,7 @@ def stat(
     h = 10
     ix, iy, iw, ih = slab(cv, x, y, w, h, weight=Weight.SLAB, fill=tone(fill), shadow=shadow, pressed=pressed)
     bw = big_width(value)
-    big_text(cv, ix, iy + 1, value, INK, tone(fill))
+    big_text(cv, ix, iy + 1, value, ink_on(tone(fill)), tone(fill))
     if unit:
         uw = max(0, iw - bw - 2)
         cv.text(ix + bw + 2, iy + BIG_H - 1, fit(unit, uw), MUTED if tone(accent) == SURFACE else tone(accent), tone(fill), True, max_w=uw)
@@ -294,10 +296,10 @@ def dropdown(
         chosen = i == selected
         bgc = tone(fill) if chosen else SURFACE
         cv.fill_rect(ix - 1, row, iw + 2, 1, " ", INK, bgc)
-        cv.text(ix, row, (G.ARROW + " ") if chosen else "  ", INK, bgc, True)
+        cv.text(ix, row, (G.ARROW + " ") if chosen else "  ", ink_on(bgc), bgc, True)
         note = notes[i] if notes and i < len(notes) else ""
         reserve = text_width(note) + 2 if note else 0
-        cv.text(ix + 2, row, fit(item, max(0, iw - 2 - reserve)), INK, bgc, chosen, max_w=iw - 2)
+        cv.text(ix + 2, row, fit(item, max(0, iw - 2 - reserve)), ink_on(bgc), bgc, chosen, max_w=iw - 2)
         if note:
             cv.text(ix + iw - text_width(note), row, note, INK if chosen else MUTED, bgc, False)
     return h
@@ -323,7 +325,8 @@ def masked_input(
     cv.text(ix + 1, iy, dots, INK, GRID, True, max_w=iw - 2)
     if cursor and anim.pulse(t, freq=2.4) > 0.5:
         cv.put(ix + 1 + text_width(dots), iy, G.BLOCK, INK, GRID)
-    cv.text(ix, iy + 2, label("input hidden"), MUTED, SURFACE, False, max_w=iw)
+    if h >= 7:
+        cv.text(ix, iy + 2, label("input hidden"), MUTED, SURFACE, False, max_w=iw)
     return h
 
 
@@ -350,10 +353,10 @@ def diff_view(
         row = iy + i
         if kind == "+":
             cv.fill_rect(ix - 1, row, iw + 2, 1, " ", INK, MINT)
-            cv.text(ix, row, "+ " + text, INK, MINT, True, max_w=iw)
+            cv.text(ix, row, "+ " + text, ink_on(MINT), MINT, True, max_w=iw)
         elif kind == "-":
             cv.fill_rect(ix - 1, row, iw + 2, 1, " ", INK, RED)
-            cv.text(ix, row, "- " + text, INK, RED, True, max_w=iw)
+            cv.text(ix, row, "- " + text, ink_on(RED), RED, True, max_w=iw)
         else:
             cv.text(ix, row, "  " + text, MUTED, SURFACE, False, max_w=iw)
 
@@ -389,9 +392,9 @@ def achievement(cv: Canvas, x: int, y: int, w: int, name: str, detail: str, t: f
     """Trophy toast.  Pink, loud, and gone in a few seconds."""
     h = 6
     ix, iy, iw, _ = slab(cv, x, y, w, h, fill=PINK, weight=Weight.SLAB, shadow=SHADOW_MD)
-    cv.text(ix, iy, anim.star_spin(t) + " " + display("achievement unlocked", 1), INK, PINK, True, max_w=iw)
-    cv.text(ix, iy + 1, display(name, 1), INK, PINK, True, max_w=iw)
-    cv.text(ix, iy + 2, detail, INK, PINK, False, max_w=iw)
+    cv.text(ix, iy, anim.star_spin(t) + " " + display("achievement unlocked", 1), ink_on(PINK), PINK, True, max_w=iw)
+    cv.text(ix, iy + 1, display(name, 1), ink_on(PINK), PINK, True, max_w=iw)
+    cv.text(ix, iy + 2, detail, ink_on(PINK), PINK, False, max_w=iw)
     return h
 
 
@@ -404,11 +407,12 @@ def status_bar(
     left: str,
     right: str = "",
     t: float = 0.0,
+    busy: bool = False,
     fill: str | RGB = "ink",
     text_color: RGB = PAPER,
 ) -> None:
     cv.fill_rect(x, y, w, 1, " ", text_color, tone(fill))
-    head = anim.radar_spin(t) + " "
+    head = (anim.radar_spin(t) if busy else G.ARROW) + " "
     tail = right.upper() if right else ""
     room = max(0, w - 2 - text_width(head) - (text_width(tail) + 3 if tail else 0))
     cv.text(x + 1, y, head + fit(left, room), text_color, tone(fill), True, max_w=w - 2)

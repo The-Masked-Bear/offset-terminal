@@ -459,3 +459,22 @@ def test_permissions_can_grant_full_access_later(term):
     term.type("/tools")
     term.key("enter")
     assert term.wait_for("whole machine"), term.text
+
+
+def test_an_overlay_actually_appears_on_screen(term):
+    """Regression: a Float wrapping a dynamically-sized Window collapsed to
+    nothing, so every panel - model picker, login, tree, trophies, the approval
+    prompt - was invisible while the command underneath ran perfectly."""
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    assert term.wait_for("claude opus"), f"the model picker never drew:\n{term.text}"
+    assert "\u258c" in term.text, "the panel border should be drawn"
+
+
+def test_the_opencode_gateways_are_offered(term):
+    term.type("/models")
+    term.key("enter")
+    assert term.wait_for("opencode"), term.text
+    squeezed = term.squeeze().lower()
+    assert "opencode/" in squeezed or "zen:" in squeezed
+    assert "opencode-go" in squeezed or "go:" in squeezed

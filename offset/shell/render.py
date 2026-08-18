@@ -30,6 +30,7 @@ from offset.ui.tokens import (
     Weight,
     display,
     fit,
+    ink_on,
     label,
     text_width,
 )
@@ -81,11 +82,11 @@ def banner(width: int, t: float, *, workspace: object = "", model: str = "") -> 
     """
     cv = Canvas(width, 1, bg=PAPER)
     cv.fill_rect(0, 0, width, 1, " ", INK, YELLOW)
-    cv.text(1, 0, display("offset", 1), INK, YELLOW, True, max_w=width - 2)
+    cv.text(1, 0, display("offset", 1), ink_on(YELLOW), YELLOW, True, max_w=width - 2)
     right = f"{model}  {G.STAR}  {workspace}" if model else str(workspace)
     right = fit(right, max(0, width - 20), upper=False)
     if right:
-        cv.text(max(14, width - 1 - text_width(right)), 0, right, INK, YELLOW, False)
+        cv.text(max(14, width - 1 - text_width(right)), 0, right, ink_on(YELLOW), YELLOW, False)
     return cv.render()
 
 
@@ -220,8 +221,8 @@ def transcript(
     cv = Canvas(width, height, bg=PAPER)
     for y, (kind, line) in enumerate(visible):
         if kind == "user":
-            cv.fill_rect(0, y, width, 1, " ", INK, YELLOW)
-            cv.text(1, y, line, INK, YELLOW, True, max_w=body)
+            cv.fill_rect(0, y, width, 1, " ", ink_on(YELLOW), YELLOW)
+            cv.text(1, y, line, ink_on(YELLOW), YELLOW, True, max_w=body)
         elif kind == "assistant":
             cv.text(1, y, line, INK, PAPER, False, max_w=body)
         elif kind == "call":
@@ -235,8 +236,8 @@ def transcript(
             cv.text(3, y, line, RED, PAPER, False, max_w=body - 2)
 
     if offset > 0 and height > 0:
-        cv.fill_rect(0, height - 1, width, 1, " ", INK, CYAN)
-        cv.text(1, height - 1, fit(f"{offset} more below  \u2193 to follow", width - 2), INK, CYAN, True)
+        cv.fill_rect(0, height - 1, width, 1, " ", ink_on(CYAN), CYAN)
+        cv.text(1, height - 1, fit(f"{offset} more below  \u2193 to follow", width - 2), ink_on(CYAN), CYAN, True)
     _scrollbar(cv, width, height, total, start)
     return cv.render()
 
@@ -300,11 +301,12 @@ def prompt_row(width: int, text: str, *, busy: bool, t: float) -> str:
 
 
 def status(width: int, state: ShellState, *, busy: bool, t: float, note: str = "") -> str:
+    """A spinner that never stops reads as a program that never finishes."""
     cv = Canvas(width, 1, bg=PAPER)
     found, total = state.eggs.progress()
     left = note or f"{state.model}  {G.STAR}  {len(state.toolbox)} tools  {G.STAR}  {state.approval.mode}"
     right = f"{found}/{total} eggs  {G.STAR}  ctrl-c x2 quit  {G.STAR}  /help"
-    brutal.status_bar(cv, 0, 0, width, left=left, right=right, t=t)
+    brutal.status_bar(cv, 0, 0, width, left=left, right=right, t=t, busy=busy)
     return cv.render()
 
 
@@ -321,9 +323,9 @@ def overlay(width: int, height: int, panel: Overlay, t: float) -> str:
         rows = [line for line in panel.items if line != ""]
         height = len(rows) + 4
         x, y, iw, _ = brutal.slab(cv, 0, 0, width, height, fill=RED, weight=Weight.SLAB)
-        cv.text(x, y, display(panel.title, 1), INK, RED, True, max_w=iw)
+        cv.text(x, y, display(panel.title, 1), ink_on(RED), RED, True, max_w=iw)
         for i, line in enumerate(rows):
-            cv.text(x, y + 2 + i, line, INK, RED, i == len(rows) - 1, max_w=iw)
+            cv.text(x, y + 2 + i, line, ink_on(RED), RED, i == len(rows) - 1, max_w=iw)
         return cv.render()
 
     rows = max(1, height - 5)

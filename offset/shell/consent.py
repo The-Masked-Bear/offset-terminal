@@ -34,6 +34,7 @@ from offset.ui.tokens import (
     Weight,
     display,
     fit,
+    ink_on,
     label,
     text_width,
 )
@@ -158,8 +159,8 @@ def _bullets(cv: Canvas, x: int, y: int, w: int, lines: tuple[str, ...], bg, lim
             # Only the first row of a wrapped item carries the dot; a dot on
             # every wrapped row turned one sentence into three bullet points.
             if n == 0:
-                cv.put(x, row, G.DOT, INK, bg)
-            cv.text(x + 2, row, fit(piece, max(0, w - 2)), INK, bg, False, max_w=max(0, w - 2))
+                cv.put(x, row, G.DOT, ink_on(bg), bg)
+            cv.text(x + 2, row, fit(piece, max(0, w - 2)), ink_on(bg), bg, False, max_w=max(0, w - 2))
             row += 1
     return row - y
 
