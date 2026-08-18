@@ -7,8 +7,6 @@ than the pane so the right-hand column was cut off the edge of the terminal.
 
 from __future__ import annotations
 
-import pathlib
-import tempfile
 
 import pytest
 
