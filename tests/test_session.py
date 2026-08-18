@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 
+import threading
+
 import pytest
 
 from offset.core.entries import CONVERSATIONAL, MESSAGE, Entry, new_id
@@ -253,3 +255,57 @@ def test_compact_leaves_the_original_intact_on_failure(tmp_path, monkeypatch):
     s.close()
     assert [e.text for e in Session.open(s.path).all_entries()] == ["precious"]
     assert not [p for p in tmp_path.iterdir() if p.suffix == ".jsonl" and p != s.path], "temp file leaked"
+
+
+# -- a damaged log stays openable --------------------------------------------
+
+
+def test_a_session_with_undecodable_bytes_still_opens(tmp_path):
+    """One bad byte used to make the whole session unopenable.
+
+    Iteration decodes lazily, so the UnicodeDecodeError came out of the `for`
+    line rather than the parse below it, and skipped past every guard.
+    """
+    path = tmp_path / "s.jsonl"
+    good = json.dumps({"id": "01AAA", "type": "message", "data": {"role": "user", "text": "hi"}})
+    path.write_bytes(good.encode("utf-8") + b"\n\xff\xfe torn write \n")
+
+    session = Session.open(path)
+    kept = list(session.all_entries())
+    assert len(kept) == 1, "the readable entry must survive"
+    assert session.skipped_lines == 1, "the damaged line must be counted, not ignored"
+
+
+def test_a_damaged_session_is_still_writable(tmp_path):
+    path = tmp_path / "s.jsonl"
+    path.write_bytes(b"\xff\xfe not even close to json\n")
+    session = Session.open(path)
+    session.say("user", "carrying on")
+    assert len(list(Session.open(path).all_entries())) == 1
+
+
+def test_concurrent_appends_never_tear_a_line(tmp_path):
+    """Eight threads writing at once must produce eight times the lines, all valid."""
+    session = Session.create(tmp_path / "s")
+
+    def spam(n: int) -> None:
+        for i in range(30):
+            session.say("user", f"thread {n} line {i}")
+
+    threads = [threading.Thread(target=spam, args=(n,)) for n in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    reopened = Session.open(session.path)
+    assert len(list(reopened.all_entries())) == 8 * 30
+    assert reopened.skipped_lines == 0, "a torn line means the append was not atomic"
+
+
+def test_a_very_deep_chain_does_not_blow_the_stack(tmp_path):
+    """Six thousand turns is a long day, not an error."""
+    session = Session.create(tmp_path / "s")
+    for i in range(6000):
+        session.say("user", f"deep {i}")
+    assert len(list(session.transcript())) == 6000

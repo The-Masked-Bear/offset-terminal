@@ -25,13 +25,18 @@ import hashlib
 import json
 import secrets
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
-import webbrowser
 from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Callable, Final, Iterable
+from typing import TYPE_CHECKING, Any, Callable, Final, Iterable
+
+if TYPE_CHECKING:  # `http.server` costs a tenth of a second to import
+    from http.server import HTTPServer
+
+# `urllib.parse` above is cheap; `urllib.request`, `http.server` and `webbrowser`
+# are not - between them they pull in http.client, email, socket and ssl, which
+# is a third of a second on a Raspberry Pi. Nothing here is needed until somebody
+# actually signs in, and the agent imports this module on every single start, so
+# they are imported inside the three functions that use them.
 
 #: RFC 8628 grant identifier.
 DEVICE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
@@ -286,6 +291,9 @@ def send(
         body = urllib.parse.urlencode(form or {}).encode("utf-8")
         content = "application/x-www-form-urlencoded"
     sent = {"Content-Type": content, "Accept": "application/json", **(headers or {})}
+    import urllib.error
+    import urllib.request
+
     request = urllib.request.Request(url, data=body, headers=sent, method="POST")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -365,6 +373,8 @@ def start_loopback(state: str | None, *, host: str = "127.0.0.1", path: str = "/
     nothing to compare against and any correct-path callback is accepted. The
     listener is still a single-use random port on the loopback interface.
     """
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
     holder: dict[str, Loopback] = {}
 
     class Handler(BaseHTTPRequestHandler):
@@ -415,6 +425,8 @@ def start_loopback(state: str | None, *, host: str = "127.0.0.1", path: str = "/
 def launch(url: str) -> bool:
     """Try to open a browser.  False on a headless box, which is not an error."""
     try:
+        import webbrowser
+
         return webbrowser.open(url)
     except (webbrowser.Error, OSError):
         return False

@@ -188,7 +188,11 @@ class Session:
         self._skipped = 0
         if not self.path.exists():
             return self
-        with self.path.open("r", encoding="utf-8") as fh:
+        # `errors="replace"` rather than strict: iteration decodes lazily, so one
+        # bad byte from a torn write or a failing disk raised out of the loop and
+        # made the whole session unopenable. Replaced bytes fail the JSON parse
+        # below instead, and are counted as skipped like any other damaged line.
+        with self.path.open("r", encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:

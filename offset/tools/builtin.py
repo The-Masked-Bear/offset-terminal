@@ -17,6 +17,7 @@ import uuid
 from typing import Any
 
 from offset.tools.base import Danger, Tool, ToolContext, ToolResult
+from offset.tools.walk import PRUNE
 from offset.tools.walk import walk as ignore_aware_walk
 
 #: Directories never worth walking; skipping them is the difference between a
@@ -164,7 +165,11 @@ class Glob(Tool):
         for path in ignore_aware_walk(
             root,
             respect_gitignore=not args.get("ignored"),
-            prune=PRUNE,
+            # `ignored` has to stand the built-in prune list down as well:
+            # leaving it in place meant asking for ignored files still never
+            # entered node_modules, .venv or build, the exact directories
+            # somebody sets this flag to reach.
+            prune=() if args.get("ignored") else PRUNE,
             check=ctx.check,
         ):
             rel = path.relative_to(root)
@@ -214,7 +219,11 @@ class Grep(Tool):
             else ignore_aware_walk(
                 root,
                 respect_gitignore=not args.get("ignored"),
-                prune=PRUNE,
+                # `ignored` has to stand the built-in prune list down as well.
+                # Leaving it in place meant asking for ignored files still never
+                # entered node_modules, .venv or build - the exact directories
+                # somebody sets this flag to reach.
+                prune=() if args.get("ignored") else PRUNE,
                 check=ctx.check,
             )
         )

@@ -15,15 +15,12 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Final
+from importlib import import_module
+from typing import Any, Callable, Final
 
-from offset.providers.anthropic import Anthropic
+from collections.abc import Iterator, MutableMapping
+
 from offset.providers.base import Provider
-from offset.providers.google import Google
-from offset.providers.mock import Mock
-from offset.providers.ollama import Ollama
-from offset.providers.opencode import OpenCodeGo, OpenCodeZen
-from offset.providers.openai import OpenAI, deepseek, llamacpp, openrouter
 
 CONFIG_DIR: Final = Path(os.environ.get("OFFSET_HOME") or (Path.home() / ".offset"))
 CREDENTIALS_FILE: Final = CONFIG_DIR / "credentials.json"
@@ -83,18 +80,79 @@ MODELS: Final[tuple[ModelInfo, ...]] = (
 
 BY_ID: Final[dict[str, ModelInfo]] = {m.id: m for m in MODELS}
 
-PROVIDERS: Final[dict[str, Callable[[], Provider]]] = {
-    "anthropic": Anthropic,
-    "openai": OpenAI,
-    "google": Google,
-    "deepseek": deepseek,
-    "openrouter": openrouter,
-    "llamacpp": llamacpp,
-    "ollama": Ollama,
-    "opencode": OpenCodeZen,
-    "opencode-go": OpenCodeGo,
-    "mock": Mock,
+#: Provider name to the module and attribute that builds it.
+#:
+#: Deliberately not imported at module level. Importing any one of these pulls in
+#: `transport`, and with it `urllib.request` and `http.client` - a third of a
+#: second on a Raspberry Pi, paid by every command including `--help`, to reach a
+#: network nobody has asked to use yet. Each entry loads the first time that
+#: provider is actually built.
+_FACTORIES: Final[dict[str, tuple[str, str]]] = {
+    "anthropic": ("anthropic", "Anthropic"),
+    "openai": ("openai", "OpenAI"),
+    "google": ("google", "Google"),
+    "deepseek": ("openai", "deepseek"),
+    "openrouter": ("openai", "openrouter"),
+    "llamacpp": ("openai", "llamacpp"),
+    "ollama": ("ollama", "Ollama"),
+    "opencode": ("opencode", "OpenCodeZen"),
+    "opencode-go": ("opencode", "OpenCodeGo"),
+    "mock": ("mock", "Mock"),
 }
+
+
+#: Factories registered at runtime, which win over the lazy table above.
+_OVERRIDES: dict[str, Callable[[], Provider]] = {}
+
+
+def factory_for(name: str) -> Callable[[], Provider]:
+    """The callable that builds provider `name`, imported on demand."""
+    override = _OVERRIDES.get(name)
+    if override is not None:
+        return override
+    entry = _FACTORIES.get(name)
+    if entry is None:
+        raise KeyError(f"unknown provider: {name}")
+    module_name, attribute = entry
+    module = import_module(f"offset.providers.{module_name}")
+    return getattr(module, attribute)
+
+
+class _Providers(MutableMapping[str, Callable[[], Provider]]):
+    """The provider table: lazily imported, still an ordinary mapping.
+
+    Reading a name costs nothing - `/models`, the login targets and the picker
+    only ever want names, and they used to pay for the whole http stack to get
+    them. Assignment stays supported because it is a real registration point: a
+    test substitutes a scripted provider that way, and so could an extension.
+    """
+
+    __slots__ = ()
+
+    def __getitem__(self, name: str) -> Callable[[], Provider]:
+        return factory_for(name)
+
+    def __setitem__(self, name: str, factory: Callable[[], Provider]) -> None:
+        _OVERRIDES[name] = factory
+
+    def __delitem__(self, name: str) -> None:
+        if name in _OVERRIDES:
+            del _OVERRIDES[name]
+        elif name in _FACTORIES:
+            raise KeyError(f"{name} is built in; override it instead of deleting it")
+        else:
+            raise KeyError(name)
+
+    def __iter__(self) -> Iterator[str]:
+        seen = dict.fromkeys(_FACTORIES)
+        seen.update(dict.fromkeys(_OVERRIDES))
+        return iter(seen)
+
+    def __len__(self) -> int:
+        return len(set(_FACTORIES) | set(_OVERRIDES))
+
+
+PROVIDERS: Final[MutableMapping[str, Callable[[], Provider]]] = _Providers()
 
 #: Used when a model id is not in the catalogue.  Prefix wins over guessing.
 PREFIXES: Final[tuple[tuple[str, str], ...]] = (
@@ -130,10 +188,7 @@ def search(query: str) -> list[ModelInfo]:
 
 
 def provider_for(name: str) -> Provider:
-    factory = PROVIDERS.get(name)
-    if factory is None:
-        raise KeyError(f"unknown provider: {name}")
-    return factory()
+    return factory_for(name)()
 
 
 def resolve(model_id: str) -> tuple[Provider, ModelInfo]:
@@ -145,16 +200,37 @@ def resolve(model_id: str) -> tuple[Provider, ModelInfo]:
 # -- credentials ------------------------------------------------------------
 
 
+#: Last parse of the credentials file, keyed by what would make it stale.
+_CACHE: dict[str, Any] = {"stamp": None, "data": {}}
+
+
 def _stored() -> dict[str, str]:
+    """Plain API keys from disk, parsed at most once per change.
+
+    `available()` asks about every model in the catalogue and each question used
+    to re-read and re-parse this file: about thirty reads of the same bytes to
+    build one roster, on every startup and every `/models`. Keying the cache on
+    the file's identity rather than a timestamp of our own keeps a key written by
+    another process - a second offset, or a text editor - visible immediately.
+    """
+    try:
+        stat = CREDENTIALS_FILE.stat()
+        stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+    except OSError:
+        _CACHE["stamp"], _CACHE["data"] = None, {}
+        return {}
+    if _CACHE["stamp"] == stamp:
+        return _CACHE["data"]
     try:
         raw = json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        _CACHE["stamp"], _CACHE["data"] = None, {}
         return {}
-    if not isinstance(raw, dict):
-        return {}
-    # Richer entries (OAuth tokens) are objects; `offset.providers.auth`
-    # owns those. Here we only surface plain API-key strings.
-    return {str(k): v for k, v in raw.items() if isinstance(v, str)}
+    # Richer entries (OAuth tokens) are objects; `offset.providers.auth` owns
+    # those. Here we only surface plain API-key strings.
+    data = {str(k): v for k, v in raw.items() if isinstance(v, str)} if isinstance(raw, dict) else {}
+    _CACHE["stamp"], _CACHE["data"] = stamp, data
+    return data
 
 
 def credential(provider: Provider | str) -> str | None:
