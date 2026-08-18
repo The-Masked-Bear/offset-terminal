@@ -23,6 +23,7 @@ from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout import (
     ConditionalContainer,
@@ -456,10 +457,25 @@ class Shell:
             else:
                 self.buffer.validate_and_handle()
 
+        def deliver(text: str) -> None:
+            """Send typed or pasted text wherever the focus actually is."""
+            panel = self.state.overlay
+            if panel is not None and panel.kind == "login":
+                # A pasted key arrives with a trailing newline and sometimes
+                # surrounding whitespace; none of that belongs in a secret.
+                panel.buffer += "".join(c for c in text.strip() if c.isprintable())
+                return
+            if panel is not None:
+                return  # a list panel has nothing to type into
+            self.state.eggs.touch()
+            reveal = self.state.eggs.key(text)
+            if reveal:
+                self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
+            self.buffer.insert_text(text)
+
         @keys.add("<any>")
         def _(event):
             """Typing feeds the overlay when one is open, otherwise the buffer."""
-            panel = self.state.overlay
             data = event.data
             if approving():
                 answer = data.lower()
@@ -470,14 +486,19 @@ class Shell:
                 elif answer == "a":
                     self.answer_approval(True, remember=True)
                 return
-            if panel is None:
-                self.state.eggs.touch()
-                reveal = self.state.eggs.key(data)
-                if reveal:
-                    self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
-                self.buffer.insert_text(data)
-            elif panel.kind == "login" and data.isprintable():
-                panel.buffer += data
+            deliver(data)
+
+        @keys.add(Keys.BracketedPaste)
+        def _(event):
+            """A paste is one key event, not a run of characters.
+
+            Without this binding prompt_toolkit's default handler puts the text
+            straight into the focused buffer, so pasting an API key into the
+            masked field typed it into the message box in clear text instead.
+            """
+            if approving() or (self.consent is not None and self.consent.choice is None):
+                return
+            deliver(event.data)
 
         def scroll_by(lines: int) -> None:
             width, rows = self.size

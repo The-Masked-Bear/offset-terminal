@@ -9,6 +9,7 @@ The model is the scripted provider, so the test needs no network and no key.
 
 from __future__ import annotations
 
+import json
 import os
 import pty
 import re
@@ -478,3 +479,57 @@ def test_the_opencode_gateways_are_offered(term):
     squeezed = term.squeeze().lower()
     assert "opencode/" in squeezed or "zen:" in squeezed
     assert "opencode-go" in squeezed or "go:" in squeezed
+
+
+# -- pasting -----------------------------------------------------------------
+
+
+def paste(term: Terminal, text: str, *, newline: bool = False, settle: float = 0.9) -> None:
+    """A real terminal paste: one bracketed-paste event, not a run of keys."""
+    tail = "\n" if newline else ""
+    os.write(term.fd, f"\x1b[200~{text}{tail}\x1b[201~".encode())
+    term.pump(settle)
+
+
+SECRET = "sk-ant-api03-PASTED-SECRET-VALUE"
+
+
+def test_a_pasted_api_key_goes_into_the_masked_field(term):
+    """Regression: a paste is a single key event that the <any> binding never
+    matched, so prompt_toolkit's default handler typed the key into the message
+    box in clear text."""
+    term.type("/login anthropic")
+    term.key("enter", settle=0.8)
+    assert term.wait_for("api key"), term.text
+
+    paste(term, SECRET, newline=True)
+    assert SECRET not in term.text, "the key was echoed to the screen"
+    assert term.text.count("\u25cf") == len(SECRET), "one dot per character"
+
+
+def test_a_pasted_key_is_actually_stored(term, tmp_path):
+    term.type("/login anthropic")
+    term.key("enter", settle=0.8)
+    assert term.wait_for("api key")
+    paste(term, SECRET, newline=True)
+    term.key("enter", settle=1.0)
+
+    assert term.wait_for("stored a key for anthropic"), term.text
+    saved = json.loads((tmp_path / ".offset-home" / "credentials.json").read_text())
+    assert saved["anthropic"] == SECRET, "the trailing newline must be stripped, nothing else"
+
+
+def test_a_paste_still_reaches_the_message_box(term):
+    paste(term, "refactor the parser")
+    assert "refactor the parser" in term.text
+
+
+def test_a_paste_cannot_leak_past_a_list_panel(term):
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    assert term.wait_for("claude opus"), term.text
+    paste(term, "LEAKED-INTO-THE-PROMPT")
+    assert "LEAKED-INTO-THE-PROMPT" not in term.text, "a list panel has nothing to type into"
+    term.key("escape", settle=0.5)
+    paste(term, "now it lands")
+    assert "now it lands" in term.text
