@@ -172,9 +172,23 @@ class MCPClient:
     """One connected server.  Thread-safe: tools may be called concurrently."""
 
     __slots__ = (
-        "transport", "name", "version", "timeout", "handshake_timeout", "on_notification",
-        "server_info", "capabilities", "protocol", "dead_reason", "notifications",
-        "_ids", "_lock", "_pending", "_reader", "_closed", "_orphans",
+        "_closed",
+        "_ids",
+        "_lock",
+        "_orphans",
+        "_pending",
+        "_reader",
+        "capabilities",
+        "dead_reason",
+        "handshake_timeout",
+        "name",
+        "notifications",
+        "on_notification",
+        "protocol",
+        "server_info",
+        "timeout",
+        "transport",
+        "version",
     )
 
     def __init__(

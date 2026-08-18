@@ -320,7 +320,7 @@ class Loopback:
     with the authorization code, to stderr.
     """
 
-    state: str
+    state: str | None
     path: str
     host: str
     _server: HTTPServer
@@ -357,14 +357,20 @@ class Loopback:
         self.close()
 
 
-def start_loopback(state: str, *, host: str = "127.0.0.1", path: str = "/callback", port: int = 0) -> Loopback:
-    """Bind the redirect listener.  Binds 127.0.0.1 whatever `host` we advertise."""
+def start_loopback(state: str | None, *, host: str = "127.0.0.1", path: str = "/callback",
+                   port: int = 0) -> Loopback:
+    """Bind the redirect listener.  Binds 127.0.0.1 whatever `host` we advertise.
+
+    `state=None` means the authorize request carried no state, so there is
+    nothing to compare against and any correct-path callback is accepted. The
+    listener is still a single-use random port on the loopback interface.
+    """
     holder: dict[str, Loopback] = {}
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.0"
 
-        def do_GET(self) -> None:  # noqa: N802 - stdlib contract
+        def do_GET(self) -> None:
             loop = holder["loop"]
             parts = urllib.parse.urlsplit(self.path)
             if parts.path != loop.path:
@@ -374,7 +380,7 @@ def start_loopback(state: str, *, host: str = "127.0.0.1", path: str = "/callbac
             got = (query.get("state") or [""])[0]
             error = (query.get("error") or [""])[0]
             code = (query.get("code") or [""])[0]
-            if not secrets.compare_digest(got, loop.state):
+            if loop.state and not secrets.compare_digest(got, loop.state):
                 loop._error = "state mismatch: that redirect did not come from the login you started"
                 self._reply(400, FAILED)
                 return
@@ -417,6 +423,17 @@ def launch(url: str) -> bool:
 # -- authorization code flow ------------------------------------------------
 
 
+def sends_state(entry: OAuthApp) -> bool:
+    """Whether the authorize request will carry a `state` parameter.
+
+    Only registered clients get one, because `state` travels with `client_id`.
+    A provider that never received a state cannot echo one back, so the loopback
+    must not demand it - requiring it unconditionally rejected every real
+    OpenRouter sign-in with "state mismatch".
+    """
+    return bool(entry.client_id)
+
+
 def authorize_url(entry: OAuthApp, pkce: Pkce, state: str, redirect_uri: str | None) -> str:
     """The URL the user visits.  `redirect_uri=None` selects paste mode."""
     params: dict[str, str] = {
@@ -429,7 +446,7 @@ def authorize_url(entry: OAuthApp, pkce: Pkce, state: str, redirect_uri: str | N
         params[entry.paste_param] = "offset"
     else:
         raise AuthError(f"{entry.provider} needs a loopback redirect; it has no paste mode")
-    if entry.client_id:
+    if sends_state(entry):
         params["client_id"] = entry.client_id
         params["response_type"] = "code"
         params["state"] = state

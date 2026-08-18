@@ -7,7 +7,6 @@ from typing import Any, Iterator
 from offset.providers.base import (
     auth_header,
     Event,
-    Message,
     Provider,
     Request,
     Stop,

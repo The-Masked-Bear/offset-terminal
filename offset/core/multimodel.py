@@ -35,7 +35,7 @@ from offset.providers.base import (
     TurnBuilder,
     Usage,
 )
-from offset.providers.registry import ModelInfo, credential, info, resolve
+from offset.providers.registry import ModelInfo, credential, info
 
 #: Conventional roles.  Nothing enforces them; the scheduler just routes by name.
 ROLES = ("planner", "implementer", "critic", "referee", "cheap", "bulk")
@@ -54,8 +54,8 @@ class Seat:
         if not self.label:
             self.label = f"{self.role}:{self.model}"
 
-    def endpoint(self, resolver: Callable[[str], tuple[Provider, ModelInfo]] = resolve) -> tuple[Provider, ModelInfo]:
-        provider, meta = resolver(self.model)
+    def endpoint(self, resolver: Callable[[str], tuple[Provider, ModelInfo]] | None = None) -> tuple[Provider, ModelInfo]:
+        provider, meta = (resolver or _resolver())(self.model)
         return (self.provider or provider), meta
 
     def key(self, provider: Provider) -> str | None:
@@ -106,18 +106,20 @@ def normalise(text: str) -> str:
 class Ensemble:
     """A roster of seats that can answer the same request together."""
 
-    __slots__ = ("seats", "_resolve", "_workers")
+    __slots__ = ("_resolve", "_workers", "seats")
 
     def __init__(
         self,
         seats: Sequence[Seat],
         *,
-        resolver: Callable[[str], tuple[Provider, ModelInfo]] = resolve,
+        resolver: Callable[[str], tuple[Provider, ModelInfo]] | None = None,
         max_workers: int = 8,
     ) -> None:
         if not seats:
             raise ValueError("an ensemble needs at least one seat")
         self.seats = list(seats)
+        #: Resolved on every use rather than captured here: a credential added
+        #: or a config reloaded after this object was built must still be seen.
         self._resolve = resolver
         self._workers = max(1, min(max_workers, len(seats)))
 
@@ -247,7 +249,9 @@ class Ensemble:
         ruling = self.ask(judge, ask)
         pick = _first_index(ruling.text, len(usable))
         if pick is None:
-            fallback = self.vote(request, seats) if seats is not None else None
+            # Fall back to a weighted vote over the answers we ALREADY have.
+            # This used to call self.vote(), which re-ran every seat - a second
+            # full round of paid model calls whose result was then discarded.
             tally: dict[str, float] = {}
             for o in usable:
                 tally[normalise(o.text)] = tally.get(normalise(o.text), 0.0) + o.seat.weight
@@ -256,14 +260,43 @@ class Ensemble:
             return Verdict(winner, "judge unavailable; fell back to weighted vote", opinions, tally)
         return Verdict(usable[pick], f"{judge.label} chose [{pick}]: {ruling.text.strip()[:120]}", opinions)
 
+    def staff(self, order: Sequence[str]) -> list[tuple[str, Seat]]:
+        """Assign a seat to every role in `order`, filling gaps.
+
+        A roster is built from whatever models the user can actually reach, and
+        the catalogue's own hints (`cheap`, `bulk`, `test`) do not have to cover
+        the roles a caller asks for. Skipping unfilled roles meant `relay` over a
+        roster of local models produced nothing at all, so a role nobody claims
+        goes to the strongest seat not already working - and only repeats a seat
+        once every seat is busy.
+        """
+        ranked = sorted(enumerate(self.seats), key=lambda pair: (-pair[1].weight, pair[0]))
+        rank = {index: position for position, (index, _) in enumerate(ranked)}
+        used: dict[int, int] = dict.fromkeys(rank, 0)
+        previous = -1
+        out: list[tuple[str, Seat]] = []
+        for role in order:
+            exact = [pair for pair in ranked if pair[1].role == role]
+            idle = [pair for pair in ranked if not used[pair[0]]]
+            # A seat that has not spoken yet outranks the nominal role holder: a
+            # critic that already answered as the implementer would be reviewing
+            # its own work, which is the one thing a relay exists to avoid.
+            pool = [p for p in exact if not used[p[0]]] or idle or exact or ranked
+            # Least-used seat wins; never the same seat twice running when there
+            # is an alternative; strongest breaks the remaining tie. With more
+            # roles than seats this walks the roster instead of handing every
+            # leftover role to whichever seat happens to be strongest.
+            index, seat = min(pool, key=lambda pair: (used[pair[0]], pair[0] == previous, rank[pair[0]]))
+            used[index] += 1
+            previous = index
+            out.append((role, seat))
+        return out
+
     def relay(self, request: Request, order: Sequence[str] = ("planner", "implementer", "critic")) -> list[Opinion]:
         """Run roles in sequence, each seeing what the previous one produced."""
         conversation = list(request.messages)
         out: list[Opinion] = []
-        for role in order:
-            seat = self.pick(role)
-            if seat is None:
-                continue
+        for role, seat in self.staff(order):
             step = Request(
                 model=seat.model,
                 messages=list(conversation),
@@ -317,6 +350,13 @@ def _first_index(text: str, count: int) -> int | None:
     return value if 0 <= value < count else None
 
 
+def _resolver() -> Callable[[str], tuple[Provider, ModelInfo]]:
+    """The current resolver, looked up now rather than at import time."""
+    from offset.providers import registry
+
+    return registry.resolve
+
+
 def _error_event(message: str) -> Event:
     from offset.providers.base import StreamError
 
@@ -332,3 +372,20 @@ def default_roster(models: Sequence[str] | None = None) -> Ensemble:
         chosen = ["mock"]
     seats = [Seat(model=m, role=info(m).role_hint or "implementer") for m in chosen]
     return Ensemble(seats)
+
+
+def seat_roster(active: str) -> Ensemble:
+    """The models a multi-model run may use, active model first.
+
+    `ShellState.ensemble` used to be left at `None`, so every ensemble feature -
+    /council, and the per-branch models in /spec - silently collapsed onto one
+    model. The active model leads the roster because it is the one deliberately
+    chosen; the rest fill the other roles, and a single-seat roster simply means
+    every branch uses the same model, which is what happened before.
+    """
+    from offset.providers.registry import available
+
+    usable = [m.id for m in available()]
+    ordered = [active, *(m for m in usable if m != active)] if active in usable or active == "mock" \
+        else [active, *usable]
+    return default_roster(ordered[:4])

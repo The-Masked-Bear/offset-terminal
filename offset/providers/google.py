@@ -95,7 +95,7 @@ def parse(lines: Iterator[bytes]) -> Iterator[Event]:
             )
         for candidate in obj.get("candidates") or ():
             for part in (candidate.get("content") or {}).get("parts") or ():
-                if "text" in part and part["text"]:
+                if part.get("text"):
                     if part.get("thought"):
                         yield ThinkingDelta(part["text"])
                     else:

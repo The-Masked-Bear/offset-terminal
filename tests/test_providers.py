@@ -18,7 +18,6 @@ from offset.providers.base import (
     Stop,
     StreamError,
     TextDelta,
-    ThinkingDelta,
     ToolCall,
     ToolCallDelta,
     ToolSpec,

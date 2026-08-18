@@ -11,9 +11,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import threading
+import urllib.parse
 import urllib.request
+
+from dataclasses import replace
 
 import pytest
 
@@ -290,3 +292,150 @@ def test_an_expiry_of_zero_survives_a_round_trip(isolated):
     back = auth.stored("google")
     assert back.expires_at == 0.0
     assert back.expired(now=lambda: 1000.0), "an epoch-0 expiry is long past"
+
+
+# -- starting a sign-in without finishing it ---------------------------------
+
+
+def test_begin_login_returns_something_showable_before_it_blocks(monkeypatch):
+    """The url used to be computed, announced to a no-op, and discarded."""
+    monkeypatch.setattr(oauth, "launch", lambda url: False)
+    pending = auth.begin_login("openrouter")
+    try:
+        assert pending.url.startswith("https://"), pending.url
+        assert pending.port > 0, "a loopback flow must say which port it is listening on"
+        assert pending.kind == "loopback"
+        assert not pending.opened, "no browser was opened, so it must not claim one was"
+    finally:
+        pending._server.close()
+
+
+def test_begin_login_reports_when_a_browser_did_open(monkeypatch):
+    monkeypatch.setattr(oauth, "launch", lambda url: True)
+    pending = auth.begin_login("openrouter")
+    try:
+        assert pending.opened
+    finally:
+        pending._server.close()
+
+
+def test_open_browser_false_never_launches_anything(monkeypatch):
+    launched: list[str] = []
+    monkeypatch.setattr(oauth, "launch", lambda url: launched.append(url) or True)
+    pending = auth.begin_login("openrouter", open_browser=False)
+    try:
+        assert launched == [], "it must not touch the browser when told not to"
+    finally:
+        pending._server.close()
+
+
+def test_a_device_flow_is_preferred_when_no_browser_could_open(monkeypatch):
+    """The documented SSH fallback that was never actually implemented."""
+    entry = oauth.app("openrouter")
+    device = oauth.Device(user_code="WDJB-MJHT", verification_uri="https://example/device",
+                          interval=5, expires_at=9e9, device_code="dc", complete_uri=None)
+    monkeypatch.setattr(oauth, "launch", lambda url: False)
+    monkeypatch.setattr(oauth, "app", lambda provider: replace(entry, device_url="https://example/device/code"))
+    monkeypatch.setattr(oauth, "device_start", lambda entry, **kw: device)
+
+    pending = auth.begin_login("openrouter")
+    assert pending.kind == "device"
+    assert pending.user_code == "WDJB-MJHT"
+    assert pending.url == "https://example/device"
+    assert pending.port == 0, "a device flow listens on nothing"
+
+
+def test_a_loopback_flow_that_never_answers_is_an_error(monkeypatch):
+    monkeypatch.setattr(oauth, "launch", lambda url: False)
+    pending = auth.begin_login("openrouter")
+    with pytest.raises(auth.AuthError):
+        pending.finish(timeout=0.05)  # nobody ever visits the url
+
+
+def test_a_finished_loopback_flow_stores_the_credential(monkeypatch):
+    monkeypatch.setattr(oauth, "launch", lambda url: False)
+    token = oauth.Token(value="tok-from-code", kind="oauth", refresh_token="r",
+                        expires_at=9e9, account=None)
+    monkeypatch.setattr(oauth, "exchange", lambda *a, **kw: token)
+
+    pending = auth.begin_login("openrouter")
+    threading.Timer(0.05, lambda: _reply_to(pending.url)).start()
+
+    cred = pending.finish(timeout=5)
+    assert cred.value == "tok-from-code"
+    stored = auth.load("openrouter")
+    assert stored is not None and stored.value == "tok-from-code", "it must persist, not just return"
+
+
+def test_login_browser_still_works_end_to_end(monkeypatch, tmp_path):
+    """The one-shot api is now composed from the split one; it must not drift."""
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
+    monkeypatch.setattr(oauth, "launch", lambda url: True)
+    token = oauth.Token(value="tok", kind="oauth", refresh_token="r", expires_at=9e9, account=None)
+    monkeypatch.setattr(oauth, "exchange", lambda *a, **kw: token)
+
+    seen: list[auth.LoginProgress] = []
+    monkeypatch.setattr(oauth, "launch", lambda url: _reply_to(url) or True)
+    cred = auth.login_browser("openrouter", announce=seen.append, timeout=5)
+    assert cred.value == "tok"
+    assert seen[0].url, "it must announce the url before blocking"
+    assert [p.done for p in seen][-1] is True, "it must announce that it finished"
+
+
+def _reply_to(authorize_url: str) -> None:
+    """Stand in for a browser: visit the callback the way the provider would.
+
+    Reads the redirect target out of the authorize url rather than assuming it -
+    each provider names that parameter differently, OpenRouter calls it
+    `callback_url` - and echoes `state` only when it was given one.
+    """
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(authorize_url).query)
+    redirect = next(query[key][0] for key in ("redirect_uri", "callback_url", "redirect_url")
+                    if key in query)
+    reply = f"{redirect}?code=the-code"
+    if "state" in query:
+        reply += f"&state={query['state'][0]}"
+    threading.Timer(0.05, lambda: _poke(reply)).start()
+
+
+# -- the state parameter -----------------------------------------------------
+
+
+def test_a_provider_that_takes_no_state_can_still_sign_in():
+    """The regression that made the recommended zero-setup login impossible.
+
+    `state` only travels with a `client_id`, so a public PKCE client like
+    OpenRouter never receives one and cannot echo one back. The loopback used to
+    demand it anyway, so every real sign-in died on "state mismatch".
+    """
+    entry = oauth.app("openrouter")
+    assert not oauth.sends_state(entry), "openrouter is the public-client case"
+
+    pkce, state = oauth.Pkce.create(), oauth.new_state()
+    server = oauth.start_loopback(None, host=entry.redirect_host, path=entry.redirect_path)
+    try:
+        url = oauth.authorize_url(entry, pkce, state,
+                                  f"http://{entry.redirect_host}:{server.port}{entry.redirect_path}")
+        assert "state=" not in url, "no state is sent, so none may be required"
+        _reply_to(url)
+        assert server.wait(timeout=5) == "the-code"
+    finally:
+        server.close()
+
+
+def test_a_registered_client_still_has_its_state_enforced():
+    """Relaxing the check must not disarm CSRF protection where it applies."""
+    state = oauth.new_state()
+    server = oauth.start_loopback(state, host="127.0.0.1", path="/callback")
+    try:
+        threading.Timer(0.05, lambda: _poke(
+            f"http://127.0.0.1:{server.port}/callback?code=x&state=forged")).start()
+        with pytest.raises(auth.AuthError, match="state mismatch"):
+            server.wait(timeout=5)
+    finally:
+        server.close()
+
+
+def test_sends_state_follows_the_client_id():
+    assert oauth.sends_state(replace(oauth.app("openrouter"), client_id="abc123"))
+    assert not oauth.sends_state(replace(oauth.app("openrouter"), client_id=""))

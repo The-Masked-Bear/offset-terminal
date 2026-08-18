@@ -355,8 +355,17 @@ class Manager:
     """
 
     __slots__ = (
-        "config", "attempts", "backoff", "max_backoff", "emit",
-        "_clients", "_state", "_reasons", "_tools", "_sleep", "_lock",
+        "_clients",
+        "_lock",
+        "_reasons",
+        "_sleep",
+        "_state",
+        "_tools",
+        "attempts",
+        "backoff",
+        "config",
+        "emit",
+        "max_backoff",
     )
 
     def __init__(

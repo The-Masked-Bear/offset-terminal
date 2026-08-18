@@ -21,7 +21,6 @@ from offset.providers.base import (
     Message,
     Provider,
     Request,
-    Stop,
     StreamError,
     ToolCall,
     ToolSpec,
@@ -30,7 +29,7 @@ from offset.providers.base import (
     Usage,
 )
 from offset.providers.auth import load as load_credential
-from offset.providers.registry import ModelInfo, resolve
+from offset.providers.registry import ModelInfo
 from offset.tools.runtime import Invocation, Runtime
 
 
@@ -159,10 +158,17 @@ class RunResult:
     invocations: list[Invocation] = field(default_factory=list)
 
 
+def _resolver() -> Callable[[str], tuple[Provider, ModelInfo]]:
+    """The current resolver, looked up now rather than at import time."""
+    from offset.providers import registry
+
+    return registry.resolve
+
+
 class Agent:
     """Drives one session against one model, with one toolbox."""
 
-    __slots__ = ("session", "runtime", "config", "_resolve", "_provider", "_meta", "_key")
+    __slots__ = ("_key", "_meta", "_provider", "_resolve", "config", "runtime", "session")
 
     def __init__(
         self,
@@ -170,13 +176,15 @@ class Agent:
         runtime: Runtime,
         config: AgentConfig | None = None,
         *,
-        resolver: Callable[[str], tuple[Provider, ModelInfo]] = resolve,
+        resolver: Callable[[str], tuple[Provider, ModelInfo]] | None = None,
         provider: Provider | None = None,
         api_key: str | None = None,
     ) -> None:
         self.session = session
         self.runtime = runtime
         self.config = config or AgentConfig()
+        #: Resolved on every use rather than captured here: a credential added
+        #: or a config reloaded after this object was built must still be seen.
         self._resolve = resolver
         self._provider = provider
         self._meta: ModelInfo | None = None
@@ -187,7 +195,7 @@ class Agent:
     def _endpoint(self) -> tuple[Provider, ModelInfo]:
         if self._provider is not None and self._meta is not None:
             return self._provider, self._meta
-        provider, meta = self._resolve(self.config.model)
+        provider, meta = (self._resolve or _resolver())(self.config.model)
         if self._provider is not None:
             provider = self._provider
         self._meta = meta

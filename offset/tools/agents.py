@@ -240,7 +240,7 @@ class SubagentRunner:
     which is how the depth cap survives being handed down through toolboxes.
     """
 
-    __slots__ = ("model", "depth", "max_depth", "types", "tools", "approval", "resolver", "api_key", "session_root", "gate", "limit")
+    __slots__ = ("api_key", "approval", "depth", "gate", "limit", "max_depth", "model", "resolver", "session_root", "tools", "types")
 
     def __init__(
         self,

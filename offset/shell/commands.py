@@ -8,21 +8,26 @@ different front end later without being rewritten.
 
 from __future__ import annotations
 
+import getpass
+import socket
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from offset.core.agent import Agent
-from offset.core import compaction, context, permissions, snapshots
+from offset.core.agent import Agent, AgentConfig
+from offset.core import compaction, context, permissions, snapshots, workflow
 from offset.shell import consent
 from offset.ui import theme
+from offset.ui.tokens import fit
 from offset.core.agent import to_messages
 from offset.core.branches import BranchRun, approaches, run_branches
 from offset.core.entries import CONVERSATIONAL, MESSAGE
-from offset.core.multimodel import Ensemble, Seat
+from offset.core.multimodel import Ensemble, Seat, default_roster, seat_roster
 from offset.core.session import Session
 from offset.eggs.engine import EggEngine, Reveal
 from offset.providers import auth, oauth
+from offset.providers.base import Message, Request
 from offset.providers.registry import (
     MODELS,
     ModelInfo,
@@ -33,7 +38,7 @@ from offset.providers.registry import (
     search,
 )
 from offset.tools.base import Danger, Toolbox
-from offset.tools.runtime import Approval
+from offset.tools.runtime import Approval, Runtime
 
 TONE_OK = "ok"
 TONE_ERR = "err"
@@ -121,7 +126,12 @@ class ShellState:
     overlay: Overlay | None = None
     verify_command: str | None = None
     spec_run: BranchRun | None = None
+    flow_run: Any = None
     mcp: Any = None
+    #: Terminal columns, refreshed before each command runs. A command that lays
+    #: out a table needs it; without it /help built rows wider than the pane and
+    #: the second column was clipped off the right edge.
+    width: int = 96
 
     @property
     def model(self) -> str:
@@ -144,19 +154,37 @@ class Command:
 
 
 def _help(state: ShellState, args: list[str]) -> Outcome:
-    """Two columns: the list outgrew a single one, and then outgrew the pane."""
+    """Two columns when they fit, one when they do not.
+
+    The list outgrew a single column, then outgrew the pane. Laying it out
+    without knowing the terminal width meant the right-hand summaries ran off the
+    edge and were cut mid-word.
+    """
     names = [f"/{c.name}" for c in COMMANDS]
-    width = max(len(n) for n in names) + 1
-    cells = [f"{n:<{width}} {c.summary}" for n, c in zip(names, COMMANDS)]
-    half = (len(cells) + 1) // 2
-    left, right = cells[:half], cells[half:]
-    gutter = max(len(row) for row in left) + 3
-    lines = [
-        f"{a:<{gutter}}{b}".rstrip() if b else a
-        for a, b in zip(left, right + [""] * (len(left) - len(right)))
-    ]
+    keys = max(len(n) for n in names) + 1
+    available = max(28, state.width - 2)
+
+    def cell(name: str, summary: str, room: int) -> str:
+        # `fit` marks a cut with an ellipsis; slicing cut mid-word silently.
+        return f"{name:<{keys}} {fit(summary, max(0, room - keys - 1), upper=False)}"
+
+    # Two columns need a gutter and enough left over for a summary worth reading;
+    # below that a single wide column beats two cramped ones.
+    column = (available - 3) // 2
+    if column < keys + 22:
+        lines = [cell(n, c.summary, available) for n, c in zip(names, COMMANDS)]
+    else:
+        half = (len(names) + 1) // 2
+        pairs = list(zip(names[:half], COMMANDS[:half]))
+        others = list(zip(names[half:], COMMANDS[half:])) + [("", None)] * (half - len(names[half:]))
+        lines = [
+            (f"{cell(ln, lc.summary, column):<{column + 3}}"
+             + (cell(rn, rc.summary, column) if rc is not None else "")).rstrip()
+            for (ln, lc), (rn, rc) in zip(pairs, others)
+        ]
     found, total = state.eggs.progress()
-    lines += ["", f"{found}/{total} easter eggs found. Some of them are commands. Keep typing."]
+    footer = f"{found}/{total} easter eggs found. Some of them are commands. Keep typing."
+    lines += ["", fit(footer, available, upper=False)]
     return Outcome(lines, TONE_INFO)
 
 
@@ -206,6 +234,105 @@ def _models(state: ShellState, args: list[str]) -> Outcome:
     return Outcome(lines, TONE_INFO)
 
 
+# -- the roster ---------------------------------------------------------------
+
+#: What each ensemble strategy does, in the order /council lists them.
+STRATEGIES: dict[str, str] = {
+    "judge": "everyone answers, a judge model picks the best",
+    "vote": "everyone answers, the weighted majority wins",
+    "race": "first usable answer wins, the rest are dropped",
+    "relay": "planner, then implementer, then critic, each seeing the last",
+}
+
+
+def _seats(state: ShellState, args: list[str]) -> Outcome:
+    """Show or set the models a multi-model run may use."""
+    if args and args[0].lower() in ("auto", "reset"):
+        state.ensemble = seat_roster(state.model)
+        args = []
+    elif args and args[0].lower() == "off":
+        state.ensemble = default_roster([state.model])
+        return Outcome([f"roster is just {state.model}; /spec and /council use one model"], TONE_OK)
+    elif args:
+        state.ensemble = default_roster(args)
+
+    roster = state.ensemble
+    if roster is None:
+        return Outcome.error("no roster; /seats auto builds one")
+    ready = {m.id for m in available()}
+    known = {m.id for m in MODELS}
+    lines = [f"{len(list(roster))} seats, in order:"]
+    for seat in roster:
+        mark = "*" if seat.model == state.model else " "
+        # An id nobody has heard of is allowed on purpose - a model released
+        # today works without waiting for a catalogue entry - but saying "no key"
+        # about it would be a lie, so say what is actually true.
+        status = "ready" if seat.model in ready else "no key" if seat.model in known else "unknown id"
+        lines.append(f"{mark} {seat.model:<26} {seat.role:<12} "
+                     f"weight {seat.weight:<5g} {status}")
+    lines += ["", "/seats <id> <id> ... sets it, /seats auto rebuilds, /seats off uses one model"]
+    return Outcome(lines, TONE_INFO)
+
+
+def _council(state: ShellState, args: list[str]) -> Outcome:
+    """Ask every seat the same thing and reconcile the answers."""
+    strategy = "judge"
+    if args and args[0].lower() in STRATEGIES:
+        strategy, args = args[0].lower(), args[1:]
+    question = " ".join(args)
+    if not question:
+        return Outcome(
+            [f"/council [{'|'.join(STRATEGIES)}] <question>", ""]
+            + [f"  {name:<7} {what}" for name, what in STRATEGIES.items()],
+            TONE_INFO,
+        )
+    roster = state.ensemble
+    if roster is None or len(list(roster)) < 2:
+        return Outcome.error("a council needs at least two seats", "/seats auto, or /seats <id> <id>")
+
+    seats = list(roster)
+    request = Request(
+        model=state.model,
+        system=state.agent.config.system,
+        messages=[Message("user", question)],
+        max_tokens=900,
+    )
+
+    def job() -> Outcome:
+        if strategy == "relay":
+            opinions = roster.relay(request)
+            lines = [f"relay over {len(opinions)} seats:", ""]
+            for op in opinions:
+                head = f"{op.seat.label} ({op.seat.role})"
+                lines.append(f"  {head}: {op.text.strip()[:200] if op.ok else 'failed: ' + (op.error or '')}")
+            state.eggs.event("council_ran")
+            return Outcome(lines, TONE_OK)
+
+        if strategy == "judge":
+            # The judge must not grade its own answer, so it only judges when
+            # somebody else is left to answer.
+            judge = roster.staff(("critic",))[0][1]
+            answering = [s for s in seats if s is not judge] or seats
+            verdict = roster.council(request, judge=judge, seats=answering)
+        else:
+            verdict = roster.race(request) if strategy == "race" else roster.vote(request)
+        lines = [f"{strategy}: {verdict.reason}", ""]
+        for op in verdict.opinions:
+            mark = ">" if op is verdict.winner else " "
+            body = op.text.strip().replace("\n", " ")[:150] if op.ok else f"failed: {op.error or ''}"
+            lines.append(f"{mark} {op.seat.label:<24} {body}")
+        if verdict.tally:
+            lines += ["", "tally: " + ", ".join(f"{v:g}x" for v in verdict.tally.values())]
+        state.eggs.event("council_ran")
+        return Outcome(lines, TONE_OK)
+
+    return Outcome(
+        [f"{strategy}: asking {len(seats)} seats", *(f"  {s.label}" for s in seats)],
+        TONE_INFO,
+        job=job,
+    )
+
+
 #: Providers a person can plausibly hold an account with.
 LOGIN_TARGETS: tuple[str, ...] = (
     "anthropic", "openai", "google", "deepseek", "openrouter",
@@ -238,19 +365,39 @@ def _login(state: ShellState, args: list[str]) -> Outcome:
 def _login_provider(state: ShellState, provider: str) -> Outcome:
     """Browser flow when the provider offers one, otherwise a masked field."""
     if provider in auth.oauth_providers() and not auth.missing_config(provider):
+        # Start the flow here, not inside the job: the url only helps if it is on
+        # screen while the person is being asked to visit it.
+        try:
+            pending = auth.begin_login(provider)
+        except Exception as exc:
+            return Outcome.error(f"{provider} sign-in failed: {exc}", "or paste a key instead")
+
         def job() -> Outcome:
             try:
-                cred = auth.login_browser(provider, announce=lambda p: None)
+                cred = pending.finish()
             except Exception as exc:
                 return Outcome.error(f"{provider} sign-in failed: {exc}", "try /login again, or paste a key")
             return Outcome([f"signed in: {cred.label()}"], TONE_OK)
 
         entry = oauth.app(provider)
-        return Outcome(
-            [f"opening your browser to sign in to {provider}", entry.note or "", "waiting for the callback..."],
-            TONE_INFO,
-            job=job,
-        )
+        # What the grant covers, from the same table that requests it.
+        scopes = [s for s in oauth.scopes_of(provider) if s]
+        asking = ["", "it will ask for: " + ", ".join(scopes)] if scopes else []
+        if pending.user_code:
+            lines = [f"sign in to {provider} without a browser on this machine:",
+                     f"  1. open  {pending.url}",
+                     f"  2. enter code  {pending.user_code}"]
+        elif pending.opened:
+            lines = [f"opening your browser to sign in to {provider}", "waiting for the callback..."]
+        else:
+            port = pending.port
+            lines = [f"no browser on this machine; open this url to sign in to {provider}:",
+                     f"  {pending.url}", "",
+                     f"the reply comes back to port {port} of THIS machine, so if you opened",
+                     "that url elsewhere, forward it first and try again:",
+                     f"  ssh -L {port}:localhost:{port} {getpass.getuser()}@{socket.gethostname()}",
+                     "", "or press escape and paste an api key instead"]
+        return Outcome([*lines, *asking, entry.note or ""], TONE_INFO, job=job)
 
     absent = auth.missing_config(provider) if provider in auth.oauth_providers() else ()
     overlay = Overlay(kind="login", title=f"{provider} api key", secret=True, payload=provider)
@@ -377,6 +524,108 @@ def _trophies(state: ShellState, args: list[str]) -> Outcome:
     return Outcome(overlay=overlay)
 
 
+def _flow(state: ShellState, args: list[str]) -> Outcome:
+    """Several models working one task together, on a plan they write themselves.
+
+    Distinct from /spec, which tries the whole task N ways in isolation and keeps
+    the best: this decomposes the task once and runs the pieces on different
+    models, in dependency order, against this repository.
+    """
+    goal = " ".join(args)
+    if not goal:
+        return Outcome.error("usage: /flow <task>", "example: /flow add a --json flag to the cli")
+    roster = state.ensemble
+    if roster is None or not list(roster):
+        return Outcome.error("no roster to work with", "/seats auto")
+
+    seats = list(roster)
+    planner = roster.staff(("planner",))[0][1]
+
+    def job() -> Outcome:
+        ask = Request(
+            model=planner.model,
+            system=workflow.PLAN_SYSTEM,
+            messages=[Message("user", workflow.plan_prompt(goal, roles=sorted({s.role for s in seats})))],
+            max_tokens=1200,
+        )
+        drafted = roster.ask(planner, ask)
+        plan = workflow.parse_plan(goal, drafted.text if drafted.ok else "")
+        run = workflow.run_workflow(
+            plan, roster,
+            worker_for(state),
+            revise=reviser_for(roster, planner),
+        )
+        state.flow_run = run
+        state.eggs.event("flow_ran", steps=len(run.steps))
+        if run.ok:
+            state.eggs.event("flow_completed")
+        head = [f"{len(run.steps)} steps on {len({s.model for s in run.steps if s.model})} models"]
+        if not drafted.ok:
+            head.append(f"the planner was unreachable ({drafted.error}); ran it as one step")
+        return Outcome(head + [""] + run.report(), TONE_OK if run.ok else TONE_ERR)
+
+    return Outcome(
+        [f"planning with {planner.model}: {goal}",
+         f"{len(seats)} seats available: " + ", ".join(s.model for s in seats),
+         "", "independent steps run at once; steps that edit files run one at a time"],
+        TONE_INFO,
+        job=job,
+    )
+
+
+def worker_for(state: ShellState) -> workflow.Worker:
+    """Run one step as a real agent on its own model, in this workspace.
+
+    Every step shares the workspace, so a step the plan marked read-only is given
+    a toolbox with the writing tools physically removed rather than being asked
+    politely - that is what makes running a wave concurrently safe.
+    """
+    def work(step: workflow.Step, seat: Seat, briefing: str) -> workflow.StepResult:
+        toolbox = state.toolbox if step.writes else workflow.readonly_toolbox(state.toolbox)
+        runtime = Runtime(toolbox, state.agent.runtime.context, state.approval)
+        agent = Agent(
+            state.session, runtime,
+            AgentConfig(model=seat.model, system=state.agent.config.system,
+                        max_steps=state.agent.config.max_steps),
+        )
+        result = agent.send(briefing)
+        if result.error:
+            return workflow.StepResult(text=result.text or "", error=result.error)
+        return workflow.StepResult(text=result.text or "")
+
+    return work
+
+
+def reviser_for(roster: Ensemble, planner: Seat) -> workflow.Reviser:
+    """Let the planner rewrite whatever has not run yet, after a failure."""
+    def revise(run: workflow.WorkflowRun, pending: Sequence[workflow.Step]) -> list[workflow.Step] | None:
+        if not pending:
+            return None
+        story = "\n".join(
+            f"{s.id}: {s.state} - {s.summary(120)}" for s in run.steps if s.state != workflow.PENDING
+        )
+        remaining = ", ".join(s.id for s in pending)
+        ask = Request(
+            model=planner.model,
+            system=workflow.PLAN_SYSTEM,
+            messages=[Message("user",
+                f"Goal: {run.plan.goal}\n\nWhat has happened so far:\n{story}\n\n"
+                f"Not started yet: {remaining}\n\nReplace the steps that have not started with a "
+                f"plan that deals with what went wrong. Reply with JSON only.")],
+            max_tokens=1200,
+        )
+        answer = roster.ask(planner, ask)
+        if not answer.ok:
+            return None
+        revised = workflow.parse_plan(run.plan.goal, answer.text)
+        # A planner that just repeats the goal as one step is not a revision.
+        if len(revised) == 1 and revised.steps[0].task.strip() == run.plan.goal.strip():
+            return None
+        return revised.steps
+
+    return revise
+
+
 def _spec(state: ShellState, args: list[str]) -> Outcome:
     """Really run N approaches in isolated worktrees, then rank them."""
     if not args:
@@ -480,7 +729,7 @@ def _compact(state: ShellState, args: list[str]) -> Outcome:
 
     def job() -> Outcome:
         try:
-            report = compaction.compact(
+            compaction.compact(
                 state.session,
                 compaction.model_summariser(state.model),
                 budget=budget,
@@ -641,6 +890,10 @@ COMMANDS: list[Command] = [
     Command("help", "this list", _help, aliases=("?",)),
     Command("model", "switch model, or open the picker", _model, usage="/model [name]"),
     Command("models", "list every model and whether it is usable", _models),
+    Command("seats", "which models a multi-model run uses", _seats, usage="/seats [auto|off|<id>...]"),
+    Command("flow", "several models work one task together", _flow, usage="/flow <task>"),
+    Command("council", "ask every seat the same thing", _council,
+            usage="/council [judge|vote|race|relay] <question>"),
     Command("login", "sign in with your account, or paste an API key", _login, usage="/login [provider]"),
     Command("logout", "forget a stored credential", _logout, usage="/logout [provider]"),
     Command("accounts", "which accounts offset can use", _accounts),

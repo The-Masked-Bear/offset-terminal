@@ -7,19 +7,17 @@ happily walked whatever `.gitignore` was there to keep them out of.
 
 from __future__ import annotations
 
-import os
-import subprocess
 import time
 from pathlib import Path
 
 import pytest
 
 from offset.core.agent import to_messages
-from offset.core.entries import BRANCH_SUMMARY, COMPACTION, MESSAGE, TOOL_CALL, TOOL_RESULT
+from offset.core.entries import BRANCH_SUMMARY, COMPACTION, TOOL_CALL, TOOL_RESULT
 from offset.core.session import Session
 from offset.providers.base import ToolCall
 from offset.tools.base import ToolContext, Toolbox
-from offset.tools.builtin import Bash, Glob, Grep, builtin_tools
+from offset.tools.builtin import builtin_tools
 from offset.tools.runtime import Approval, Runtime
 from offset.tools.walk import walk
 

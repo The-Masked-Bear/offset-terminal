@@ -175,7 +175,7 @@ class Ask(Tool):
         def target() -> None:
             try:
                 box.append(_normalise(question, asker(question)))
-            except Exception as exc:  # a broken asker is a declined question
+            except Exception:  # a broken asker is a declined question
                 box.append(Answer.no(DECLINED))
 
         worker = threading.Thread(target=target, name="offset-ask", daemon=True)

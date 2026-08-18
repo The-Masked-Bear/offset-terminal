@@ -108,7 +108,7 @@ class Egg:
 class EggEngine:
     """Holds the catalogue, the counters, and the discovery record."""
 
-    __slots__ = ("eggs", "_by_command", "_counters", "_found", "_last_fire", "_cooldown", "_rng", "_clock", "_path", "_keys", "_last_input")
+    __slots__ = ("_by_command", "_clock", "_cooldown", "_counters", "_found", "_keys", "_last_fire", "_last_input", "_path", "_rng", "eggs")
 
     def __init__(
         self,

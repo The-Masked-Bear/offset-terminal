@@ -142,7 +142,7 @@ class Turn:
 class TurnBuilder:
     """Folds an event stream into a `Turn`."""
 
-    __slots__ = ("_text", "_thinking", "_calls", "_order", "_usage", "_stop", "_error")
+    __slots__ = ("_calls", "_error", "_order", "_stop", "_text", "_thinking", "_usage")
 
     def __init__(self) -> None:
         self._text: list[str] = []

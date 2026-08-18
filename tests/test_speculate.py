@@ -7,7 +7,6 @@ claim under test is precisely that two attempts cannot see each other's edits.
 from __future__ import annotations
 
 import subprocess
-import threading
 import time
 from pathlib import Path
 

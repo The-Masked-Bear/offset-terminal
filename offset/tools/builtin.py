@@ -14,7 +14,6 @@ import signal
 import subprocess
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from offset.tools.base import Danger, Tool, ToolContext, ToolResult

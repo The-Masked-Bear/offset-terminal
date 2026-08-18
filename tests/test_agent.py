@@ -16,16 +16,12 @@ import pytest
 from offset.core.agent import (
     Agent,
     AgentConfig,
-    Finished,
-    StepStarted,
-    ToolFinished,
-    ToolStarted,
     to_messages,
 )
 from offset.core.entries import MESSAGE, TOOL_CALL, TOOL_RESULT
-from offset.core.multimodel import Ensemble, Opinion, Seat, normalise
+from offset.core.multimodel import Ensemble, Seat, normalise
 from offset.core.session import Session
-from offset.providers.base import Message, Request, TextDelta, Turn, Usage
+from offset.providers.base import Message, Request, TextDelta, Usage
 from offset.providers.mock import Mock, script
 from offset.providers.registry import ModelInfo
 from offset.tools.base import Danger, Tool, ToolContext, ToolResult, Toolbox

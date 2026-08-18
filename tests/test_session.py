@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from offset.core.entries import CONVERSATIONAL, LEAF, MESSAGE, Entry, new_id
+from offset.core.entries import CONVERSATIONAL, MESSAGE, Entry, new_id
 from offset.core.session import Session
 
 

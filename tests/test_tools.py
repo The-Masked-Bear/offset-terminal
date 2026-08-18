@@ -8,7 +8,6 @@ never half-parallel, and a custom tool written in any language actually runs.
 from __future__ import annotations
 
 import json
-import os
 import stat
 import threading
 import time

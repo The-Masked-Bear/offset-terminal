@@ -65,7 +65,7 @@ def max_bytes(override: int | None = None) -> int:
 class Store:
     """Content-addressed blobs.  The name *is* the hash, so writes dedupe."""
 
-    __slots__ = ("root", "dir")
+    __slots__ = ("dir", "root")
 
     def __init__(self, root: str | os.PathLike[str]) -> None:
         self.root = Path(root).expanduser().resolve()

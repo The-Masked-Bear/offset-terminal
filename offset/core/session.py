@@ -29,7 +29,6 @@ from typing import Any, Iterable, Iterator
 
 from offset.core.entries import (
     BOOKKEEPING,
-    COLLAPSIBLE,
     CONVERSATIONAL,
     LABEL,
     LEAF,
@@ -65,7 +64,7 @@ class SessionInfo:
 class Session:
     """An append-only session file plus the indexes derived from it."""
 
-    __slots__ = ("path", "id", "_entries", "_by_id", "_kids", "_leaf", "_labels", "_skipped", "_fh")
+    __slots__ = ("_by_id", "_entries", "_fh", "_kids", "_labels", "_leaf", "_skipped", "id", "path")
 
     def __init__(self, path: str | os.PathLike[str]) -> None:
         self.path = Path(path)

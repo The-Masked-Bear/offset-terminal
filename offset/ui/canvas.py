@@ -20,7 +20,7 @@ _CONT = ""
 
 
 class Canvas:
-    __slots__ = ("w", "h", "_ch", "_fg", "_bg", "_bold")
+    __slots__ = ("_bg", "_bold", "_ch", "_fg", "h", "w")
 
     def __init__(self, w: int, h: int, *, fill: str = " ", fg: RGB = INK, bg: RGB = PAPER) -> None:
         if w < 0 or h < 0:

@@ -20,7 +20,6 @@ from offset.shell import render
 from offset.shell.commands import (
     BY_NAME,
     COMMANDS,
-    Outcome,
     ShellState,
     complete,
     dispatch,
@@ -29,7 +28,6 @@ from offset.shell.commands import (
 from offset.tools.base import ToolContext, Toolbox
 from offset.tools.builtin import builtin_tools
 from offset.tools.runtime import Approval, Runtime
-from offset.ui.tokens import Depth
 
 
 @pytest.fixture()
@@ -67,12 +65,15 @@ def test_every_command_is_reachable_and_documented(state):
     for command in COMMANDS:
         assert command.summary, f"{command.name} has no summary"
         assert BY_NAME[command.name] is command
+    # Wide enough that nothing is ellipsised: whether a narrow pane truncates
+    # tidily is a separate question, covered by the layout tests.
+    state.width = 220
     listing = dispatch(state, "/help")
     body = "\n".join(listing.lines)
     for command in COMMANDS:
         # /help is laid out in two columns, so a name need not start its line.
         assert f"/{command.name}" in body, f"/{command.name} is not documented"
-        assert command.summary in body
+        assert command.summary in body, f"/{command.name}'s summary is missing"
 
 
 def test_aliases_work(state):
@@ -532,7 +533,6 @@ def test_sessions_lists_the_current_one(state):
 
 def test_a_writing_tool_snapshots_before_it_writes(state, tmp_path):
     """The /rewind safety net only exists if the runtime takes the snapshot."""
-    from offset.core.snapshots import records
     from offset.providers.base import ToolCall
 
     target = tmp_path / "notes.txt"

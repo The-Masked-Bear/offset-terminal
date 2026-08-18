@@ -512,7 +512,7 @@ def test_a_disabled_server_is_never_connected(script, log, managers):
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
-    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's spelling
+    def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length") or 0)
         message = json.loads(self.rfile.read(length) or b"{}")
         self.server.seen.append((message.get("method"), self.headers.get("Mcp-Session-Id")))

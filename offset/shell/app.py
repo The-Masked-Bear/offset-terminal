@@ -16,7 +16,6 @@ import queue
 import threading
 import time
 from pathlib import Path
-from typing import Any
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.buffer import Buffer
@@ -41,6 +40,7 @@ from prompt_toolkit.styles import Style
 
 from offset.core.agent import Agent, AgentConfig, Finished, ToolFinished
 from offset.core.entries import CONVERSATIONAL
+from offset.core.multimodel import seat_roster
 from offset.core.session import Session
 from offset.eggs.catalogue import build_engine
 from offset.providers.base import StreamError, TextDelta, ThinkingDelta
@@ -61,7 +61,7 @@ from offset.tools.custom import default_dirs, discover
 from offset.tools.runtime import Approval, Runtime
 from offset.ui.tokens import detect_depth
 from offset.core import context, permissions, settings
-from offset.shell.consent import Consent, decide, permission_badge, render_consent, summary_lines
+from offset.shell.consent import Consent, decide, render_consent, summary_lines
 from offset.tools.agents import subagent_tools
 from offset.tools.system import system_tools
 from offset.tools.todo import todo_tools
@@ -228,7 +228,9 @@ class Shell:
         panel = self.state.overlay
         if panel is None:
             if self.reveal and self.now() < self.reveal_until:
-                return ANSI(render.reveal_panel(min(64, self.size[0] - 4), self.reveal, self.now()))
+                since = max(0.0, self.reveal.duration - (self.reveal_until - self.now()))
+                return ANSI(render.reveal_panel(min(64, self.size[0] - 4), self.reveal,
+                                                self.now(), elapsed=since))
             return ANSI("")
         width, height = self._overlay_size()
         return ANSI(render.overlay(width, height, panel, self.now()))
@@ -248,6 +250,7 @@ class Shell:
         if not text.strip() or self.busy:
             return
         self.state.eggs.touch()
+        self.state.width = self.size[0]
         outcome = dispatch(self.state, text)
         if outcome.handled:
             # Each command replaces the last one's output; stacking it means
@@ -746,6 +749,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None, approv
 
     state = ShellState(session, agent, toolbox, policy, eggs, workspace)
     state.mcp = mcp_manager
+    state.ensemble = seat_roster(model)
     return state
 
 

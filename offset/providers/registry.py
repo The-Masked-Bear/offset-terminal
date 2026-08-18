@@ -15,7 +15,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Final
+from typing import Callable, Final
 
 from offset.providers.anthropic import Anthropic
 from offset.providers.base import Provider
@@ -185,17 +185,6 @@ def store_credential(provider: str, key: str) -> Path:
     return CREDENTIALS_FILE
 
 
-def forget_credential(provider: str) -> bool:
-    data = _stored()
-    if provider not in data:
-        return False
-    del data[provider]
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_FILE.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    os.chmod(CREDENTIALS_FILE, 0o600)
-    return True
-
-
 def available() -> list[ModelInfo]:
     """Models we could actually run right now: local, or key present."""
     out: list[ModelInfo] = []
@@ -213,10 +202,3 @@ def redact(text: str, *keys: str | None) -> str:
     return text
 
 
-def config_value(name: str, default: Any = None) -> Any:
-    """Read `~/.offset/config.json`, tolerating absence and corruption."""
-    try:
-        raw = json.loads((CONFIG_DIR / "config.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return default
-    return raw.get(name, default) if isinstance(raw, dict) else default

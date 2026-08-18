@@ -17,7 +17,6 @@ import pytest
 
 from offset.tools.base import Danger, ToolContext, Toolbox
 from offset.tools.documents import (
-    Block,
     Documents,
     blocks_from,
     document_tools,

@@ -17,7 +17,6 @@ Everything in this module is `Danger.FULL`: it writes wherever it is pointed.
 from __future__ import annotations
 
 import json
-import os
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path

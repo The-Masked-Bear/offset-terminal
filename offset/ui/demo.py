@@ -24,14 +24,11 @@ from offset.ui.tokens import (
     MUTED,
     PAPER,
     PINK,
-    SURFACE,
     YELLOW,
-    Weight,
     detect_depth,
     display,
     fit,
     label,
-    text_width,
 )
 
 TICKER = (

@@ -189,7 +189,9 @@ def _hoist_union(node: dict[str, Any]) -> str | None:
         found = [b.get("type") for b in branches if isinstance(b, dict) and isinstance(b.get("type"), str)]
         if not found:
             continue
-        return found[0] if len(set(found)) > 1 else found[0]
+        # Branches that disagree get the first one: any concrete type beats no
+        # type at all, and the union itself stays in the schema for a reader.
+        return found[0]
     return None
 
 

@@ -132,12 +132,6 @@ class Consent:
         return grant(self.choice, self.workspace)
 
 
-def copy_text() -> str:
-    """The consent copy as plain prose — for tests, logs, and `/permissions`."""
-    parts = [HEADLINE, STANDFIRST, WORKSPACE_TITLE, *WORKSPACE_MEANS, FULL_TITLE, *FULL_MEANS, *SMALL_PRINT]
-    return "\n".join(parts)
-
-
 def permission_badge(scope: Scope | None) -> str:
     """One line for the status bar.  Untracked: `status_bar` tracks it."""
     if scope == "full":

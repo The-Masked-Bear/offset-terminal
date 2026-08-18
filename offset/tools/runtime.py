@@ -78,7 +78,7 @@ class Invocation:
 
 
 class Runtime:
-    __slots__ = ("toolbox", "approval", "context", "abort", "before_write", "_pool_size")
+    __slots__ = ("_pool_size", "abort", "approval", "before_write", "context", "toolbox")
 
     def __init__(
         self,

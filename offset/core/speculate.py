@@ -20,7 +20,6 @@ Nothing is adopted automatically.  Ranking proposes; the human disposes.
 from __future__ import annotations
 
 import difflib
-import os
 import shutil
 import subprocess
 import time
@@ -250,7 +249,7 @@ Runner = Callable[[Approach, Path], object]
 class Speculation:
     """Runs approaches in isolation and ranks them by what actually happened."""
 
-    __slots__ = ("root", "spaces", "verify_command", "verify_timeout", "keep")
+    __slots__ = ("keep", "root", "spaces", "verify_command", "verify_timeout")
 
     def __init__(
         self,

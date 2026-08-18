@@ -64,7 +64,7 @@ def kill_group(proc: subprocess.Popen) -> None:
 class _Sink:
     """Bounded head+tail accumulator fed by the reader thread."""
 
-    __slots__ = ("_head", "_head_len", "_tail", "_tail_len", "total", "_emit", "_emitted", "_partial")
+    __slots__ = ("_emit", "_emitted", "_head", "_head_len", "_partial", "_tail", "_tail_len", "total")
 
     def __init__(self, emit=None) -> None:
         self._head: list[str] = []

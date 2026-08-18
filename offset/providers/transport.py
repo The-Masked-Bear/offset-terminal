@@ -104,7 +104,7 @@ def post_lines(
                 for line in response:
                     yield line.rstrip(b"\r\n")
                 return
-        except urllib.error.HTTPError as exc:  # noqa: PERF203 - retry needs the loop
+        except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace") if exc.fp else ""
             last = HTTPFailure(exc.code, detail, retry_after=_retry_after_seconds(exc.headers))
         except urllib.error.URLError as exc:

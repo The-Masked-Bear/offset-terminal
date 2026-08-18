@@ -16,7 +16,6 @@ from offset.ui.canvas import Canvas
 from offset.ui.tokens import (
     CYAN,
     GRID,
-    Depth,
     G,
     INK,
     MINT,
@@ -31,7 +30,6 @@ from offset.ui.tokens import (
     display,
     fit,
     ink_on,
-    label,
     text_width,
 )
 
@@ -122,7 +120,7 @@ class Transcript:
     itself away while you are reading it is worse than no scrollback at all.
     """
 
-    __slots__ = ("offset", "follow", "_cache", "_width", "_seen", "wraps")
+    __slots__ = ("_cache", "_seen", "_width", "follow", "offset", "wraps")
 
     def __init__(self) -> None:
         self.offset = 0
@@ -266,26 +264,30 @@ def welcome(width: int, height: int, workspace: object, model: str, *, t: float 
         return cv.render()
 
     panel_w = min(66, width - 8)
-    panel_h = min(13, height - 3)
+    panel_h = min(14, height - 3)
     top = max(0, (height - panel_h) // 2 - 1)
     left = max(2, (width - panel_w - 4) // 2)
-    x, y, iw, _ = brutal.slab(cv, left, top, panel_w, panel_h, title="offset", title_tone="accent")
+    x, y, iw, ih = brutal.slab(cv, left, top, panel_w, panel_h, title="offset", title_tone="accent")
 
     brutal.heading(cv, x, y + 1, "ask for what you want.", tracking=0, width=iw)
-    rows = [
-        ("", ""),
+    teaching = [
         ("just type", "a question or an instruction, then enter"),
         ("/help", "every command, with what it does"),
+        ("/flow <task>", "several models work it together, in parallel"),
         ("/spec 3 <task>", "try three approaches at once, keep what passes"),
         ("/model", "pick a model    /login  use your own account"),
         ("ctrl-c twice", "quit    pageup  scroll back"),
     ]
-    for i, (key, what) in enumerate(rows):
-        row = y + 3 + i
-        if row >= y + panel_h - 2:
-            break
-        if not key:
-            continue
+    # `slab` hands back the interior rect, so `ih` is the real bound. Deriving one
+    # from `panel_h` was off by the border, and the last rows landed on the panel's
+    # own bottom edge and in its drop shadow. The breathing room below the headline
+    # is the first thing sacrificed: a short panel that teaches nothing is worse
+    # than a tight one that teaches something.
+    gap = 1 if ih >= len(teaching) + 3 else 0
+    first = y + 2 + gap
+    room = max(0, y + ih - first)
+    for i, (key, what) in enumerate(teaching[:room]):
+        row = first + i
         cv.text(x, row, fit(key, 15), INK, SURFACE, True, max_w=15)
         cv.text(x + 16, row, fit(what, iw - 16, upper=False), MUTED, SURFACE, False, max_w=iw - 16)
 
@@ -349,19 +351,29 @@ def overlay(width: int, height: int, panel: Overlay, t: float) -> str:
     return cv.render()
 
 
-def reveal_panel(width: int, egg, t: float) -> str:
-    """An easter egg, drawn in a slab that owes nothing to the layout."""
+def reveal_panel(width: int, egg, t: float, *, elapsed: float | None = None) -> str:
+    """An easter egg, drawn in a slab that owes nothing to the layout.
+
+    `elapsed` is time since the reveal opened, which is what the entrance
+    animations key off: the body types itself on, and a failure-toned egg
+    glitches instead. Without it the panel is simply static.
+    """
     lines = egg.frames[int(t * 12) % len(egg.frames)] if egg.frames else egg.lines
     height = len(lines) + (4 if egg.title else 3)
     cv = Canvas(width, height, bg=PAPER)
     tone = egg.tone if egg.tone in TONES else "branch"
-    inner = brutal.slab(cv, 0, 0, width, height, fill=TONES.get(tone, PINK), weight=Weight.SLAB)
-    x, y, iw, _ = inner
+    fill = TONES.get(tone, PINK)
+    x, y, iw, ih = brutal.slab(cv, 0, 0, width, height, fill=fill, weight=Weight.SLAB)
     if egg.title:
-        cv.text(x, y, display(egg.title, 1), INK, TONES.get(tone, PINK), True, max_w=iw)
+        title = display(egg.title, 1)
+        cv.text(x + anim.center(title, iw), y, title, INK, fill, True, max_w=iw)
         y += 1
+    since = t if elapsed is None else elapsed
     for i, line in enumerate(lines):
-        cv.text(x, y + i, line, INK, TONES.get(tone, PINK), False, max_w=iw)
+        if y + i >= y + ih:
+            break
+        shown = anim.hack_glitch(line, since) if tone == "err" else anim.type_on(line, since, delay=i * 0.04)
+        cv.text(x, y + i, shown, INK, fill, False, max_w=iw)
     return cv.render()
 
 

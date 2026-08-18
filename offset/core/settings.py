@@ -205,7 +205,7 @@ def _suggest(key: str) -> str:
 class Settings:
     """The five layers and the one file that may be written."""
 
-    __slots__ = ("workspace", "_home", "_layers", "_pending", "_problems", "_cache", "_lock", "_timer")
+    __slots__ = ("_cache", "_home", "_layers", "_lock", "_pending", "_problems", "_timer", "workspace")
 
     def __init__(self, workspace: str | os.PathLike[str] | None = None) -> None:
         self.workspace = Path(workspace).resolve() if workspace else Path.cwd()
@@ -513,7 +513,7 @@ def get(key: str, default: Any = None) -> Any:
     return _active.get(key, default)
 
 
-def set(key: str, value: Any) -> None:  # noqa: A001 - the contract names it `set`
+def set(key: str, value: Any) -> None:
     _active.set(key, value)
 
 

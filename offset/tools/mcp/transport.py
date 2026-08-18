@@ -104,8 +104,19 @@ class StdioTransport(Transport):
     """A server run as a child process, newline-delimited JSON on its stdio."""
 
     __slots__ = (
-        "command", "args", "env", "cwd", "grace",
-        "dropped", "_proc", "_queue", "_readers", "_stderr", "_gone", "_closed", "_write",
+        "_closed",
+        "_gone",
+        "_proc",
+        "_queue",
+        "_readers",
+        "_stderr",
+        "_write",
+        "args",
+        "command",
+        "cwd",
+        "dropped",
+        "env",
+        "grace",
     )
 
     def __init__(
@@ -138,7 +149,7 @@ class StdioTransport(Transport):
             raise TransportError("transport already started")
         argv = [self.command, *self.args]
         try:
-            self._proc = subprocess.Popen(  # noqa: S603 - the user configured this command
+            self._proc = subprocess.Popen(
                 argv,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -294,8 +305,19 @@ class HTTPTransport(Transport):
     not left to time out.
     """
 
-    __slots__ = ("url", "headers", "timeout", "dropped", "session", "_queue", "_outbox",
-                 "_sender", "_closed", "_broken", "_last")
+    __slots__ = (
+        "_broken",
+        "_closed",
+        "_last",
+        "_outbox",
+        "_queue",
+        "_sender",
+        "dropped",
+        "headers",
+        "session",
+        "timeout",
+        "url",
+    )
 
     def __init__(
         self,
@@ -399,7 +421,7 @@ class HTTPTransport(Transport):
             sent[SESSION_HEADER] = self.session
         request = urllib.request.Request(self.url, data=payload, headers=sent, method="POST")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310 - user-configured URL
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 raw = response.read()
                 headers = {k.lower(): v for k, v in response.headers.items()}
                 return headers, raw.decode("utf-8", "replace")

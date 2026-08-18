@@ -73,7 +73,7 @@ class Task:
 class TodoList:
     """The persisted list plus the invariants.  Every mutation re-enforces."""
 
-    __slots__ = ("path", "tasks", "_counter")
+    __slots__ = ("_counter", "path", "tasks")
 
     def __init__(self, path: str | os.PathLike[str]) -> None:
         self.path = Path(path)

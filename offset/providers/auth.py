@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Final
 
@@ -294,6 +294,88 @@ class LoginProgress:
     done: bool = False
 
 
+@dataclass(slots=True)
+class Pending:
+    """A sign-in that has been started and is waiting on the person.
+
+    Splitting the flow in two is what makes it usable on a headless box. The
+    caller can put the url - or the device code - on screen the instant it
+    exists, then block on `finish` off the UI thread. Doing both in one call
+    meant the url was computed, handed to `announce`, and thrown away, so an
+    ssh session showed "opening your browser" and then nothing at all for five
+    minutes.
+    """
+
+    provider: str
+    url: str
+    opened: bool
+    user_code: str | None = None
+    _entry: Any = None
+    _pkce: Any = None
+    _server: Any = None
+    _redirect_uri: str = ""
+    _device: Any = None
+
+    @property
+    def port(self) -> int:
+        """The loopback port the provider will redirect to, 0 for a device flow.
+
+        Worth surfacing: over SSH the redirect lands on this machine's port, so
+        the person needs it to forward one.
+        """
+        return getattr(self._server, "port", 0) or 0
+
+    @property
+    def kind(self) -> str:
+        return "device" if self._device is not None else "loopback"
+
+    def finish(self, *, timeout: float = 300.0) -> Credential:
+        """Block until the person finishes, then store the credential."""
+        if self._device is not None:
+            token = oauth.device_wait(self._entry, self._device)
+        else:
+            try:
+                code = self._server.wait(timeout=timeout)
+            finally:
+                self._server.close()
+            if not code:
+                raise AuthError("the browser never came back with an authorisation code")
+            token = oauth.exchange(self._entry, code, self._pkce, self._redirect_uri)
+        cred = Credential.from_token(self.provider, token)
+        save(cred)
+        return cred
+
+
+def begin_login(provider: str, *, open_browser: bool = True) -> Pending:
+    """Start a sign-in and return as soon as there is something to show.
+
+    Prefers the device flow when no browser could be opened and the provider
+    offers one - the normal case over SSH, where a loopback redirect lands on
+    the wrong machine.
+    """
+    entry = oauth.app(provider)
+    absent = oauth.needs(provider)
+    if absent:
+        raise AuthError(f"{provider} needs {', '.join(absent)} configured first")
+
+    pkce = oauth.Pkce.create()
+    state = oauth.new_state()
+    server = oauth.start_loopback(state if oauth.sends_state(entry) else None,
+                                  host=entry.redirect_host, path=entry.redirect_path)
+    redirect_uri = f"http://{entry.redirect_host}:{server.port}{entry.redirect_path}"
+    url = oauth.authorize_url(entry, pkce, state, redirect_uri)
+    opened = oauth.launch(url) if open_browser else False
+
+    if not opened and entry.device_url:
+        # No browser here, and the provider has a flow that does not need one.
+        server.close()
+        device = oauth.device_start(entry)
+        return Pending(provider, device.verification_uri, False, device.user_code,
+                       _entry=entry, _device=device)
+    return Pending(provider, url, opened, None,
+                   _entry=entry, _pkce=pkce, _server=server, _redirect_uri=redirect_uri)
+
+
 def login_browser(
     provider: str,
     *,
@@ -305,31 +387,15 @@ def login_browser(
     Falls back to the device-code flow when the provider offers one and no
     browser could be opened, which is the normal case over SSH.
     """
-    entry = oauth.app(provider)
-    absent = oauth.needs(provider)
-    if absent:
-        raise AuthError(f"{provider} needs {', '.join(absent)} configured first")
-
-    pkce = oauth.Pkce.create()
-    state = oauth.new_state()
-    server = oauth.start_loopback(state, host=entry.redirect_host, path=entry.redirect_path)
-    try:
-        redirect_uri = f"http://{entry.redirect_host}:{server.port}{entry.redirect_path}"
-        url = oauth.authorize_url(entry, pkce, state, redirect_uri)
-        opened = oauth.launch(url)
-        announce(LoginProgress(
-            url=url,
-            message="opened your browser; finish there" if opened
-            else "open this url to finish signing in",
-        ))
-        code = server.wait(timeout=timeout)
-    finally:
-        server.close()
-    if not code:
-        raise AuthError("the browser never came back with an authorisation code")
-    token = oauth.exchange(entry, code, pkce, redirect_uri)
-    cred = Credential.from_token(provider, token)
-    save(cred)
+    pending = begin_login(provider)
+    announce(LoginProgress(
+        url=pending.url,
+        user_code=pending.user_code,
+        message="opened your browser; finish there" if pending.opened
+        else "enter this code in your browser" if pending.user_code
+        else "open this url to finish signing in",
+    ))
+    cred = pending.finish(timeout=timeout)
     announce(LoginProgress(message=f"signed in to {provider}", done=True))
     return cred
 
