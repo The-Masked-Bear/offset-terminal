@@ -50,12 +50,38 @@ class Overlay:
     notes: list[str] = field(default_factory=list)
     selected: int = 0
     buffer: str = ""
+    #: Type-to-filter. A twenty-item list with no way to search is a list you
+    #: cannot use, and typing at it used to do nothing at all.
+    query: str = ""
     secret: bool = False
     payload: Any = None
 
+    def matches(self) -> list[int]:
+        """Indices of the items the query keeps, in order."""
+        if not self.query:
+            return list(range(len(self.items)))
+        needle = self.query.lower()
+        return [i for i, item in enumerate(self.items) if needle in item.lower()]
+
     def move(self, delta: int) -> None:
-        if self.items:
-            self.selected = (self.selected + delta) % len(self.items)
+        shown = self.matches()
+        if shown:
+            self.selected = (self.selected + delta) % len(shown)
+
+    def chosen(self) -> int | None:
+        """The index into `items` the user is pointing at, filtering applied."""
+        shown = self.matches()
+        if not shown:
+            return None
+        return shown[min(self.selected, len(shown) - 1)]
+
+    def narrow(self, text: str) -> None:
+        self.query += text
+        self.selected = 0
+
+    def widen(self) -> None:
+        self.query = self.query[:-1]
+        self.selected = 0
 
 
 @dataclass(slots=True)
@@ -145,10 +171,16 @@ def _model(state: ShellState, args: list[str]) -> Outcome:
         state.session.append("model_change", {"model": chosen})
         state.eggs.event("model_changed", model=chosen)
         meta = info(chosen)
-        return Outcome([
+        lines = [
             f"model: {meta.label}",
             f"provider {meta.provider}, context {meta.context:,}, max output {meta.max_output:,}",
-        ], TONE_OK)
+        ]
+        if not meta.local and auth.load(meta.provider) is None:
+            # Silently switching to a model we cannot authenticate turns the
+            # next message into a mystery failure.
+            return Outcome([*lines, "", f"no credential for {meta.provider} yet",
+                            f"run /login {meta.provider} before sending anything"], TONE_ERR)
+        return Outcome(lines, TONE_OK)
 
     catalogue = list(MODELS)
     ready = {m.id for m in available()}
@@ -690,14 +722,19 @@ def resolve_overlay(state: ShellState, overlay: Overlay, *, accepted: bool) -> O
         catalogue: Sequence[ModelInfo] = overlay.payload or []
         if not catalogue:
             return Outcome.error("no models to choose from")
-        chosen = catalogue[overlay.selected]
-        return _model(state, [chosen.id])
+        index = overlay.chosen()
+        if index is None:
+            return Outcome.error(f"nothing matches {overlay.query!r}")
+        return _model(state, [catalogue[index].id])
 
     if overlay.kind == "account":
         targets: Sequence[str] = overlay.payload or []
         if not targets:
             return Outcome.error("no providers to choose from")
-        return _login_provider(state, targets[overlay.selected])
+        index = overlay.chosen()
+        if index is None:
+            return Outcome.error(f"nothing matches {overlay.query!r}")
+        return _login_provider(state, targets[index])
 
     if overlay.kind == "login":
         provider = str(overlay.payload or "")
@@ -717,7 +754,10 @@ def resolve_overlay(state: ShellState, overlay: Overlay, *, accepted: bool) -> O
         ids: Sequence[str] = overlay.payload or []
         if not ids:
             return Outcome.error("nothing to jump to")
-        target = ids[overlay.selected]
+        index = overlay.chosen()
+        if index is None:
+            return Outcome.error(f"nothing matches {overlay.query!r}")
+        target = ids[index]
         entry = state.session.entry(target)
         state.session.branch(entry.parent if entry and entry.role == "user" else target)
         state.eggs.event("tree_navigated")

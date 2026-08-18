@@ -328,13 +328,22 @@ def overlay(width: int, height: int, panel: Overlay, t: float) -> str:
             cv.text(x, y + 2 + i, line, ink_on(RED), RED, i == len(rows) - 1, max_w=iw)
         return cv.render()
 
+    shown = panel.matches()
+    items = [panel.items[i] for i in shown]
+    notes = [panel.notes[i] if i < len(panel.notes) else "" for i in shown] if panel.notes else None
+    title = f"{panel.title}  /{panel.query}" if panel.query else panel.title
+
+    if not items:
+        brutal.slab(cv, 0, 0, width, min(height, 6), title=title, title_tone="err")
+        cv.text(2, 3, fit(f"nothing matches {panel.query!r}", width - 4, upper=False), MUTED, SURFACE)
+        return cv.render()
+
     rows = max(1, height - 5)
-    start = max(0, min(panel.selected - rows // 2, len(panel.items) - rows))
-    window = panel.items[start : start + rows]
-    notes = panel.notes[start : start + rows] if panel.notes else None
+    cursor = min(panel.selected, len(items) - 1)
+    start = max(0, min(cursor - rows // 2, len(items) - rows))
     brutal.dropdown(
-        cv, 0, 0, width, window, panel.selected - start,
-        title=panel.title, notes=notes,
+        cv, 0, 0, width, items[start : start + rows], cursor - start,
+        title=title, notes=notes[start : start + rows] if notes else None,
         fill="accent" if panel.kind == "model" else ("info" if panel.kind == "tree" else "branch"),
     )
     return cv.render()

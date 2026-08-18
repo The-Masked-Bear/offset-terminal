@@ -43,8 +43,8 @@ from offset.core.agent import Agent, AgentConfig, Finished, ToolFinished
 from offset.core.entries import CONVERSATIONAL
 from offset.core.session import Session
 from offset.eggs.catalogue import build_engine
-from offset.providers.base import TextDelta, ThinkingDelta
-from offset.providers.registry import CONFIG_DIR
+from offset.providers.base import StreamError, TextDelta, ThinkingDelta
+from offset.providers.registry import CONFIG_DIR, info
 from offset.shell import render
 from offset.shell.commands import (
     COMMANDS,
@@ -222,7 +222,7 @@ class Shell:
             return min(72, width - 4), 6
         if panel.kind == "approve":
             return min(72, width - 4), len([r for r in panel.items if r]) + 4
-        return min(72, width - 4), max(5, min(len(panel.items) + 5, rows - 6))
+        return min(72, width - 4), max(6, min(len(panel.matches()) + 5, rows - 6))
 
     def _overlay(self) -> ANSI:
         panel = self.state.overlay
@@ -371,9 +371,20 @@ class Shell:
                 reveal = self.state.eggs.event("tool_call", suppress=not inv.result.ok)
                 if reveal:
                     self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
+            elif isinstance(event, StreamError):
+                # Nothing used to handle this, so a failing provider produced
+                # total silence: no reply, no error, forever.
+                self.messages.append(("err", event.message))
+                if event.status in (401, 403) or "key" in event.message.lower():
+                    provider = info(self.state.model).provider
+                    self.messages.append(("err", f"run /login {provider} to add a key"))
             elif isinstance(event, Finished):
                 if event.reason == "cancelled":
                     self.state.eggs.event("turn_cancelled")
+                elif event.reason == "error" and not self.messages:
+                    self.messages.append(("err", "the model returned an error"))
+                elif event.reason == "max_steps":
+                    self.messages.append(("err", "stopped: too many tool steps in one turn"))
                 reveal = self.state.eggs.event("turn_finished")
                 if reveal:
                     self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
@@ -466,7 +477,9 @@ class Shell:
                 panel.buffer += "".join(c for c in text.strip() if c.isprintable())
                 return
             if panel is not None:
-                return  # a list panel has nothing to type into
+                if panel.items and text.isprintable():
+                    panel.narrow(text)  # type to filter a long list
+                return
             self.state.eggs.touch()
             reveal = self.state.eggs.key(text)
             if reveal:
@@ -530,10 +543,12 @@ class Shell:
         @keys.add("backspace")
         def _(event):
             panel = self.state.overlay
-            if panel is not None and panel.kind == "login":
+            if panel is None:
+                self.buffer.delete_before_cursor()
+            elif panel.kind == "login":
                 panel.buffer = panel.buffer[:-1]
             else:
-                self.buffer.delete_before_cursor()
+                panel.widen()
 
         return keys
 

@@ -93,6 +93,7 @@ class Terminal:
             "down": b"\x1b[B",
             "up": b"\x1b[A",
             "escape": b"\x1b",
+            "backspace": b"\x7f",
             "pageup": b"\x1b[5~",
             "pagedown": b"\x1b[6~",
             "end": b"\x1b[4~",
@@ -525,11 +526,81 @@ def test_a_paste_still_reaches_the_message_box(term):
 
 
 def test_a_paste_cannot_leak_past_a_list_panel(term):
+    """With a panel open a paste filters it, exactly as typing does; what it
+    must never do is land in the message box behind the panel."""
     term.type("/model")
     term.key("enter", settle=1.0)
     assert term.wait_for("claude opus"), term.text
-    paste(term, "LEAKED-INTO-THE-PROMPT")
-    assert "LEAKED-INTO-THE-PROMPT" not in term.text, "a list panel has nothing to type into"
+    paste(term, "LEAKED")
+
+    prompt_row = next(l for l in term.text.rstrip().split("\n")[::-1] if "\u25b6" in l)
+    assert "LEAKED" not in prompt_row, f"the paste reached the message box: {prompt_row!r}"
+
     term.key("escape", settle=0.5)
     paste(term, "now it lands")
     assert "now it lands" in term.text
+
+
+# -- selecting a model -------------------------------------------------------
+
+
+def test_arrow_keys_and_enter_select_a_model(term):
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    assert term.wait_for("claude opus"), term.text
+    for _ in range(3):
+        term.key("down", settle=0.3)
+    term.key("enter", settle=1.0)
+    assert term.wait_for("model:"), term.text
+    assert "mock" not in term.text.rstrip().split("\n")[-1].lower().split("★")[0]
+
+
+def test_typing_filters_the_model_list(term):
+    """A twenty-item list with no search is a list you cannot use; typing at it
+    used to do nothing at all."""
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    assert term.wait_for("claude opus")
+    term.type("kimi", settle=0.9)
+
+    squeezed = term.squeeze().lower()
+    assert "kimik3" in squeezed, f"the filter did not narrow the list:\n{term.text}"
+    assert "claudeopus" not in squeezed, "non-matching models should be gone"
+    assert "/kimi" in term.text.lower(), "the query should be visible"
+
+
+def test_backspace_widens_the_filter(term):
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    term.type("kimi", settle=0.7)
+    assert "claudeopus" not in term.squeeze().lower()
+    for _ in range(4):
+        term.key("backspace", settle=0.25)
+    assert term.wait_for("claude opus"), "backspace should restore the full list"
+
+
+def test_a_filter_that_matches_nothing_says_so(term):
+    term.type("/model")
+    term.key("enter", settle=1.0)
+    term.type("zzzzz", settle=0.9)
+    assert term.wait_for("nothing matches"), term.text
+
+
+def test_selecting_a_model_without_a_key_warns_immediately(term):
+    """Switching silently turned the next message into a mystery failure."""
+    term.type("/model claude-opus-4-20250514")
+    term.key("enter", settle=1.0)
+    assert term.wait_for("no credential for anthropic"), term.text
+    assert "/login anthropic" in term.text
+
+
+def test_a_provider_failure_is_reported_instead_of_silence(term):
+    """Regression: drain() ignored StreamError, so a failing provider produced
+    no reply, no error, nothing at all."""
+    term.type("/model claude-opus-4-20250514")
+    term.key("enter", settle=0.8)
+    term.type("hello there")
+    term.key("enter", settle=3.0)
+
+    assert term.wait_for("api-key"), f"the failure was silent:\n{term.text}"
+    assert "/login anthropic" in term.text, "it should say how to fix it"
