@@ -34,7 +34,7 @@ def test_a_fresh_shell_has_a_roster(state):
 
 
 def test_the_active_model_leads_the_roster(state):
-    first = list(state.ensemble)[0]
+    first = next(iter(state.ensemble))
     assert first.model == state.model, "the model the user chose must lead"
 
 
@@ -113,7 +113,7 @@ def test_seats_can_be_set_and_rebuilt(state):
     dispatch(state, "/seats mock claude-opus-4-20250514")
     assert [s.model for s in state.ensemble] == ["mock", "claude-opus-4-20250514"]
     dispatch(state, "/seats auto")
-    assert list(state.ensemble)[0].model == "mock"
+    assert next(iter(state.ensemble)).model == "mock"
 
 
 def test_seats_off_collapses_to_one_model(state):

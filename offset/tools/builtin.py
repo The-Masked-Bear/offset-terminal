@@ -21,8 +21,9 @@ from offset.tools.walk import PRUNE
 from offset.tools.walk import walk as ignore_aware_walk
 
 #: Directories never worth walking; skipping them is the difference between a
-#: glob that answers instantly and one that reads a virtualenv.
-PRUNE = {".git", "__pycache__", ".venv", "venv", "node_modules", ".mypy_cache", ".pytest_cache", "dist", "build", ".offset"}
+#: glob that answers instantly and one that reads a virtualenv. Defined by
+#: `walk`, which owns walking - a second copy here shadowed it with an identical
+#: set, which is one edit away from the two disagreeing.
 MAX_BYTES = 512_000
 
 

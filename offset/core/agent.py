@@ -236,7 +236,7 @@ class Agent:
         # previous turn, so one cancellation cannot brick the session.
         self.runtime.reset()
 
-        provider, meta = self._endpoint()
+        provider, _meta = self._endpoint()
         # An explicit api_key beats everything (tests and branch agents pass one).
         # Otherwise resolve a Credential, which also covers OAuth and refreshes
         # a token that is about to expire before the request goes out.

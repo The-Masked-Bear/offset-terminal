@@ -246,7 +246,7 @@ def stat(
     frame and breathing room.
     """
     h = 10
-    ix, iy, iw, ih = slab(cv, x, y, w, h, weight=Weight.SLAB, fill=tone(fill), shadow=shadow, pressed=pressed)
+    ix, iy, iw, _ih = slab(cv, x, y, w, h, weight=Weight.SLAB, fill=tone(fill), shadow=shadow, pressed=pressed)
     bw = big_width(value)
     big_text(cv, ix, iy + 1, value, ink_on(tone(fill)), tone(fill))
     if unit:

@@ -90,7 +90,7 @@ def test_docx_is_a_valid_package_that_parses(tmp_path):
     for required in ("[Content_Types].xml", "_rels/.rels", "word/document.xml",
                     "word/styles.xml", "word/_rels/document.xml.rels"):
         assert required in got, f"{required} missing: a reader will reject this"
-    for name, body in got.items():
+    for body in got.values():
         ET.fromstring(body)  # every part must be well-formed XML
 
     document = got["word/document.xml"].decode()
