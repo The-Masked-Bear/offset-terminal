@@ -416,14 +416,36 @@ def test_catalogue_search():
     assert search("zzzz") == []
 
 
-def test_credentials_prefer_the_environment(monkeypatch, tmp_path):
+def test_credentials_prefer_the_most_deliberate_source(monkeypatch, tmp_path):
+    """Ordered by how clearly the key was meant for offset, not by convention.
+
+    A vendor variable is ambient and shared with every other tool, so it loses to
+    a key typed into `/login`; a variable that names offset wins outright.
+    """
+    from offset.providers.registry import source
 
     monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
-    store_credential("anthropic", "from-disk")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
     assert credential(provider_for("anthropic")) == "from-env"
-    monkeypatch.delenv("ANTHROPIC_API_KEY")
-    assert credential(provider_for("anthropic")) == "from-disk"
+    assert source(provider_for("anthropic"))[0] == "$ANTHROPIC_API_KEY"
+
+    store_credential("anthropic", "typed-into-offset")
+    assert credential(provider_for("anthropic")) == "typed-into-offset"
+    assert source(provider_for("anthropic"))[0] == "stored by /login"
+
+    monkeypatch.setenv("OFFSET_ANTHROPIC_KEY", "aimed-here")
+    assert credential(provider_for("anthropic")) == "aimed-here"
+    assert source(provider_for("anthropic"))[0] == "$OFFSET_ANTHROPIC_KEY"
+
+
+def test_no_credential_anywhere_has_no_source(monkeypatch, tmp_path):
+    from offset.providers.registry import source
+
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "empty"))
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "OFFSET_ANTHROPIC_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    assert source(provider_for("anthropic")) is None
+    assert credential(provider_for("anthropic")) is None
 
 
 def test_stored_credentials_are_owner_only(monkeypatch, tmp_path):

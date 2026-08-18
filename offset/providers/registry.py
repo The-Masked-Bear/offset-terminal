@@ -60,8 +60,13 @@ MODELS: Final[tuple[ModelInfo, ...]] = (
     ModelInfo("gpt-4o-mini", "openai", "gpt-4o mini", 128_000, 16_384, role_hint="cheap"),
     ModelInfo("o3", "openai", "o3", 200_000, 100_000, thinking=True, role_hint="critic"),
     ModelInfo("o4-mini", "openai", "o4 mini", 200_000, 100_000, thinking=True, role_hint="critic"),
-    ModelInfo("gemini-2.5-pro", "google", "gemini 2.5 pro", 1_048_576, 65_536, thinking=True, role_hint="critic"),
-    ModelInfo("gemini-2.5-flash", "google", "gemini 2.5 flash", 1_048_576, 65_536, thinking=True, role_hint="cheap"),
+    # Verified against a real key: every `gemini-2.5-*` id answers 404 "no longer
+    # available to new users", so a new account could not use a single Google
+    # model we shipped. The limits below are the ones the API itself reports.
+    ModelInfo("gemini-3.1-pro-preview", "google", "gemini 3.1 pro", 1_048_576, 65_536, thinking=True, role_hint="critic"),
+    ModelInfo("gemini-3-flash-preview", "google", "gemini 3 flash", 1_048_576, 65_536, thinking=True, role_hint="cheap"),
+    ModelInfo("gemini-3.1-flash-lite", "google", "gemini 3.1 flash lite", 1_048_576, 65_536, role_hint="bulk"),
+    ModelInfo("gemini-flash-latest", "google", "gemini flash latest", 1_048_576, 65_536, thinking=True, role_hint="cheap"),
     ModelInfo("deepseek-chat", "deepseek", "deepseek v3", 64_000, 8_192, role_hint="implementer"),
     ModelInfo("deepseek-reasoner", "deepseek", "deepseek r1", 64_000, 8_192, thinking=True, role_hint="critic"),
     ModelInfo("qwen2.5-coder:7b", "ollama", "qwen2.5 coder 7b", 32_768, 4_096, local=True, role_hint="bulk"),
@@ -246,18 +251,41 @@ def _stored() -> dict[str, str]:
 
 
 def credential(provider: Provider | str) -> str | None:
-    """Environment first, then the on-disk store.  Never raises."""
+    """The key to use, most deliberate source first.  Never raises."""
+    return (source(provider) or (None, None))[1]
+
+
+def source(provider: Provider | str) -> tuple[str, str] | None:
+    """Where the key comes from and what it is: `(description, key)`.
+
+    Ordered by how clearly the person meant it for offset:
+
+    1. `OFFSET_<PROVIDER>_KEY` - names this program, so it is unambiguous.
+    2. The stored key - typed into `/login`, which is a deliberate act here.
+    3. `GEMINI_API_KEY` and friends - ambient, shared with every other tool,
+       and very often a stale leftover.
+
+    The vendor variables used to come first, so pasting a working key into
+    `/login` did nothing at all: the app said it had stored the key, then kept
+    sending an expired one from the shell, and reported the provider's "API key
+    not valid" with no hint that it was ignoring what it had just been given.
+    Returning the source, not just the value, is what lets the UI say which one
+    is in play.
+    """
     name = provider if isinstance(provider, str) else provider.name
-    keys = () if isinstance(provider, str) else provider.env_keys
+    own = f"OFFSET_{name.upper()}_KEY"
+    value = os.environ.get(own)
+    if value:
+        return f"${own}", value
+    value = _stored().get(name)
+    if value:
+        return "stored by /login", value
+    keys = (f"{name.upper()}_API_KEY",) if isinstance(provider, str) else provider.env_keys
     for key in keys:
         value = os.environ.get(key)
         if value:
-            return value
-    for key in (f"{name.upper()}_API_KEY", f"OFFSET_{name.upper()}_KEY"):
-        value = os.environ.get(key)
-        if value:
-            return value
-    return _stored().get(name)
+            return f"${key}", value
+    return None
 
 
 def store_credential(provider: str, key: str) -> Path:

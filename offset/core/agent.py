@@ -96,6 +96,7 @@ def to_messages(entries: Sequence[Entry]) -> list[Message]:
                 id=entry.data.get("id") or entry.id,
                 name=entry.data.get("tool") or "",
                 args=entry.data.get("args") or {},
+                signature=entry.data.get("signature"),
             )
             known_calls[call.id] = call.name
             if not out or out[-1].role != "assistant":
@@ -219,12 +220,18 @@ class Agent:
         if turn.text or turn.thinking:
             self.session.say("assistant", turn.text, thinking=turn.thinking)
         for call in turn.tool_calls:
-            self.session.append(TOOL_CALL, {
+            record = {
                 "id": call.id,
                 "tool": call.name,
                 "args": call.args,
                 "summary": ", ".join(f"{k}={v!r}"[:40] for k, v in list(call.args.items())[:2]),
-            })
+            }
+            if call.signature:
+                # Gemini 3 rejects a later request whose function calls come back
+                # without their signature, and history is rebuilt from these
+                # entries - so it has to survive on disk, not just in memory.
+                record["signature"] = call.signature
+            self.session.append(TOOL_CALL, record)
 
     # -- the loop ---------------------------------------------------------
 

@@ -36,6 +36,13 @@ class ToolCall:
     name: str
     args: dict[str, Any] = field(default_factory=dict)
     raw: str | None = None  # kept when `args` could not be parsed
+    #: Opaque provider token that has to come back with the call.
+    #:
+    #: Gemini 3 attaches a `thoughtSignature` to every function call and refuses
+    #: the next request without it, which made tool use impossible on those
+    #: models. Nothing above this layer reads it - it only has to survive the
+    #: round trip - so it belongs here rather than in each provider.
+    signature: str | None = None
 
 
 @dataclass(slots=True)
@@ -88,6 +95,7 @@ class ToolCallDelta(Event):
     id: str | None = None
     name: str | None = None
     args_delta: str = ""
+    signature: str | None = None
 
 
 @dataclass(slots=True)
@@ -170,6 +178,8 @@ class TurnBuilder:
                 slot["name"] = event.name
             if event.args_delta:
                 slot["args"].append(event.args_delta)
+            if event.signature:
+                slot["signature"] = event.signature
         elif isinstance(event, Usage):
             self._usage = self._usage + event
         elif isinstance(event, Stop):
@@ -191,18 +201,19 @@ class TurnBuilder:
             blob = "".join(slot["args"]).strip()
             name = slot["name"] or ""
             cid = slot["id"] or f"call_{i}"
+            sig = slot.get("signature")
             if not blob:
-                calls.append(ToolCall(id=cid, name=name, args={}))
+                calls.append(ToolCall(id=cid, name=name, args={}, signature=sig))
                 continue
             try:
                 parsed = json.loads(blob)
             except json.JSONDecodeError:
-                calls.append(ToolCall(id=cid, name=name, args={}, raw=blob))
+                calls.append(ToolCall(id=cid, name=name, args={}, raw=blob, signature=sig))
                 continue
             if isinstance(parsed, dict):
-                calls.append(ToolCall(id=cid, name=name, args=parsed))
+                calls.append(ToolCall(id=cid, name=name, args=parsed, signature=sig))
             else:
-                calls.append(ToolCall(id=cid, name=name, args={}, raw=blob))
+                calls.append(ToolCall(id=cid, name=name, args={}, raw=blob, signature=sig))
         stop = self._stop
         if calls and stop == "stop":
             stop = "tool_use"  # providers disagree here; normalise it

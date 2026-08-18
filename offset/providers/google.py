@@ -50,7 +50,10 @@ def build_payload(request: Request) -> dict[str, Any]:
         if m.text:
             parts.append({"text": m.text})
         for call in m.tool_calls:
-            parts.append({"functionCall": {"name": call.name, "args": call.args}})
+            part: dict[str, Any] = {"functionCall": {"name": call.name, "args": call.args}}
+            if call.signature:
+                part["thoughtSignature"] = call.signature
+            parts.append(part)
         contents.append({"role": "model" if m.role == "assistant" else "user", "parts": parts or [{"text": ""}]})
 
     generation: dict[str, Any] = {"maxOutputTokens": request.max_tokens}
@@ -107,6 +110,9 @@ def parse(lines: Iterator[bytes]) -> Iterator[Event]:
                         id=call.get("id") or f"gemini_{slot}",
                         name=call.get("name"),
                         args_delta=json.dumps(call.get("args") or {}),
+                        # Gemini 3 refuses the next request unless this comes
+                        # back on the same part it arrived on.
+                        signature=part.get("thoughtSignature"),
                     )
                     slot += 1
             reason = candidate.get("finishReason")

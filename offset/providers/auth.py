@@ -214,16 +214,24 @@ def from_env(provider: str) -> Credential | None:
 
 
 def load(provider: str, *, post: oauth.Poster = oauth.send, now: Callable[[], float] = time.time) -> Credential | None:
-    """Environment first, then the store, refreshing an expired token in place.
+    """The stored credential first, then the environment.
+
+    Matches `registry.source`: a credential established through `/login` beats an
+    ambient vendor variable, because an expired `GEMINI_API_KEY` left over from
+    another tool used to silently override a key the person had just pasted in.
+    An OAuth token can only come from the store, so this also keeps a live
+    signed-in session ahead of a stale shell variable.
 
     A refresh that fails does not raise: the stale credential is returned so the
     caller gets the provider's own 401 and a clear "sign in again" message,
     rather than an exception from the wrong layer.
     """
-    found = from_env(provider)
-    if found is not None:
-        return found
+    aimed = os.environ.get(f"OFFSET_{provider.upper()}_KEY")
+    if aimed:
+        return Credential(provider=provider, value=aimed, kind=API_KEY)
     found = stored(provider)
+    if found is None:
+        return from_env(provider)
     if found is None or not found.expired(now=now):
         return found
     if not found.renewable:

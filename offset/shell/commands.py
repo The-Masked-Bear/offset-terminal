@@ -9,6 +9,7 @@ different front end later without being rewritten.
 from __future__ import annotations
 
 import getpass
+import os
 import socket
 
 from dataclasses import dataclass, field
@@ -29,6 +30,9 @@ from offset.eggs.engine import EggEngine, Reveal
 from offset.providers import auth, oauth
 from offset.providers.base import Message, Request
 from offset.providers.registry import (
+    PROVIDERS,
+    redact,
+    source,
     MODELS,
     ModelInfo,
     available,
@@ -416,15 +420,43 @@ def _logout(state: ShellState, args: list[str]) -> Outcome:
 
 
 def _accounts(state: ShellState, args: list[str]) -> Outcome:
-    held = auth.accounts()
-    if not held:
+    """Every credential offset can see, and where each one comes from.
+
+    The source is the point. A key can be stored, or come from a variable in the
+    shell, and when the two disagree the losing one is invisible - which is how
+    somebody ends up pasting a working key and still being told it is invalid.
+    """
+    lines: list[str] = []
+    for name in LOGIN_TARGETS:
+        found = source(name if name not in PROVIDERS else provider_for(name))
+        if found is None:
+            continue
+        where, key = found
+        held = auth.stored(name)
+        kind = held.kind if held is not None and where == "stored by /login" else "api_key"
+        lines.append(f"  {name:<12} {kind:<8} {redact(key, key):<14} {where}")
+
+    shadowed = [(name, env) for name in LOGIN_TARGETS for env in _vendor_vars(name)
+                if auth.stored(name) is not None and os.environ.get(env)]
+    if not lines:
         return Outcome(["no accounts yet. /login to add one."], TONE_INFO)
-    lines = [c.label() for c in held]
+    lines.insert(0, "credentials offset can see, and which one it uses:")
+    for name, env in shadowed:
+        lines += ["", f"note: ${env} is also set, and is NOT being used for {name}.",
+                  f"      offset prefers the key you gave it. unset ${env} to be sure."]
     lines.append("")
     lines.append("browser sign-in available: " + (", ".join(
         p for p in auth.oauth_providers() if not auth.missing_config(p)
     ) or "none configured"))
     return Outcome(lines, TONE_INFO)
+
+
+def _vendor_vars(provider: str) -> tuple[str, ...]:
+    """The ambient variables a provider would answer to."""
+    try:
+        return provider_for(provider).env_keys
+    except KeyError:
+        return ()
 
 
 #: A missing entry here used to crash `/tools` outright, so the lookup falls
@@ -997,11 +1029,19 @@ def resolve_overlay(state: ShellState, overlay: Overlay, *, accepted: bool) -> O
             cred = auth.login_api_key(provider, overlay.buffer)
         except auth.AuthError as exc:
             return Outcome.error(str(exc))
-        return Outcome([
+        lines = [
             f"stored a key for {provider}",
             "it lives in ~/.offset/credentials.json, mode 600",
             cred.label(),
-        ], TONE_OK)
+        ]
+        # Say it here, at the moment it matters. A vendor variable used to win
+        # silently, so pasting a working key over a stale one changed nothing and
+        # the app still reported the provider's "API key not valid".
+        shadowed = [env for env in _vendor_vars(provider) if os.environ.get(env)]
+        if shadowed:
+            lines += ["", f"${shadowed[0]} is also set. offset will use the key you just gave it,",
+                      "not that one. /accounts always shows which is in play."]
+        return Outcome(lines, TONE_OK)
 
     if overlay.kind == "tree":
         ids: Sequence[str] = overlay.payload or []

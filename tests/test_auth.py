@@ -164,12 +164,30 @@ def test_an_oauth_token_is_stored_as_an_object_and_ignored_by_the_registry(isola
     assert registry_credential(provider_for("google")) is None
 
 
-def test_the_environment_beats_the_store(isolated, monkeypatch):
-    auth.login_api_key("anthropic", "from-disk")
+def test_a_key_typed_into_offset_beats_a_stale_vendor_variable(isolated, monkeypatch):
+    """The regression this replaces cost a real user an afternoon.
+
+    A vendor variable used to win. Somebody with an expired `GEMINI_API_KEY`
+    exported from another tool pasted a working key into `/login`, was told it was
+    stored, and then watched every request fail with the provider's own "API key
+    not valid" - while offset quietly kept sending the expired one.
+    """
+    auth.login_api_key("anthropic", "typed-into-offset")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "stale-shell-value")
+    assert auth.load("anthropic").value == "typed-into-offset"
+
+
+def test_a_vendor_variable_is_still_used_when_nothing_is_stored(isolated, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
     assert auth.load("anthropic").value == "from-env"
-    monkeypatch.delenv("ANTHROPIC_API_KEY")
-    assert auth.load("anthropic").value == "from-disk"
+
+
+def test_an_offset_specific_variable_wins_over_everything(isolated, monkeypatch):
+    """`OFFSET_ANTHROPIC_KEY` names this program, so it cannot be a leftover."""
+    auth.login_api_key("anthropic", "typed-into-offset")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "stale-shell-value")
+    monkeypatch.setenv("OFFSET_ANTHROPIC_KEY", "aimed-here")
+    assert auth.load("anthropic").value == "aimed-here"
 
 
 def test_forgetting_a_credential(isolated):
