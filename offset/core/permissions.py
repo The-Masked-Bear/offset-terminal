@@ -21,12 +21,19 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from offset.core import settings
 from typing import Final, Literal
 
 Scope = Literal["workspace", "full"]
 
-CONFIG_DIR: Final = Path(os.environ.get("OFFSET_HOME") or (Path.home() / ".offset"))
-PERMISSIONS_FILE: Final = CONFIG_DIR / "permissions.json"
+def config_dir() -> Path:
+    """Read late, never cached at import - see `settings.home`."""
+    return settings.home()
+
+
+def permissions_file() -> Path:
+    return config_dir() / "permissions.json"
 
 #: Bump when the stored shape changes; an unknown version is ignored rather
 #: than guessed at, which fails closed.
@@ -71,7 +78,7 @@ def _canonical(workspace: Path | str) -> Path:
 
 def _load() -> dict[str, Grant]:
     try:
-        raw = json.loads(PERMISSIONS_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(permissions_file().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError):
         return {}
     if not isinstance(raw, dict) or raw.get("version") != VERSION:
@@ -89,17 +96,17 @@ def _load() -> dict[str, Grant]:
 
 def _store(grants: dict[str, Grant]) -> Path:
     """Write 0600, atomically — the temp file is created private too."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    config_dir().mkdir(parents=True, exist_ok=True)
     payload = {
         "version": VERSION,
         "grants": {key: grant.to_json() for key, grant in grants.items()},
     }
-    tmp = PERMISSIONS_FILE.with_suffix(".tmp")
+    tmp = permissions_file().with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=1), encoding="utf-8")
     os.chmod(tmp, 0o600)
-    os.replace(tmp, PERMISSIONS_FILE)
-    os.chmod(PERMISSIONS_FILE, 0o600)
-    return PERMISSIONS_FILE
+    os.replace(tmp, permissions_file())
+    os.chmod(permissions_file(), 0o600)
+    return permissions_file()
 
 
 def current(workspace: Path | str) -> Grant | None:

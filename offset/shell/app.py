@@ -44,7 +44,12 @@ from offset.core.multimodel import seat_roster
 from offset.core.session import Session
 from offset.eggs.catalogue import build_engine
 from offset.providers.base import StreamError, TextDelta, ThinkingDelta
-from offset.providers.registry import CONFIG_DIR, info
+from offset.providers.registry import (
+    available,
+    config_dir,
+    info,
+    reachable,
+)
 from offset.shell import render
 from offset.shell.commands import (
     COMMANDS,
@@ -676,14 +681,35 @@ class Shell:
 # -- construction -----------------------------------------------------------
 
 
+def reachable_model(configured: str | None) -> str:
+    """The model a new session should start on.
+
+    The configured default is a paid Anthropic model, which is the right choice
+    for somebody who has signed in and the wrong one for somebody who has just
+    installed this: their very first message failed with an auth error, because
+    nothing checked whether the default could be reached before selecting it.
+
+    A local model is only counted when its server answers - an ollama entry in
+    the catalogue proves nothing about whether ollama is running - and the
+    scripted provider is the last resort, because it always works and says so.
+    """
+    if configured and reachable(configured):
+        return configured
+    for meta in available():
+        if meta.id != "mock" and reachable(meta.id):
+            return meta.id
+    return "mock"
+
+
 def build_state(workspace: Path | str = ".", *, model: str | None = None, approval: str | None = None) -> ShellState:
     """Assemble a session, every tool, the eggs, and an agent."""
     workspace = Path(workspace).resolve()
     settings.configure(workspace)
     approval = approval or settings.get("tools.approvalMode", "auto-edit")
-    # An explicit flag beats configuration; configuration beats the built-in.
-    model = model or settings.get("model.default", None) or "mock"
-    home = CONFIG_DIR  # honours OFFSET_HOME, so a test can isolate everything
+    # An explicit flag beats configuration; configuration beats the built-in - but
+    # only if it is a model this machine can actually reach.
+    model = model or reachable_model(settings.get("model.default", None))
+    home = config_dir()  # resolved now, so OFFSET_HOME really isolates a test
     session = Session.create(home / "sessions")
 
     # Every tool ships enabled; what varies is whether a call is allowed.

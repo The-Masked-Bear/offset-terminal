@@ -417,10 +417,8 @@ def test_catalogue_search():
 
 
 def test_credentials_prefer_the_environment(monkeypatch, tmp_path):
-    from offset.providers import registry
 
-    monkeypatch.setattr(registry, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(registry, "CREDENTIALS_FILE", tmp_path / "credentials.json")
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     store_credential("anthropic", "from-disk")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
     assert credential(provider_for("anthropic")) == "from-env"
@@ -429,18 +427,16 @@ def test_credentials_prefer_the_environment(monkeypatch, tmp_path):
 
 
 def test_stored_credentials_are_owner_only(monkeypatch, tmp_path):
-    from offset.providers import registry
 
-    monkeypatch.setattr(registry, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(registry, "CREDENTIALS_FILE", tmp_path / "credentials.json")
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     path = store_credential("openai", "sk-secret")
     assert oct(path.stat().st_mode)[-3:] == "600"
 
 
 def test_missing_credentials_never_raise(monkeypatch, tmp_path):
-    from offset.providers import registry
-
-    monkeypatch.setattr(registry, "CREDENTIALS_FILE", tmp_path / "nope.json")
+    # An empty home, so this asks about nothing rather than about whatever the
+    # person running the suite happens to have signed into.
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "empty"))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
     assert credential(provider_for("anthropic")) is None

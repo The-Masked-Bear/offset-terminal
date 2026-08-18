@@ -119,14 +119,14 @@ def test_the_credential_file_is_read_once_not_once_per_model(tmp_path, monkeypat
     monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     from offset.providers import registry
 
-    registry.CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    registry.CREDENTIALS_FILE.write_text(json.dumps({"anthropic": "sk-one"}), encoding="utf-8")
+    registry.credentials_file().parent.mkdir(parents=True, exist_ok=True)
+    registry.credentials_file().write_text(json.dumps({"anthropic": "sk-one"}), encoding="utf-8")
 
     reads = {"n": 0}
     real = pathlib.Path.read_text
 
     def counted(self, *args, **kwargs):
-        if self == registry.CREDENTIALS_FILE:
+        if self == registry.credentials_file():
             reads["n"] += 1
         return real(self, *args, **kwargs)
 
@@ -144,15 +144,15 @@ def test_an_edit_by_another_process_is_seen_immediately(tmp_path, monkeypatch):
     monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     from offset.providers import registry
 
-    registry.CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    registry.CREDENTIALS_FILE.write_text(json.dumps({"anthropic": "sk-one"}), encoding="utf-8")
+    registry.credentials_file().parent.mkdir(parents=True, exist_ok=True)
+    registry.credentials_file().write_text(json.dumps({"anthropic": "sk-one"}), encoding="utf-8")
     assert registry.credential("anthropic") == "sk-one"
 
     time.sleep(0.01)
-    registry.CREDENTIALS_FILE.write_text(json.dumps({"anthropic": "sk-two"}), encoding="utf-8")
+    registry.credentials_file().write_text(json.dumps({"anthropic": "sk-two"}), encoding="utf-8")
     assert registry.credential("anthropic") == "sk-two", "an external write was cached away"
 
-    registry.CREDENTIALS_FILE.unlink()
+    registry.credentials_file().unlink()
     assert registry.credential("anthropic") is None, "a deleted file was cached away"
 
 
@@ -160,12 +160,12 @@ def test_a_corrupt_credential_file_is_not_cached_as_truth(tmp_path, monkeypatch)
     monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     from offset.providers import registry
 
-    registry.CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    registry.CREDENTIALS_FILE.write_text("{not json", encoding="utf-8")
+    registry.credentials_file().parent.mkdir(parents=True, exist_ok=True)
+    registry.credentials_file().write_text("{not json", encoding="utf-8")
     assert registry.credential("anthropic") is None
 
     time.sleep(0.01)
-    registry.CREDENTIALS_FILE.write_text(json.dumps({"anthropic": "sk-fixed"}), encoding="utf-8")
+    registry.credentials_file().write_text(json.dumps({"anthropic": "sk-fixed"}), encoding="utf-8")
     assert registry.credential("anthropic") == "sk-fixed", "recovery must be visible"
 
 
@@ -256,3 +256,115 @@ def test_deleting_a_built_in_without_overriding_it_is_refused():
 
     with pytest.raises(KeyError, match="built in"):
         del PROVIDERS["anthropic"]
+
+
+# -- the first run on a machine with nothing configured ----------------------
+
+
+@pytest.fixture()
+def clean_machine(tmp_path, monkeypatch):
+    """No credentials anywhere: not in the environment, not on disk."""
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "home"))
+    for name in list(__import__("os").environ):
+        if name.endswith(("_API_KEY", "_CLIENTID", "_CLIENTSECRET")):
+            monkeypatch.delenv(name, raising=False)
+    return tmp_path
+
+
+def test_a_fresh_install_starts_on_a_model_it_can_actually_reach(clean_machine):
+    """The regression: the configured default is a paid model.
+
+    A new install therefore started on Claude with no key, and the very first
+    message failed with an auth error before the user had done anything wrong.
+    """
+    from offset.shell.app import reachable_model
+
+    assert reachable_model("claude-sonnet-4-20250514") == "mock"
+
+
+def test_the_configured_default_is_honoured_once_it_can_be_reached(clean_machine, monkeypatch):
+    from offset.shell.app import reachable_model
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    assert reachable_model("claude-sonnet-4-20250514") == "claude-sonnet-4-20250514"
+
+
+def test_an_explicit_choice_always_wins(clean_machine):
+    """`--model` is the user talking; it is not second-guessed."""
+    state = build_state(clean_machine, model="claude-opus-4-20250514")
+    assert state.model == "claude-opus-4-20250514"
+
+
+def test_a_fresh_install_seats_a_roster_that_can_answer(clean_machine):
+    state = build_state(clean_machine)
+    assert [seat.model for seat in state.ensemble] == ["mock"], \
+        "a council of unreachable models is worse than a council of one"
+
+
+def test_reachability_is_stricter_than_availability(clean_machine):
+    """A catalogue entry for ollama says nothing about ollama running."""
+    from offset.providers.registry import available, reachable
+
+    # `mock` is local too, and is always reachable by design; the point is about
+    # models that need a server of their own.
+    served = [m for m in available() if m.local and m.provider != "mock"]
+    assert served, "the catalogue should list models that need a local server"
+    assert not any(reachable(m.id) for m in served), \
+        "nothing is listening here, so none of them are reachable"
+
+
+def test_the_scripted_provider_is_always_reachable():
+    from offset.providers.registry import reachable
+
+    assert reachable("mock"), "it needs no key and no network; it must never be excluded"
+
+
+# -- the suite must not read or write the real home --------------------------
+
+
+def test_the_config_home_is_resolved_late_not_at_import():
+    """Caching it at import made every test that set OFFSET_HOME a no-op.
+
+    Worse than untidy: the suite then read - and wrote - the credential store of
+    whoever was running it.
+    """
+    code = (
+        "import os, json, tempfile;"
+        "os.environ['OFFSET_HOME'] = first = tempfile.mkdtemp();"
+        "from offset.providers import registry;"
+        "a = str(registry.credentials_file());"
+        "os.environ['OFFSET_HOME'] = second = tempfile.mkdtemp();"
+        "b = str(registry.credentials_file());"
+        "print(json.dumps([a.startswith(first), b.startswith(second)]))"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, cwd=ROOT)
+    assert done.returncode == 0, done.stderr.decode()[:400]
+    before, after = json.loads(done.stdout.decode().splitlines()[-1])
+    assert before, "the first home was not honoured"
+    assert after, "moving OFFSET_HOME after import had no effect"
+
+
+def test_every_state_file_agrees_where_home_is(tmp_path, monkeypatch):
+    """Three modules used to compute this separately, in three places."""
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "home"))
+    from offset.core import permissions, settings
+    from offset.providers import registry
+
+    assert registry.config_dir() == settings.home()
+    assert permissions.config_dir() == settings.home()
+    assert registry.credentials_file().parent == settings.home()
+    assert permissions.permissions_file().parent == settings.home()
+
+
+def test_building_a_shell_writes_nothing_outside_the_given_home(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("OFFSET_HOME", str(home))
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+
+    real_home = pathlib.Path.home() / ".offset"
+    before = sorted(p.name for p in real_home.iterdir()) if real_home.exists() else []
+    build_state(workspace, model="mock")
+    after = sorted(p.name for p in real_home.iterdir()) if real_home.exists() else []
+    assert before == after, "it touched the real home instead of the one it was given"
+    assert home.exists(), "it should have used the home it was given"

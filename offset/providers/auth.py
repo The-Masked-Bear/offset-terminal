@@ -31,11 +31,11 @@ from offset.providers.registry import provider_for
 def _dir() -> Path:
     """Resolved lazily: capturing the constant at import time would ignore both
     a later OFFSET_HOME and any test that redirects the config directory."""
-    return registry.CONFIG_DIR
+    return registry.config_dir()
 
 
 def _file() -> Path:
-    return registry.CREDENTIALS_FILE
+    return registry.credentials_file()
 
 
 API_KEY: Final = "api_key"

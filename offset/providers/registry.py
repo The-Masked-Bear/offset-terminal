@@ -20,10 +20,22 @@ from typing import Any, Callable, Final
 
 from collections.abc import Iterator, MutableMapping
 
+from offset.core import settings
 from offset.providers.base import Provider
 
-CONFIG_DIR: Final = Path(os.environ.get("OFFSET_HOME") or (Path.home() / ".offset"))
-CREDENTIALS_FILE: Final = CONFIG_DIR / "credentials.json"
+def config_dir() -> Path:
+    """Where offset keeps its own state.
+
+    A function, not a constant: resolving `OFFSET_HOME` at import time meant a
+    process that moved it afterwards - every test that thought it was isolated -
+    silently kept reading the real one. `settings.home()` is the single place
+    that answers this question.
+    """
+    return settings.home()
+
+
+def credentials_file() -> Path:
+    return config_dir() / "credentials.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +226,7 @@ def _stored() -> dict[str, str]:
     another process - a second offset, or a text editor - visible immediately.
     """
     try:
-        stat = CREDENTIALS_FILE.stat()
+        stat = credentials_file().stat()
         stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
     except OSError:
         _CACHE["stamp"], _CACHE["data"] = None, {}
@@ -222,7 +234,7 @@ def _stored() -> dict[str, str]:
     if _CACHE["stamp"] == stamp:
         return _CACHE["data"]
     try:
-        raw = json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(credentials_file().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         _CACHE["stamp"], _CACHE["data"] = None, {}
         return {}
@@ -250,15 +262,45 @@ def credential(provider: Provider | str) -> str | None:
 
 def store_credential(provider: str, key: str) -> Path:
     """Persist a key with owner-only permissions."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    config_dir().mkdir(parents=True, exist_ok=True)
     data = _stored()
     data[provider] = key
-    tmp = CREDENTIALS_FILE.with_suffix(".tmp")
+    tmp = credentials_file().with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
     os.chmod(tmp, 0o600)
-    os.replace(tmp, CREDENTIALS_FILE)
-    os.chmod(CREDENTIALS_FILE, 0o600)
-    return CREDENTIALS_FILE
+    os.replace(tmp, credentials_file())
+    os.chmod(credentials_file(), 0o600)
+    return credentials_file()
+
+
+def reachable(model_id: str) -> bool:
+    """Whether this machine could run `model_id` right now.
+
+    Stronger than `available`, which only asks whether a key exists: a local
+    model needs a server that answers, and an ollama entry in the catalogue
+    proves nothing about whether ollama is running. Used to pick the model a new
+    session starts on, and to seat a roster - both of which used to choose models
+    that could only fail.
+    """
+    meta = info(model_id)
+    if meta.provider == "mock":
+        return True  # scripted: no network, no key, always answers
+    if meta.local:
+        return listening(meta)
+    return bool(credential(provider_for(meta.provider)))
+
+
+def listening(meta: ModelInfo, timeout: float = 0.15) -> bool:
+    """Whether a local server accepts connections, without waiting on it."""
+    import socket
+    from urllib.parse import urlsplit
+
+    url = urlsplit(getattr(meta, "base_url", "") or "http://127.0.0.1:11434")
+    try:
+        with socket.create_connection((url.hostname or "127.0.0.1", url.port or 11434), timeout):
+            return True
+    except OSError:
+        return False
 
 
 def available() -> list[ModelInfo]:

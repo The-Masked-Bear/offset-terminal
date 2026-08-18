@@ -383,9 +383,11 @@ def seat_roster(active: str) -> Ensemble:
     chosen; the rest fill the other roles, and a single-seat roster simply means
     every branch uses the same model, which is what happened before.
     """
-    from offset.providers.registry import available
+    from offset.providers.registry import available, reachable
 
-    usable = [m.id for m in available()]
+    # `available` only asks whether a key exists; a seat that cannot answer is
+    # worse than no seat, so a council is not filled with connection refusals.
+    usable = [m.id for m in available() if reachable(m.id)]
     ordered = [active, *(m for m in usable if m != active)] if active in usable or active == "mock" \
         else [active, *usable]
     return default_roster(ordered[:4])

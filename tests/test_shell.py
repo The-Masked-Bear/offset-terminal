@@ -32,10 +32,8 @@ from offset.tools.runtime import Approval, Runtime
 
 @pytest.fixture()
 def state(tmp_path, monkeypatch):
-    from offset.providers import registry
 
-    monkeypatch.setattr(registry, "CONFIG_DIR", tmp_path / "cfg")
-    monkeypatch.setattr(registry, "CREDENTIALS_FILE", tmp_path / "cfg" / "credentials.json")
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "cfg"))
     session = Session.create(tmp_path / "sessions")
     toolbox = Toolbox(builtin_tools())
     approval = Approval(mode="auto-edit")
@@ -166,14 +164,14 @@ def test_login_opens_a_masked_field(state):
 
 
 def test_a_submitted_key_is_stored_with_tight_permissions(state):
-    from offset.providers.registry import CREDENTIALS_FILE, credential, provider_for
+    from offset.providers.registry import credential, credentials_file, provider_for
 
     dispatch(state, "/login anthropic")
     state.overlay.buffer = "sk-not-a-real-key"
     got = resolve_overlay(state, state.overlay, accepted=True)
     assert "stored a key" in got.lines[0]
     assert credential(provider_for("anthropic")) == "sk-not-a-real-key"
-    assert oct(CREDENTIALS_FILE.stat().st_mode)[-3:] == "600"
+    assert oct(credentials_file().stat().st_mode)[-3:] == "600"
 
 
 def test_an_empty_key_is_refused(state):

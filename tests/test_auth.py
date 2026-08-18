@@ -35,10 +35,8 @@ def _poke(url: str) -> None:
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    from offset.providers import registry
 
-    monkeypatch.setattr(registry, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(registry, "CREDENTIALS_FILE", tmp_path / "credentials.json")
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path))
     for var in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "OPENAI_API_KEY",
                 "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"):
         monkeypatch.delenv(var, raising=False)
