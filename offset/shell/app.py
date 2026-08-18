@@ -35,6 +35,8 @@ from prompt_toolkit.layout import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
+from prompt_toolkit.layout.menus import CompletionsMenu
+from prompt_toolkit.styles import Style
 
 from offset.core.agent import Agent, AgentConfig, Finished, ToolFinished
 from offset.core.entries import CONVERSATIONAL
@@ -43,7 +45,15 @@ from offset.eggs.catalogue import build_engine
 from offset.providers.base import TextDelta, ThinkingDelta
 from offset.providers.registry import CONFIG_DIR
 from offset.shell import render
-from offset.shell.commands import Outcome, Overlay, ShellState, complete, dispatch, resolve_overlay
+from offset.shell.commands import (
+    COMMANDS,
+    Outcome,
+    Overlay,
+    ShellState,
+    complete,
+    dispatch,
+    resolve_overlay,
+)
 from offset.tools.base import Toolbox, ToolContext
 from offset.tools.builtin import builtin_tools
 from offset.tools.custom import default_dirs, discover
@@ -61,12 +71,24 @@ from offset.tools.mcp import load_config as load_mcp_config
 
 
 class SlashCompleter(Completer):
+    """Completes slash commands, with each one's summary as the meta text.
+
+    The menu is where people learn the command set, so it carries the same
+    description `/help` prints rather than a bare list of names.
+    """
+
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
         if not text.startswith("/") or " " in text:
             return
+        summaries = {f"/{c.name}": c.summary for c in COMMANDS}
         for option in complete(text):
-            yield Completion(option, start_position=-len(text))
+            yield Completion(
+                option,
+                start_position=-len(text),
+                display=option,
+                display_meta=summaries.get(option, ""),
+            )
 
 
 class Shell:
@@ -85,6 +107,9 @@ class Shell:
         self.events: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
         self.approval_gate: threading.Event | None = None
+        #: When the first ctrl-c was seen. A second one inside the window quits,
+        #: which is what people expect from a terminal program.
+        self.interrupt_at = -1e9
         self.approval_answer = False
         #: The scrollable transcript. Without this the history was a fixed tail
         #: with no way to read back.
@@ -148,7 +173,8 @@ class Shell:
     # -- rendering --------------------------------------------------------
 
     def _banner(self) -> ANSI:
-        return ANSI(render.banner(self.size[0], self.now()))
+        return ANSI(render.banner(self.size[0], self.now(),
+                                  workspace=self.state.workspace, model=self.state.model))
 
     def _message_rows(self) -> int:
         """Command output gets as much room as it needs, up to most of the
@@ -159,6 +185,8 @@ class Shell:
         width, rows = self.size
         height = max(3, rows - 3 - self._message_rows())
         entries = [e for e in self.state.session.transcript() if e.type in CONVERSATIONAL]
+        if not entries and not self.live:
+            return ANSI(render.welcome(width, height, self.state.workspace, self.state.model, t=self.now()))
         return ANSI(render.transcript(width, height, entries, live=self.live, t=self.now(), view=self.view))
 
     def _messages(self) -> ANSI:
@@ -357,13 +385,23 @@ class Shell:
         def _(event):
             if approving():
                 self.answer_approval(False)
-            elif self.busy:
+                return
+            if self.busy:
+                # A running turn: stop the work, do not quit out from under it.
                 self.state.agent.runtime.cancel()
-                self.messages.append(("err", "cancelling"))
-            elif self.state.overlay is not None:
+                self.messages.append(("err", "cancelling; ctrl-c again to quit"))
+                self.interrupt_at = self.now()
+                return
+            if self.state.overlay is not None:
                 self._apply(resolve_overlay(self.state, self.state.overlay, accepted=False))
-            else:
-                self.buffer.reset()
+                self.interrupt_at = self.now()
+                return
+            if self.now() - self.interrupt_at < INTERRUPT_WINDOW:
+                event.app.exit()
+                return
+            self.interrupt_at = self.now()
+            self.buffer.reset()
+            self.messages.append(("muted", "press ctrl-c again to quit"))
 
         @keys.add("escape", eager=True)
         def _(event):
@@ -477,7 +515,16 @@ class Shell:
                 ConditionalContainer(Window(FormattedTextControl(self._consent)), filter=deciding),
                 ConditionalContainer(body, filter=~deciding),
             ]),
-            floats=[Float(Window(FormattedTextControl(self._overlay)), top=3, left=4)],
+            floats=[
+                Float(Window(FormattedTextControl(self._overlay)), top=3, left=4),
+                # Without this the completer computed suggestions that nothing
+                # ever drew, so slash commands had no discoverability at all.
+                Float(
+                    CompletionsMenu(max_height=12, scroll_offset=1),
+                    xcursor=True,
+                    ycursor=True,
+                ),
+            ],
         )
         app = Application(
             layout=Layout(root, focused_element=self.buffer),
@@ -485,6 +532,7 @@ class Shell:
             full_screen=True,
             refresh_interval=0.08,
             mouse_support=False,
+            style=MENU_STYLE,
         )
         return app
 
@@ -588,6 +636,19 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None, approv
     state.mcp = mcp_manager
     return state
 
+
+#: How long the "ctrl-c again to quit" offer stands.
+INTERRUPT_WINDOW = 3.0
+
+MENU_STYLE = Style.from_dict({
+    "completion-menu": "bg:#ffffff #111111",
+    "completion-menu.completion": "bg:#ffffff #111111",
+    "completion-menu.completion.current": "bg:#ffde59 #111111 bold",
+    "completion-menu.meta.completion": "bg:#f4f4f0 #555555",
+    "completion-menu.meta.completion.current": "bg:#ffde59 #111111",
+    "scrollbar.background": "bg:#f4f4f0",
+    "scrollbar.button": "bg:#111111",
+})
 
 SYSTEM_PROMPT = """You are offset, a terminal coding agent.
 

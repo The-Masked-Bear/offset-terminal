@@ -116,11 +116,13 @@ class Terminal:
         return re.sub(r"\s+", "", self.text)
 
     def wait_for(self, needle: str, timeout: float = 12.0) -> bool:
-        target = re.sub(r"\s+", "", needle)
+        """Case- and space-insensitive: the UI upper-cases and letter-spaces,
+        and a test should not break when a label changes case."""
+        target = re.sub(r"\s+", "", needle).lower()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             self.pump(0.25)
-            if target in self.squeeze():
+            if target in self.squeeze().lower():
                 return True
         return False
 
@@ -159,7 +161,7 @@ def term(raw_term):
     raw_term.key("enter")
     # The banner is a marquee, so its words scroll off; the status bar is the
     # only text guaranteed to be on screen at any instant.
-    assert raw_term.wait_for("CTRL-D QUIT"), f"the shell never drew its chrome:\n{raw_term.text}"
+    assert raw_term.wait_for("ctrl-c x2 quit"), f"the shell never drew its chrome:\n{raw_term.text}"
     return raw_term
 
 
@@ -290,13 +292,13 @@ def test_it_asks_for_permission_before_doing_anything(raw_term):
         assert fragment in lowered, (
             f"the prompt must say plainly what full access means; missing {fragment!r}:\n{raw_term.text}"
         )
-    assert "CTRL-DQUIT" not in squeezed, "the shell must not be usable before answering"
+    assert "ctrl-cx2quit" not in squeezed.lower(), "the shell must not be usable before answering"
 
 
 def test_enter_alone_never_grants_full_access(raw_term):
     assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
     raw_term.key("enter")
-    assert raw_term.wait_for("CTRL-D QUIT"), raw_term.text
+    assert raw_term.wait_for("ctrl-c x2 quit"), raw_term.text
     squeezed = raw_term.squeeze()
     assert "workspaceonly" in squeezed.lower(), raw_term.text
     assert "fullsystemaccess,granted" not in squeezed.lower(), "Enter must pick the safe option"
@@ -305,7 +307,7 @@ def test_enter_alone_never_grants_full_access(raw_term):
 def test_pressing_f_grants_full_access(raw_term):
     assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
     raw_term.type("f", settle=0.8)
-    assert raw_term.wait_for("CTRL-D QUIT"), raw_term.text
+    assert raw_term.wait_for("ctrl-c x2 quit"), raw_term.text
     assert "FULL" in raw_term.squeeze()
 
 
@@ -316,13 +318,13 @@ def test_the_answer_is_remembered_for_next_time(tmp_path):
     try:
         assert first.wait_for("HOW MUCH OF THIS MACHINE")
         first.key("enter")
-        assert first.wait_for("CTRL-D QUIT")
+        assert first.wait_for("ctrl-c x2 quit")
     finally:
         first.close()
 
     second = Terminal(tmp_path)
     try:
-        assert second.wait_for("CTRL-D QUIT"), f"the second launch never got going:\n{second.text}"
+        assert second.wait_for("ctrl-c x2 quit"), f"the second launch never got going:\n{second.text}"
         assert "HOWMUCHOFTHISMACHINE" not in second.squeeze(), "the grant was not remembered"
     finally:
         second.close()
@@ -371,9 +373,89 @@ def test_project_instructions_are_discovered(raw_term, tmp_path):
     )
     assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
     raw_term.key("enter")
-    assert raw_term.wait_for("CTRL-D QUIT")
+    assert raw_term.wait_for("ctrl-c x2 quit")
 
     raw_term.type("/context")
     raw_term.key("enter")
     assert raw_term.wait_for("AGENTS.md"), raw_term.text
     assert "appended to the system prompt" in raw_term.text
+
+
+# -- usability: the things that made it feel broken --------------------------
+
+
+def test_two_ctrl_c_presses_quit(term):
+    """What the user asked for: ctrl-c twice, not an undiscoverable ctrl-d."""
+    term.key("ctrl-c", settle=0.5)
+    assert "ctrl-c again" in term.text.lower(), f"the first press must say what happens next:\n{term.text}"
+
+    term.key("ctrl-c", settle=0.8)
+    for _ in range(30):
+        if os.waitpid(term.pid, os.WNOHANG) != (0, 0):
+            return
+        time.sleep(0.1)
+    pytest.fail("the second ctrl-c did not quit")
+
+
+def test_one_ctrl_c_alone_does_not_quit(term):
+    term.key("ctrl-c", settle=0.5)
+    time.sleep(1.0)
+    assert os.waitpid(term.pid, os.WNOHANG) == (0, 0), "a single ctrl-c must never quit"
+    assert term.wait_for("ctrl-c x2 quit"), "the shell should still be running"
+
+
+def test_typing_a_slash_shows_the_commands(term):
+    """Regression: a completer was attached but nothing ever drew its results."""
+    term.type("/mo", settle=1.2)
+    body = term.text
+    assert "/model" in body, f"no completion menu appeared:\n{body}"
+    assert "/models" in body
+    assert "switch model" in body, "the menu should carry each command's summary"
+
+
+def test_the_completion_menu_narrows_as_you_type(term):
+    term.type("/mod", settle=1.0)
+    assert "/model" in term.text
+    term.type("els", settle=1.0)
+    assert "/models" in term.text
+
+
+def test_an_empty_session_explains_itself(raw_term):
+    """A blank twenty-row void reads as broken software."""
+    assert raw_term.wait_for("HOW MUCH OF THIS MACHINE")
+    raw_term.key("enter")
+    assert raw_term.wait_for("ask for what you want"), raw_term.text
+    squeezed = raw_term.squeeze().lower()
+    for hint in ("/help", "/spec", "/model", "ctrl-ctwice"):
+        assert hint.replace(" ", "") in squeezed, f"{hint} missing from the first screen"
+
+
+def test_the_header_names_the_model_and_workspace(term):
+    assert term.wait_for("offset"), term.text
+    assert "mock" in term.text.lower()
+
+
+def test_running_text_is_not_letter_spaced(term):
+    """The status bar used to read 'M O C K  1 5  T O O L S'."""
+    term.type("/tools")
+    term.key("enter")
+    assert term.wait_for("all enabled"), term.text
+    status = term.text.rstrip().split("\n")[-1]
+    assert "MOCK" in status, f"the model name should read as a word: {status!r}"
+    assert "M O C K" not in status, f"running text must not be tracked: {status!r}"
+
+
+def test_permissions_command_exists_because_the_consent_screen_promises_it(term):
+    term.type("/permissions")
+    term.key("enter")
+    assert term.wait_for("workspace only"), term.text
+    assert "revoke" in term.text.lower()
+
+
+def test_permissions_can_grant_full_access_later(term):
+    term.type("/permissions full")
+    term.key("enter")
+    assert term.wait_for("full system access"), term.text
+    term.type("/tools")
+    term.key("enter")
+    assert term.wait_for("whole machine"), term.text

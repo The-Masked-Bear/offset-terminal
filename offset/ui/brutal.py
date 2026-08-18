@@ -100,7 +100,7 @@ def slab(
     if title is not None and h >= 4:
         band = tone(title_tone)
         cv.fill_rect(x + 1, y + 1, w - 2, 1, " ", INK, band)
-        cv.text(x + 2, y + 1, display(title, tracking), INK, band, True, max_w=w - 4)
+        cv.text(x + 2, y + 1, fit(title, w - 4, spacing=tracking - 1), INK, band, True, max_w=w - 4)
         cv.hline(x + 1, y + 2, w - 2, BORDERS[Weight.HAIRLINE].t, INK, fill)
         inner = (x + 2, y + 3, w - 4, h - 4)
     return inner
@@ -268,7 +268,7 @@ def ticker(
     speed: float = 6.0,
 ) -> None:
     """The masthead marquee: uppercase, star-separated, permanently scrolling."""
-    strip = anim.marquee([display(i, 1) for i in items], w, t, speed=speed)
+    strip = anim.marquee([i.upper() for i in items], w, t, speed=speed)
     cv.fill_rect(x, y, w, 1, " ", INK, tone(fill))
     cv.text(x, y, strip, INK, tone(fill), True, max_w=w)
 

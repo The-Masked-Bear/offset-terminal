@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from offset.core.agent import Agent
-from offset.core import compaction, context, snapshots
+from offset.core import compaction, context, permissions, snapshots
+from offset.shell import consent
 from offset.ui import theme
 from offset.core.agent import to_messages
 from offset.core.branches import BranchRun, approaches, run_branches
@@ -546,6 +547,39 @@ def _theme(state: ShellState, args: list[str]) -> Outcome:
     return Outcome([f"theme: {args[0].lower()}", "redraw is immediate"], TONE_OK)
 
 
+def _permissions(state: ShellState, args: list[str]) -> Outcome:
+    """Show or change how much of the machine offset may touch.
+
+    The startup consent screen points here, so it has to exist.
+    """
+    context_ = state.agent.runtime.context
+    if not args:
+        scope = "full" if context_.root is None else "workspace"
+        return Outcome([
+            *consent.summary_lines(scope, state.workspace),
+            "",
+            "change it with /permissions full | workspace | revoke",
+        ], TONE_INFO)
+
+    wanted = args[0].lower()
+    if wanted == "revoke":
+        permissions.revoke(state.workspace)
+        context_.root = state.workspace
+        state.approval.mode = "auto-edit"
+        return Outcome([
+            "permission revoked; offset is confined to this folder again",
+            "you will be asked again next time it starts here",
+        ], TONE_OK)
+    if wanted not in ("full", "workspace"):
+        return Outcome.error("usage: /permissions full | workspace | revoke")
+
+    permissions.grant(wanted, state.workspace)
+    context_.root = permissions.root_for(state.workspace)
+    state.approval.mode = permissions.mode_for(state.workspace)
+    return Outcome(consent.summary_lines(wanted, state.workspace),
+                   TONE_ERR if wanted == "full" else TONE_OK)
+
+
 def _usage(state: ShellState, args: list[str]) -> Outcome:
     meta = info(state.model)
     key = credential(provider_for(meta.provider))
@@ -591,6 +625,8 @@ COMMANDS: list[Command] = [
     Command("mcp", "MCP servers and their remote tools", _mcp),
     Command("context", "project instruction files in force", _context),
     Command("theme", "switch palette", _theme, usage="/theme [name]"),
+    Command("permissions", "how much of the machine offset may touch", _permissions,
+            usage="/permissions [full|workspace|revoke]"),
     Command("eggs", "the trophy room", _trophies, aliases=("trophies",)),
     Command("usage", "current model, key, tools, approval", _usage),
     Command("clear", "drop the context, keep the history", _clear),

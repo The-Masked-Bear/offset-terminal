@@ -285,11 +285,17 @@ def display(text: str, spacing: int = 2) -> str:
 
 
 def label(text: str) -> str:
-    """Small caps label: uppercase, single tracking."""
-    return track(text.upper(), 1)
+    """A small caps label: uppercase, NO tracking.
+
+    Letter-spacing belongs to headlines. The reference site tracks a 40px hero,
+    not its body copy, and applying it to running UI text turned a status bar
+    into "M O C K  1 5  T O O L S" - technically on-brand, actually unreadable.
+    Tracking now has to be asked for, via `display()` or `fit(spacing=...)`.
+    """
+    return text.upper()
 
 
-def fit(text: str, width: int, *, spacing: int = 1, upper: bool = True) -> str:
+def fit(text: str, width: int, *, spacing: int = 0, upper: bool = True) -> str:
     """Tracked, uppercase text guaranteed to fit `width`.
 
     Tracking is the first thing sacrificed: the reference's wide letter

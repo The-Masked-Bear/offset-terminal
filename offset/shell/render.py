@@ -70,9 +70,22 @@ def _wrap(text: str, width: int) -> list[str]:
     return out
 
 
-def banner(width: int, t: float) -> str:
+def banner(width: int, t: float, *, workspace: object = "", model: str = "") -> str:
+    """A static header.
+
+    This used to be a scrolling marquee. It is the signature element of the
+    reference design, but a strip of text sliding past forever at the top of a
+    tool people work in all day reads as a toy, and it never told anyone
+    anything. Same yellow band, same hard edge; now it carries the two facts
+    you actually want on screen.
+    """
     cv = Canvas(width, 1, bg=PAPER)
-    brutal.ticker(cv, 0, 0, width, TICKER, t, speed=6.0)
+    cv.fill_rect(0, 0, width, 1, " ", INK, YELLOW)
+    cv.text(1, 0, display("offset", 1), INK, YELLOW, True, max_w=width - 2)
+    right = f"{model}  {G.STAR}  {workspace}" if model else str(workspace)
+    right = fit(right, max(0, width - 20), upper=False)
+    if right:
+        cv.text(max(14, width - 1 - text_width(right)), 0, right, INK, YELLOW, False)
     return cv.render()
 
 
@@ -240,6 +253,44 @@ def _scrollbar(cv: Canvas, width: int, height: int, total: int, start: int) -> N
         cv.put(width - 1, y, G.BLOCK if inside else " ", INK if inside else GRID, PAPER if inside else GRID)
 
 
+def welcome(width: int, height: int, workspace: object, model: str, *, t: float = 0.0) -> str:
+    """What an empty session shows.
+
+    A blank twenty-row void reads as broken. This is the one screen that has to
+    teach: what to type, how to see the commands, how to leave.
+    """
+    cv = Canvas(width, height, bg=PAPER)
+    if height < 8 or width < 44:
+        cv.text(1, max(0, height // 2), fit("type a question, or /help", width - 2), MUTED, PAPER)
+        return cv.render()
+
+    panel_w = min(66, width - 8)
+    panel_h = min(13, height - 3)
+    top = max(0, (height - panel_h) // 2 - 1)
+    left = max(2, (width - panel_w - 4) // 2)
+    x, y, iw, _ = brutal.slab(cv, left, top, panel_w, panel_h, title="offset", title_tone="accent")
+
+    brutal.heading(cv, x, y + 1, "ask for what you want.", tracking=0, width=iw)
+    rows = [
+        ("", ""),
+        ("just type", "a question or an instruction, then enter"),
+        ("/help", "every command, with what it does"),
+        ("/spec 3 <task>", "try three approaches at once, keep what passes"),
+        ("/model", "pick a model    /login  use your own account"),
+        ("ctrl-c twice", "quit    pageup  scroll back"),
+    ]
+    for i, (key, what) in enumerate(rows):
+        row = y + 3 + i
+        if row >= y + panel_h - 2:
+            break
+        if not key:
+            continue
+        cv.text(x, row, fit(key, 15), INK, SURFACE, True, max_w=15)
+        cv.text(x + 16, row, fit(what, iw - 16, upper=False), MUTED, SURFACE, False, max_w=iw - 16)
+
+    return cv.render()
+
+
 def prompt_row(width: int, text: str, *, busy: bool, t: float) -> str:
     """The input line's frame; prompt_toolkit draws the editable text itself."""
     cv = Canvas(width, 1, bg=PAPER)
@@ -252,7 +303,7 @@ def status(width: int, state: ShellState, *, busy: bool, t: float, note: str = "
     cv = Canvas(width, 1, bg=PAPER)
     found, total = state.eggs.progress()
     left = note or f"{state.model}  {G.STAR}  {len(state.toolbox)} tools  {G.STAR}  {state.approval.mode}"
-    right = f"{found}/{total} eggs  {G.STAR}  ctrl-c stop  ctrl-d quit"
+    right = f"{found}/{total} eggs  {G.STAR}  ctrl-c x2 quit  {G.STAR}  /help"
     brutal.status_bar(cv, 0, 0, width, left=left, right=right, t=t)
     return cv.render()
 
