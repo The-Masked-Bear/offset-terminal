@@ -331,7 +331,8 @@ class Todo(Tool):
         "type": "object",
         "properties": {
             "op": {"type": "string", "enum": ["init", "append", "start", "done", "drop", "block", "unblock", "view"]},
-            "tasks": {"type": "array"},
+            "tasks": {"type": "array", "items": {"type": "string"},
+                  "description": "task text, one per entry"},
             "id": {"type": "string"},
             "note": {"type": "string"},
         },

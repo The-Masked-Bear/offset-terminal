@@ -143,6 +143,15 @@ def normalise(schema: dict[str, Any], dialect: str) -> dict[str, Any]:
         if "object" in types and not isinstance(out.get("properties"), dict):
             # Several providers reject an object without a properties map.
             out["properties"] = {}
+        if "array" in types and "items" not in out and dialect == "google":
+            # Gemini's ARRAY requires `items`. Nothing here can know the real
+            # element type, so this is a last resort for schemas we did not
+            # write - our own are checked at source by the test suite.
+            out["items"] = _infer_items(node)
+        if dialect in ("anthropic", "google") and not types:
+            hoisted = _hoist_union(out)
+            if hoisted is not None:
+                out["type"] = hoisted
         return out
 
     result = walk(schema, frozenset())
@@ -155,6 +164,33 @@ def normalise(schema: dict[str, Any], dialect: str) -> dict[str, Any]:
         for ref in sorted(leftover):  # a schema mixing both holders keeps both
             result.setdefault(_holder(ref), {})[_name(ref)] = walk(defs[ref], frozenset({ref}))
     return result
+
+
+def _infer_items(node: dict[str, Any]) -> dict[str, Any]:
+    """The best available guess at an array's element schema."""
+    tuple_form = node.get("prefixItems")
+    if isinstance(tuple_form, list) and tuple_form and isinstance(tuple_form[0], dict):
+        return {k: v for k, v in tuple_form[0].items() if k == "type"} or {"type": "string"}
+    return {"type": "string"}
+
+
+def _hoist_union(node: dict[str, Any]) -> str | None:
+    """A `type` for a branch schema that has none.
+
+    `{"anyOf": [...]}` with no sibling `type` is legal JSON Schema and is
+    rejected by the stricter function-calling dialects. When every branch agrees
+    on a type it can be stated outright; otherwise the first branch is the least
+    surprising choice, and the branches stay for anyone who reads them.
+    """
+    for key in ("anyOf", "oneOf", "allOf"):
+        branches = node.get(key)
+        if not isinstance(branches, list):
+            continue
+        found = [b.get("type") for b in branches if isinstance(b, dict) and isinstance(b.get("type"), str)]
+        if not found:
+            continue
+        return found[0] if len(set(found)) > 1 else found[0]
+    return None
 
 
 def _definitions(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:

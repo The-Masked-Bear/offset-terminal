@@ -21,6 +21,7 @@ from offset.providers.base import (
     ToolCallDelta,
     Usage,
 )
+from offset.providers.schema import normalise
 from offset.providers.sse import iter_json_frames
 from offset.providers.transport import HTTPFailure, Retry, post_lines
 
@@ -49,7 +50,8 @@ def build_payload(request: Request) -> dict[str, Any]:
     payload: dict[str, Any] = {"model": request.model, "messages": messages, "stream": True, "options": options}
     if request.tools:
         payload["tools"] = [
-            {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.schema}}
+            {"type": "function", "function": {"name": t.name, "description": t.description,
+                                              "parameters": normalise(t.schema, "ollama")}}
             for t in request.tools
         ]
     return payload

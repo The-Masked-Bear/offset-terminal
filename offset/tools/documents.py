@@ -16,6 +16,7 @@ Everything in this module is `Danger.FULL`: it writes wherever it is pointed.
 
 from __future__ import annotations
 
+import json
 import os
 import zipfile
 from dataclasses import dataclass
@@ -85,6 +86,17 @@ class Block:
 
 def blocks_from(raw: Any) -> list[Block]:
     if isinstance(raw, str):
+        # The schema declares `content` as a string, because a bare anyOf is
+        # rejected by strict providers. A model that sends the richer block form
+        # therefore sends it as JSON text, so accept that here.
+        stripped = raw.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                decoded = None
+            if isinstance(decoded, list):
+                return [Block.parse(item) for item in decoded]
         # A plain string is a document: split on blank lines into paragraphs.
         chunks = [c.strip() for c in raw.split("\n\n")]
         return [Block("paragraph", c) for c in chunks if c]
@@ -686,7 +698,7 @@ class Documents(Tool):
     name = "document"
     description = (
         "Create a document: .docx .xlsx .odt .pdf .md .txt .csv .html. "
-        "`content` is a string, or a list of blocks "
+        "Pass `text` for plain prose, or `content` as a list of blocks "
         "({kind: heading|paragraph|bullets|numbers|table|code|quote|break, ...})."
     )
     danger = Danger.FULL
@@ -696,9 +708,26 @@ class Documents(Tool):
         "properties": {
             "path": {"type": "string", "description": "destination; the extension picks the format"},
             "title": {"type": "string"},
+            # Two well-typed fields rather than one union. `content` used to be
+            # a bare `anyOf`, which strict providers reject - and because every
+            # tool ships on every request, that one schema failed every message.
+            "text": {
+                "type": "string",
+                "description": "the body as plain prose; blank lines separate paragraphs",
+            },
             "content": {
-                "description": "a string, or a list of block objects",
-                "anyOf": [{"type": "string"}, {"type": "array"}],
+                "type": "array",
+                "description": "the body as structured blocks; use instead of `text`",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": list(BLOCK_KINDS)},
+                        "text": {"type": "string"},
+                        "level": {"type": "integer", "minimum": 1, "maximum": 6},
+                        "items": {"type": "array", "items": {"type": "string"}},
+                        "rows": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+                    },
+                },
             },
             "rows": {
                 "type": "array",
@@ -719,6 +748,7 @@ class Documents(Tool):
         if target.exists() and not args.get("overwrite", True):
             return ToolResult.fail(f"{target} exists and overwrite is false")
 
+        body = args.get("content") or args.get("text") or ""
         rows = args.get("rows")
         try:
             if suffix == ".xlsx":
@@ -727,12 +757,12 @@ class Documents(Tool):
                 write_xlsx(target, [[str(c) for c in row] for row in rows], sheet=str(args.get("sheet") or "Sheet1"))
             elif suffix == ".csv":
                 blocks = [Block("table", rows=tuple(tuple(str(c) for c in r) for r in rows))] if rows \
-                    else blocks_from(args.get("content") or "")
+                    else blocks_from(body)
                 write_csv(target, blocks)
             else:
-                blocks = blocks_from(args.get("content") or "")
+                blocks = blocks_from(body)
                 if not blocks and not args.get("title"):
-                    return ToolResult.fail("give the document some `content` or a `title`")
+                    return ToolResult.fail("give the document some `text`, `content`, or a `title`")
                 WRITERS[suffix](target, blocks, title=str(args.get("title") or ""))
         except (ValueError, TypeError) as exc:
             return ToolResult.fail(f"could not build the document: {exc}")

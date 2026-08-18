@@ -261,7 +261,7 @@ def test_a_spreadsheet_without_rows_is_refused(runtime):
 
 
 def test_an_unknown_extension_lists_what_is_supported(runtime):
-    got = runtime.execute(call(path="thing.wat", content="x"))
+    got = runtime.execute(call(path="thing.wat", text="x"))
     assert not got.result.ok and ".docx" in got.result.error
 
 
@@ -271,7 +271,7 @@ def test_an_empty_document_is_refused(runtime):
 
 def test_overwrite_can_be_declined(tmp_path, runtime):
     (tmp_path / "keep.md").write_text("original", encoding="utf-8")
-    got = runtime.execute(call(path="keep.md", content="new", overwrite=False))
+    got = runtime.execute(call(path="keep.md", text="new", overwrite=False))
     assert not got.result.ok and "exists" in got.result.error
     assert (tmp_path / "keep.md").read_text() == "original"
 
@@ -280,7 +280,7 @@ def test_it_can_write_outside_the_workspace(tmp_path, runtime):
     """The whole point of Danger.FULL: Documents/, a USB stick, anywhere."""
     elsewhere = tmp_path.parent / f"outside-{tmp_path.name}.docx"
     try:
-        got = runtime.execute(call(path=str(elsewhere), title="Outside", content="hello"))
+        got = runtime.execute(call(path=str(elsewhere), title="Outside", text="hello"))
         assert got.result.ok, got.result.error
         assert elsewhere.exists()
         assert "word/document.xml" in parts(elsewhere)
@@ -291,7 +291,7 @@ def test_it_can_write_outside_the_workspace(tmp_path, runtime):
 def test_a_bounded_context_still_refuses_to_escape(tmp_path):
     """Without the startup grant, the boundary holds even for a FULL tool."""
     bounded = Runtime(Toolbox(document_tools()), ToolContext(cwd=tmp_path), Approval(mode="full"))
-    got = bounded.execute(call(path="../escaped.md", content="x"))
+    got = bounded.execute(call(path="../escaped.md", text="x"))
     assert not got.result.ok and "escape" in got.result.error
 
 

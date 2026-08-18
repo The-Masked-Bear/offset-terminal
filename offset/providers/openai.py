@@ -21,6 +21,7 @@ from offset.providers.base import (
     ToolCallDelta,
     Usage,
 )
+from offset.providers.schema import normalise
 from offset.providers.sse import iter_sse, loads
 from offset.providers.transport import HTTPFailure, Retry, post_lines
 
@@ -64,7 +65,8 @@ def build_payload(request: Request, *, max_tokens_field: str = "max_tokens") -> 
     }
     if request.tools:
         payload["tools"] = [
-            {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.schema}}
+            {"type": "function", "function": {"name": t.name, "description": t.description,
+                                              "parameters": normalise(t.schema, "openai")}}
             for t in request.tools
         ]
     if request.temperature is not None:

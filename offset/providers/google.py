@@ -22,6 +22,7 @@ from offset.providers.base import (
     ToolCallDelta,
     Usage,
 )
+from offset.providers.schema import normalise
 from offset.providers.sse import iter_sse, loads
 from offset.providers.transport import HTTPFailure, Retry, post_lines
 
@@ -67,7 +68,9 @@ def build_payload(request: Request) -> dict[str, Any]:
     if request.tools:
         payload["tools"] = [{
             "functionDeclarations": [
-                {"name": t.name, "description": t.description, "parameters": t.schema} for t in request.tools
+                {"name": t.name, "description": t.description,
+                 "parameters": normalise(t.schema, "google")}
+                for t in request.tools
             ]
         }]
     return payload
