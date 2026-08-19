@@ -1039,13 +1039,10 @@
                 <div class="quick-chips">
                     <span class="chip" onclick="executeCmd('spec 3 fix auth memory leak')">/spec 3</span>
                     <span class="chip" onclick="executeCmd('flow scaffold stripe api')">/flow</span>
-                    <span class="chip" onclick="executeCmd('bear')">bear</span>
-                    <span class="chip" onclick="executeCmd('sudo')">sudo</span>
-                    <span class="chip" onclick="executeCmd('matrix')">matrix</span>
-                    <span class="chip" onclick="executeCmd('neofetch')">neofetch</span>
-                    <span class="chip" onclick="executeCmd('hunter2')">hunter2</span>
-                    <span class="chip" onclick="executeCmd('coffee')">coffee</span>
+                    <span class="chip" onclick="executeCmd('model')">/model</span>
+                    <span class="chip" onclick="executeCmd('login')">/login</span>
                     <span class="chip" onclick="executeCmd('help')">help</span>
+                    <span class="chip" onclick="executeCmd('clear')">clear</span>
                 </div>
                 <div class="terminal-prompt-row">
                     <span class="term-prompt">offset &gt;</span>
@@ -1240,18 +1237,18 @@
                 <button class="tool-btn" onclick="hintEgg()">NEED A HINT?</button>
             </div>
             <p style="margin-top: 8px; font-size: 0.95rem;">
-                Click any unlocked badge below to test its effect directly, or type hidden commands into the terminal above.
+                Discover hidden secrets by exploring terminal commands, inspecting elements, or triggering easter eggs.
             </p>
 
             <div class="vault-grid">
-                <div class="egg-badge" id="badge-bear" onclick="executeCmd('bear')">🐻 BEAR</div>
-                <div class="egg-badge" id="badge-sudo" onclick="executeCmd('sudo')">🔒 SUDO</div>
-                <div class="egg-badge" id="badge-matrix" onclick="executeCmd('matrix')">🐇 MATRIX</div>
-                <div class="egg-badge" id="badge-hunter2" onclick="executeCmd('hunter2')">🔑 HUNTER2</div>
-                <div class="egg-badge" id="badge-neofetch" onclick="executeCmd('neofetch')">💻 NEOFETCH</div>
-                <div class="egg-badge" id="badge-gravity" onclick="toggleGravity()">💥 GRAVITY</div>
-                <div class="egg-badge" id="badge-konami" onclick="triggerKonamiDirect()">🕹️ KONAMI</div>
-                <div class="egg-badge" id="badge-coffee" onclick="executeCmd('coffee')">☕ COFFEE</div>
+                <div class="egg-badge" id="badge-bear">🔒 SECRET #1</div>
+                <div class="egg-badge" id="badge-sudo">🔒 SECRET #2</div>
+                <div class="egg-badge" id="badge-matrix">🔒 SECRET #3</div>
+                <div class="egg-badge" id="badge-hunter2">🔒 SECRET #4</div>
+                <div class="egg-badge" id="badge-neofetch">🔒 SECRET #5</div>
+                <div class="egg-badge" id="badge-gravity">🔒 SECRET #6</div>
+                <div class="egg-badge" id="badge-konami">🔒 SECRET #7</div>
+                <div class="egg-badge" id="badge-coffee">🔒 SECRET #8</div>
             </div>
         </section>
 
@@ -1483,6 +1480,17 @@
         const discoveredEggs = new Set();
         const TOTAL_EGGS = 8;
 
+        const eggIcons = {
+            bear: '🐻 BEAR',
+            sudo: '🔒 SUDO',
+            matrix: '🐇 MATRIX',
+            hunter2: '🔑 HUNTER2',
+            neofetch: '💻 NEOFETCH',
+            gravity: '💥 GRAVITY',
+            konami: '🕹️ KONAMI',
+            coffee: '☕ COFFEE'
+        };
+
         function unlockEgg(name, displayName) {
             if (!discoveredEggs.has(name)) {
                 discoveredEggs.add(name);
@@ -1490,7 +1498,10 @@
                 showToast(`🎉 UNLOCKED SECRET: ${displayName}!`);
                 
                 const badge = document.getElementById(`badge-${name}`);
-                if (badge) badge.classList.add('unlocked');
+                if (badge) {
+                    badge.classList.add('unlocked');
+                    badge.innerText = eggIcons[name] || displayName;
+                }
 
                 document.getElementById('egg-found-count').innerText = discoveredEggs.size;
                 document.getElementById('vault-count').innerText = discoveredEggs.size;
@@ -1518,13 +1529,13 @@
         function hintEgg() {
             playBeep(300, 'triangle', 0.1);
             const hints = [
-                "Try typing 'bear' 4 times in the terminal.",
-                "Try asking for 'sudo' privileges.",
-                "Type 'matrix' to see reality decode.",
-                "Enter 'hunter2' for password check.",
-                "Use classic gamer arrows + B + A (Konami code).",
-                "Try ordering a 'coffee'.",
-                "Click the gravity button to test physics."
+                "Try interrogating the terminal about nature...",
+                "What happens when you demand root privileges?",
+                "Wake up, operator...",
+                "Is your password secure against honeypots?",
+                "Classic arcade cheat codes might work on this page...",
+                "Developers need caffeinated beverages...",
+                "What goes up must come down..."
             ];
             showToast("💡 HINT: " + hints[Math.floor(Math.random() * hints.length)]);
         }

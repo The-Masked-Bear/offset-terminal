@@ -97,17 +97,9 @@ offset
 
 ---
 
-## 🥚 EASTER EGGS
+## 🥚 SECRETS & EASTER EGGS
 
-Offset ships with a comprehensive built-in easter egg engine. Try typing these into the REPL or on the [Official Website](https://the-masked-bear.github.io/offset-terminal/):
-
-- `bear` — Sentience inquiry (escalates across 4 attempts).
-- `sudo` — Privilege escalation check (*"This incident will be reported to The-Masked-Bear."*).
-- `matrix` — Wake up, operator. Full terminal decoding sequence.
-- `neofetch` — ASCII system diagnostic readout.
-- `hunter2` — Password honeypot.
-- `coffee` — HTCPCP RFC 2324 teapot protocol.
-- `↑ ↑ ↓ ↓ ← → ← → B A` — The classic Konami god mode code.
+Offset features an extensive built-in easter egg engine with dozens of hidden commands, sentience checks, and honeypots. None of them are documented here—explore the terminal to discover them.
 
 ---
 
