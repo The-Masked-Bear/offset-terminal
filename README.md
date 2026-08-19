@@ -17,6 +17,12 @@
 [![Release](https://img.shields.io/badge/release-v0.1.0-pink.svg?style=for-the-badge&colorA=111111&colorB=FF90E8)](https://github.com/The-Masked-Bear/offset-terminal/releases)
 [![UI: Neubrutalist](https://img.shields.io/badge/UI-Neubrutalist-mint.svg?style=for-the-badge&colorA=111111&colorB=B2FF9E)](https://the-masked-bear.github.io/offset-terminal/)
 
+<br>
+
+<img src="assets/hero-banner.png" alt="Offset Landing Page & REPL" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
+
+<br><br>
+
 **[🌐 LIVE WEBSITE & INTERACTIVE PLAYGROUND](https://the-masked-bear.github.io/offset-terminal/)** • **[💎 GET OFFSET PLUS](https://debarghya47.gumroad.com/l/qzqnxk)**
 
 </div>
@@ -27,7 +33,11 @@
 
 **Offset** is a from-scratch terminal coding agent built for developers who care about speed, taste, and parallel problem solving. Built with a unified neubrutalist design DNA (sharp borders, zero blur, high-contrast monospace tokens), its core superpower is **Speculative Branching**:
 
-Rather than betting your codebase on a single model's hallucination, Offset can fork your repository into $N$ isolated git worktrees, dispatch competing models (Claude Sonnet, GPT-4, Gemini 3 Pro) in parallel, execute local test suites, and merge the winning implementation automatically.
+Rather than betting your codebase on a single model's hallucination, Offset can fork your repository into $N$ isolated git worktrees, dispatch competing models (Claude Sonnet, GPT-4.1, Gemini 3 Pro) in parallel, execute local test suites, and merge the winning implementation automatically.
+
+<div align="center">
+<img src="assets/terminal-tui.png" alt="Offset Terminal TUI" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
+</div>
 
 ---
 
@@ -101,7 +111,10 @@ Offset ships with a comprehensive built-in easter egg engine. Try typing these i
 
 ## 📜 LICENSE
 
-This project is open source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](LICENSE) file for complete details.
+This project is open source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.  
+`Copyright (C) 2026 The-Masked-Bear`
+
+See the [LICENSE](LICENSE) file for complete details.
 
 ---
 

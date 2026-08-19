@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Offset TUI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #111111;
+            --bg: #F4F4F0;
+            --surface: #FFFFFF;
+            --yellow: #FFDE59;
+            --pink: #FF90E8;
+            --cyan: #8CFFFB;
+            --mint: #B2FF9E;
+            --red: #FF5A5F;
+            --shadow: 8px 8px 0px var(--ink);
+            --border: 4px solid var(--ink);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            padding: 40px;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .window {
+            background: #000000;
+            border: var(--border);
+            box-shadow: 16px 16px 0px var(--ink);
+            max-width: 1000px;
+            width: 100%;
+        }
+        .titlebar {
+            background: var(--surface);
+            border-bottom: var(--border);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dots { display: flex; gap: 8px; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); }
+        .title { font-family: 'Archivo Black', sans-serif; font-size: 0.9rem; text-transform: uppercase; }
+        pre {
+            color: #B2FF9E;
+            padding: 24px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.25;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .tag-row {
+            background: var(--ink);
+            border-top: 2px solid #333;
+            padding: 8px 16px;
+            display: flex;
+            gap: 12px;
+            color: #888;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="titlebar">
+            <div class="dots">
+                <div class="dot" style="background: var(--red);"></div>
+                <div class="dot" style="background: var(--yellow);"></div>
+                <div class="dot" style="background: var(--mint);"></div>
+            </div>
+            <div class="title">OFFSET // SPECULATIVE BRANCHING DEMO</div>
+            <div style="font-size: 0.8rem; font-weight: bold; background: var(--pink); border: 2px solid var(--ink); padding: 2px 8px;">6 MODELS ARMED</div>
+        </div>
+        <pre>SPECULATIVE BRANCHING ★ MULTI-MODEL BY DEFAULT ★ EVERY TOOL ON ★ ZERO ROUNDED CORNERS ★ OFFSET V0.1.0
+                                                                                                    
+  B  U  I  L  D     F  O  U  R     A  N  S  W  E  R  S  .                                           
+  ███████████████████████████████████████████████████████                                           
+  K  E  E  P     T  H  E     O  N  E     T  H  A  T     P  A  S  S  E  S  .                         
+  NO WIZARDS. NO GRADIENTS. NO ROUNDED CORNERS.                                                     
+                                                                                                    
+  ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜      ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜      ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜      ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜  
+  ▌                  ▐      ▌                  ▐      ▌                 ▐      ▌                 ▐  
+  ▌ ███              ▐████  ▌ █ █              ▐████  ▌ █ █ ███         ▐████  ▌ ███   █         ▐██
+  ▌ █                ▐████  ▌ █ █              ▐████  ▌ █ █   █         ▐████  ▌ █     █         ▐██
+  ▌ ███              ▐████  ▌ ███              ▐████  ▌ ███ ███         ▐████  ▌ ███   █         ▐██
+  ▌ █ █  MODELS      ▐████  ▌   █  BRANCHES    ▐████  ▌   █ █    TOOLS  ▐████  ▌ █ █   █  EGGS   ▐██
+  ▌ ███              ▐████  ▌   █              ▐████  ▌   █ ███         ▐████  ▌ ███   █         ▐██
+  ▌ ──────────────── ▐████  ▌ ──────────────── ▐████  ▌ ─────────────── ▐████  ▌ ─────────────── ▐██
+  ▌ LIVE NOW         ▐████  ▌ IN FLIGHT        ▐████  ▌ ALL ARMED       ▐████  ▌ HIDDEN          ▐██
+  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟████  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟████  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟████  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟██
+      ████████████████████      ████████████████████      ███████████████████      █████████████████
+  ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜      ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜      ▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜  
+  ▌ BRANCHES                 ▐      ▌ MODEL                    ▐      ▌ WINNER DIFF              ▐  
+  ▌──────────────────────────▐████  ▌──────────────────────────▐████  ▌──────────────────────────▐██
+  ▌   ○ MAIN                 ▐████  ▌ ▶ CLAUDE OPUS 4  planner ▐████  ▌ - def parse(src): return ▐██
+  ▌   └ ✓ A / REWRITE PARSER ▐████  ▌   GPT-4.1 …  implementer ▐████  ▌ + def parse(src):        ▐██
+  ▌   └ ✗ B / PATCH IN PLACE ▐████  ▌   GEMINI 3 PRO    critic ▐████  ▌ +     return _GRAMMAR.ma ▐██
+  ▌   └ ◜ C / DEFER TO RUNT… ▐████  ▌   DEEPSEEK V3      cheap ▐████  ▌                          ▐██
+  ▌     └ ✓ C1 / CACHE THE … ▐████  ▌   GOOGLE ANTIGRAVITY     ▐████  ▌ - TIMEOUT = None         ▐██
+  ▌                          ▐████  ▌   OLLAMA / LLAMA3  local ▐████  ▌ + TIMEOUT = 30.0         ▐██
+  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟████  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟████  ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟██
+      ████████████████████████████      ████████████████████████████      ██████████████████████████
+                                                                                                    
+  ┏━━━━━━━━━━━━━━━┓     ┏━━━━━━━━━━━━━┓     ┏━━━━━━━━━┓     ┏━━━━━━━━━┓                             
+  ┃ R U N   A L L ┃██   ┃ K E E P   A ┃██   ┃ K I L L ┃██   ┃ F O R K ┃██                           
+  ┗━━━━━━━━━━━━━━━┛██   ┗━━━━━━━━━━━━━┛██   ┗━━━━━━━━━┛██   ┗━━━━━━━━━┛██                           
+    █████████████████     ███████████████     ███████████     ███████████                           
+  BRANCH A    │████████████████████████████████│  100%   P A S S E D          ○ ○ ●    ✷   L I V E  
+                                                                                                    
+ ▶ OFFSET  ★  6 MODELS  ★  BRANCH A WON (AUTO-MERGED)       Q QUIT  SPACE PRESS  A TROPHY  G GLITCH</pre>
+        <div class="tag-row">
+            <span>[SESSION: #0x8F9A]</span>
+            <span>[REPO: /workspace/project]</span>
+            <span>[SPECULATIVE BRANCHING: ARMED]</span>
+        </div>
+    </div>
+</body>
+</html>
