@@ -121,6 +121,5 @@ See the [LICENSE](LICENSE) file for complete details.
 ## 👤 AUTHOR & CREDITS
 
 - Created by **[The Masked Bear](https://github.com/The-Masked-Bear)**.
-- Design DNA and tokens inspired by **[WifiSense-Pi](https://the-masked-bear.github.io/wifisense-pi/)**.
 
 *"This incident will be reported to The-Masked-Bear."*

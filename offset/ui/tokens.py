@@ -1,7 +1,6 @@
 """Design tokens — the DNA layer.
 
-Every value here is transcribed from the reference implementation
-(the-masked-bear.github.io/wifisense-pi) and re-expressed for a character
+Every value here is neubrutalist and re-expressed for a character
 cell grid.  Two rules govern every translation:
 
   1. Shadows are HARD.  Zero blur, one flat colour, 45-degree offset.

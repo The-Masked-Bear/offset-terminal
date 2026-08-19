@@ -26,7 +26,8 @@
             --spring: cubic-bezier(.175,.885,.32,1.275);
         }
 
-        body.matrix-mode {
+        /* Matrix Theme */
+        body.theme-matrix {
             --bg: #0d1117;
             --surface: #161b22;
             --ink: #00ff66;
@@ -42,6 +43,53 @@
             --shadow-lg: 8px 8px 0px #00ff66;
             --shadow-xl: 12px 12px 0px #00ff66;
             color: #00ff66;
+        }
+
+        /* Cyberpunk Theme */
+        body.theme-cyberpunk {
+            --bg: #120024;
+            --surface: #240046;
+            --ink: #ff007f;
+            --muted: #9d4edd;
+            --yellow: #00f0ff;
+            --pink: #ff007f;
+            --cyan: #00f0ff;
+            --mint: #39ff14;
+            --red: #ff0055;
+            --border: 3px solid #ff007f;
+            --border-heavy: 4px solid #00f0ff;
+            --shadow: 5px 5px 0px #00f0ff;
+            --shadow-lg: 8px 8px 0px #00f0ff;
+            --shadow-xl: 12px 12px 0px #ff007f;
+            color: #ffffff;
+        }
+
+        /* High Contrast Invert */
+        body.theme-invert {
+            --bg: #000000;
+            --surface: #111111;
+            --ink: #ffffff;
+            --muted: #888888;
+            --yellow: #ffffff;
+            --pink: #cccccc;
+            --cyan: #ffffff;
+            --mint: #222222;
+            --red: #ff4444;
+            --border: 3px solid #ffffff;
+            --border-heavy: 4px solid #ffffff;
+            --shadow: 5px 5px 0px #ffffff;
+            --shadow-lg: 8px 8px 0px #ffffff;
+            --shadow-xl: 12px 12px 0px #ffffff;
+            color: #ffffff;
+        }
+
+        /* Party Rave Mode */
+        body.theme-party {
+            animation: partyHue 4s linear infinite;
+        }
+        @keyframes partyHue {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
         }
 
         * {
@@ -68,25 +116,20 @@
             word-break: break-word;
         }
 
-        /* Scanline Overlay on Matrix mode */
-        body.matrix-mode::before {
-            content: " ";
-            display: block;
+        /* Particle Overlay Canvas */
+        #particle-canvas {
             position: fixed;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 255, 0, 0.06));
-            z-index: 999;
-            background-size: 100% 3px, 6px 100%;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
             pointer-events: none;
+            z-index: 997;
         }
 
         /* Matrix Canvas */
         #matrix-canvas {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
             pointer-events: none;
             z-index: 998;
             display: none;
@@ -104,9 +147,11 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            cursor: pointer;
+            user-select: none;
         }
 
-        body.matrix-mode .marquee-container {
+        body.theme-matrix .marquee-container {
             background: #002200;
             color: #00ff66;
             border-bottom: 3px solid #00ff66;
@@ -118,6 +163,10 @@
             font-family: 'Archivo Black', sans-serif;
             font-size: 0.95rem;
             letter-spacing: 2px;
+        }
+
+        .marquee-track:hover {
+            animation-play-state: paused;
         }
 
         @keyframes marquee {
@@ -135,6 +184,8 @@
             border-bottom: var(--border);
             flex-wrap: wrap;
             gap: 16px;
+            position: relative;
+            z-index: 90;
         }
 
         .brand-cluster {
@@ -154,12 +205,14 @@
             border: var(--border);
             box-shadow: var(--shadow);
             transform: rotate(-1deg);
-            transition: transform 0.1s;
+            transition: transform 0.1s, background-color 0.1s;
             display: inline-block;
+            cursor: pointer;
         }
 
         .logo:hover {
-            transform: rotate(2deg) scale(1.05);
+            transform: rotate(3deg) scale(1.08);
+            background: var(--pink);
         }
 
         .badge {
@@ -169,6 +222,13 @@
             border: 2px solid var(--ink);
             text-transform: uppercase;
             display: inline-block;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .badge:hover {
+            transform: scale(1.1) rotate(-2deg);
         }
 
         .badge-cyan { background: var(--cyan); }
@@ -179,22 +239,22 @@
         .nav-controls {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
-        /* Interactive Sound & Mode Buttons */
         .tool-btn {
             font-family: 'Space Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 700;
-            padding: 8px 14px;
+            padding: 8px 12px;
             background: var(--surface);
             border: var(--border);
             color: var(--ink);
             cursor: pointer;
             box-shadow: 3px 3px 0px var(--ink);
             transition: transform 0.05s, box-shadow 0.05s;
+            user-select: none;
         }
 
         .tool-btn:hover {
@@ -216,6 +276,30 @@
             box-shadow: 3px 3px 0px var(--ink);
             cursor: pointer;
             user-select: none;
+            transition: transform 0.1s;
+        }
+
+        .egg-counter:hover {
+            transform: scale(1.05);
+        }
+
+        /* Draggable Sticker Badge */
+        .draggable-sticker {
+            position: absolute;
+            background: var(--yellow);
+            border: var(--border);
+            padding: 6px 12px;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.75rem;
+            box-shadow: var(--shadow);
+            cursor: grab;
+            user-select: none;
+            z-index: 50;
+            touch-action: none;
+        }
+        .draggable-sticker:active {
+            cursor: grabbing;
+            transform: scale(1.1);
         }
 
         /* Layout Container */
@@ -223,6 +307,7 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 40px 24px;
+            position: relative;
         }
 
         /* Hero Section */
@@ -239,6 +324,19 @@
             margin-bottom: 20px;
             position: relative;
             line-height: 1.08;
+            user-select: none;
+        }
+
+        .interactive-word {
+            display: inline-block;
+            cursor: pointer;
+            transition: transform 0.1s, color 0.1s;
+            padding: 0 2px;
+        }
+
+        .interactive-word:hover {
+            transform: translateY(-4px) scale(1.05);
+            color: var(--pink);
         }
 
         .highlight-box {
@@ -249,6 +347,13 @@
             box-shadow: var(--shadow);
             transform: rotate(-1deg);
             margin-top: 4px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.1s;
+        }
+
+        .highlight-box:hover {
+            transform: rotate(2deg) scale(1.03);
+            background: var(--cyan);
         }
 
         .hero-desc {
@@ -348,6 +453,7 @@
             flex-direction: column;
             min-height: 490px;
             position: relative;
+            transition: transform 0.2s;
         }
 
         .terminal-bar {
@@ -370,6 +476,11 @@
             border-radius: 50%;
             border: 2px solid var(--ink);
             cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .dot-circle:hover {
+            transform: scale(1.3);
         }
 
         .terminal-title {
@@ -401,7 +512,7 @@
             border-top: 2px solid #333;
         }
 
-        body.matrix-mode .terminal-prompt-row {
+        body.theme-matrix .terminal-prompt-row {
             background: #051408;
             border-top: 2px solid #00ff66;
         }
@@ -424,7 +535,7 @@
             font-weight: 700;
         }
 
-        body.matrix-mode #term-input {
+        body.theme-matrix #term-input {
             color: #00ff66;
         }
 
@@ -445,10 +556,13 @@
             border: 1px solid var(--ink);
             cursor: pointer;
             font-weight: bold;
+            user-select: none;
+            transition: transform 0.05s;
         }
 
         .chip:hover {
             background: var(--cyan);
+            transform: translateY(-2px);
         }
 
         /* Section Headings */
@@ -469,7 +583,7 @@
             margin: 0 auto;
         }
 
-        /* Speculative Branching Simulator Widget */
+        /* Speculative Branching Sandbox */
         .simulator-card {
             background: var(--surface);
             border: var(--border-heavy);
@@ -487,6 +601,22 @@
             gap: 16px;
         }
 
+        .sim-controls {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: var(--bg);
+            border: var(--border);
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .sim-slider-label {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+        }
+
         .branch-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -502,7 +632,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            transition: transform 0.2s;
+            transition: transform 0.2s, background-color 0.2s;
             word-break: break-word;
         }
 
@@ -541,30 +671,55 @@
             display: inline-block;
         }
 
-        /* Features Matrix */
+        /* 3D Flippable Feature Cards */
         .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 32px;
             margin-bottom: 80px;
+            perspective: 1000px;
         }
 
-        .feat-card {
-            background: var(--surface);
+        .feat-card-container {
+            height: 280px;
+            cursor: pointer;
+        }
+
+        .feat-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: left;
+            transition: transform 0.6s var(--spring);
+            transform-style: preserve-3d;
+        }
+
+        .feat-card-container.flipped .feat-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .feat-card-front, .feat-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
             border: var(--border-heavy);
             padding: 32px;
             box-shadow: var(--shadow-lg);
-            position: relative;
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
-        .feat-card:hover {
-            transform: translate(-3px, -3px);
-            box-shadow: var(--shadow-xl);
+        .feat-card-back {
+            background: var(--yellow);
+            transform: rotateY(180deg);
+            color: var(--ink);
         }
 
-        .feat-card h3 {
+        .feat-card-front h3 {
             font-size: 1.7rem;
             margin: 16px 0 12px;
         }
@@ -577,6 +732,45 @@
             position: absolute;
             top: 16px;
             right: 20px;
+        }
+
+        /* Interactive Speedup & Token Calculator */
+        .calc-section {
+            background: var(--mint);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 40px;
+            margin-bottom: 80px;
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 40px;
+            align-items: center;
+            margin-top: 24px;
+        }
+
+        .calc-slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .calc-result-box {
+            background: var(--surface);
+            border: var(--border-heavy);
+            padding: 24px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+
+        .calc-big-num {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 3.5rem;
+            color: var(--red);
+            line-height: 1;
+            margin: 10px 0;
         }
 
         /* Pricing Tiers */
@@ -688,26 +882,26 @@
         .egg-badge {
             background: var(--surface);
             border: 2px solid var(--ink);
-            padding: 12px 8px;
+            padding: 14px 8px;
             text-align: center;
             font-family: 'Archivo Black', sans-serif;
-            font-size: 0.75rem;
-            opacity: 0.35;
+            font-size: 0.8rem;
+            opacity: 0.4;
             box-shadow: 3px 3px 0px var(--ink);
             transition: all 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .egg-badge:hover {
+            transform: translateY(-3px) scale(1.05);
+            opacity: 0.85;
         }
 
         .egg-badge.unlocked {
             opacity: 1;
             background: var(--pink);
             transform: rotate(-2deg);
-        }
-
-        /* Gravity Canvas / Fallen items container */
-        .physics-active {
-            transition: transform 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) !important;
-            transform: translateY(120vh) rotate(45deg) !important;
-            pointer-events: none;
         }
 
         /* Toast notifications */
@@ -735,6 +929,13 @@
         @keyframes slideIn {
             from { transform: translateX(120%); }
             to { transform: translateX(0); }
+        }
+
+        /* Gravity Canvas / Fallen items container */
+        .physics-active {
+            transition: transform 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) !important;
+            transform: translateY(120vh) rotate(45deg) !important;
+            pointer-events: none;
         }
 
         /* Footer */
@@ -767,7 +968,7 @@
         }
 
         @media (max-width: 900px) {
-            .hero, .pricing-grid {
+            .hero, .pricing-grid, .calc-grid {
                 grid-template-columns: 1fr;
             }
             .hero-text h1 {
@@ -779,13 +980,20 @@
         }
     </style>
 </head>
-<body>
+<body class="theme-default">
 
+    <!-- Particle and Matrix Canvases -->
+    <canvas id="particle-canvas"></canvas>
     <canvas id="matrix-canvas"></canvas>
 
+    <!-- Draggable Floating Neubrutalist Stickers -->
+    <div class="draggable-sticker" style="top: 140px; right: 80px; background: var(--mint);" id="sticker-1">★ AGPL-3.0</div>
+    <div class="draggable-sticker" style="top: 220px; right: 40px; background: var(--pink);" id="sticker-2">0 CORNERS</div>
+    <div class="draggable-sticker" style="top: 360px; right: 100px; background: var(--cyan);" id="sticker-3">PARALLEL</div>
+
     <!-- Top Marquee Ticker -->
-    <div class="marquee-container">
-        <div class="marquee-track">
+    <div class="marquee-container" id="marquee-header" title="Click to change announcement!">
+        <div class="marquee-track" id="marquee-text">
             ★ OFFSET 0.1.0 ★ SPECULATIVE BRANCHING ★ MULTI-MODEL ORCHESTRATION ★ NEOBRUTALIST ARCHITECTURE ★ AGPL-3.0 LICENSED ★ THE TERMINAL IS YOURS ★ THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR ★ NO CORNERS WERE ROUNDED IN THE MAKING OF THIS CLI ★ 30 LIVES GRANTED ★
         </div>
     </div>
@@ -793,14 +1001,15 @@
     <!-- Navigation Bar -->
     <nav>
         <div class="brand-cluster">
-            <a href="#" class="logo">OFFSET</a>
-            <span class="badge badge-mint">v0.1.0</span>
-            <span class="badge badge-cyan">AGPL-3.0</span>
+            <a href="#" class="logo" id="main-logo" title="Click to spin & play sound!">OFFSET</a>
+            <span class="badge badge-mint" onclick="triggerWordSound(500)">v0.1.0</span>
+            <span class="badge badge-cyan" onclick="triggerWordSound(600)">AGPL-3.0</span>
+            <span class="badge badge-pink" onclick="triggerWordSound(700)">PARALLEL</span>
         </div>
         <div class="nav-controls">
-            <button class="tool-btn" id="sound-toggle" title="Toggle 8-bit Synth Audio">🔊 SFX: ON</button>
-            <button class="tool-btn" id="matrix-toggle" title="Toggle Matrix Mode">⚡ MATRIX</button>
-            <button class="tool-btn" id="gravity-toggle" title="Toggle Gravity Physics">💥 GRAVITY</button>
+            <button class="tool-btn" id="theme-btn" title="Cycle Themes">🎨 THEME: NEU</button>
+            <button class="tool-btn" id="sound-toggle" title="Toggle 8-bit Audio">🔊 SFX: ON</button>
+            <button class="tool-btn" id="gravity-toggle" title="Drop the elements!">💥 GRAVITY</button>
             <div class="egg-counter" id="egg-tracker" title="Click to view Vault">🥚 EGGS: <span id="egg-found-count">0</span>/8</div>
         </div>
     </nav>
@@ -810,15 +1019,20 @@
         <!-- Hero Section -->
         <section class="hero">
             <div class="hero-text">
-                <span class="badge badge-pink" style="margin-bottom: 16px; display: inline-block;">PARALLEL PROBLEM SOLVING</span>
-                <h1>WE WRITE CODE.<br><span class="highlight-box">YOU TAKE CREDIT.</span></h1>
+                <span class="badge badge-pink" style="margin-bottom: 16px;" onclick="triggerWordSound(650)">PARALLEL PROBLEM SOLVING</span>
+                <h1>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 260)">WE</span>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 330)">WRITE</span>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 392)">CODE.</span><br>
+                    <span class="highlight-box" onclick="clickHeroWord(this, 523)">YOU TAKE CREDIT.</span>
+                </h1>
                 <p class="hero-desc">
                     The from-scratch terminal coding agent built with <strong>Speculative Branching</strong>. Fork your git repository into multiple approaches simultaneously, let Claude, GPT, and Gemini race in isolated worktrees, and merge whatever passes tests.
                 </p>
                 <div class="hero-buttons">
-                    <a href="#install-section" class="btn btn-cyan">GET OFFSET LITE</a>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow">UPGRADE TO PLUS ($)</a>
-                    <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn">★ GITHUB</a>
+                    <a href="#install-section" class="btn btn-cyan" onclick="playSuccessSound()">GET OFFSET LITE</a>
+                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" onclick="playSuccessSound()">UPGRADE TO PLUS ($)</a>
+                    <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn" onclick="playBeep(400)">★ GITHUB</a>
                 </div>
 
                 <div class="install-box" id="install-section">
@@ -833,16 +1047,16 @@
             <div class="terminal-wrapper" id="terminal-wrapper">
                 <div class="terminal-bar">
                     <div class="dots">
-                        <div class="dot-circle" style="background: var(--red);" onclick="triggerEgg('sudo')"></div>
-                        <div class="dot-circle" style="background: var(--yellow);" onclick="triggerEgg('bear')"></div>
-                        <div class="dot-circle" style="background: var(--mint);" onclick="triggerEgg('matrix')"></div>
+                        <div class="dot-circle" style="background: var(--red);" onclick="triggerEgg('sudo')" title="Sudo Egg"></div>
+                        <div class="dot-circle" style="background: var(--yellow);" onclick="triggerEgg('bear')" title="Bear Egg"></div>
+                        <div class="dot-circle" style="background: var(--mint);" onclick="triggerEgg('matrix')" title="Matrix Egg"></div>
                     </div>
-                    <div class="terminal-title">OFFSET INTERACTIVE REPL</div>
-                    <div style="font-size: 0.75rem; color: var(--muted);">TYPE 'HELP'</div>
+                    <div class="terminal-title">OFFSET REPL SIMULATOR</div>
+                    <button class="tool-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="executeCmd('clear')">CLEAR</button>
                 </div>
                 <div class="terminal-output" id="term-output">
                     <div style="color: var(--yellow); font-weight: bold;">OFFSET REPL v0.1.0 [Neubrutalist x86_64/arm64]</div>
-                    <div style="color: #888;">Type commands below or click the quick action chips. Try 'spec 3', 'bear', 'matrix', or 'sudo'.</div>
+                    <div style="color: #888;">Type commands below, use UP/DOWN arrows, or click the quick action chips.</div>
                     <div style="color: var(--cyan);">> Ready for instructions.</div>
                 </div>
                 <div class="quick-chips">
@@ -853,6 +1067,7 @@
                     <span class="chip" onclick="executeCmd('matrix')">matrix</span>
                     <span class="chip" onclick="executeCmd('neofetch')">neofetch</span>
                     <span class="chip" onclick="executeCmd('hunter2')">hunter2</span>
+                    <span class="chip" onclick="executeCmd('coffee')">coffee</span>
                     <span class="chip" onclick="executeCmd('help')">help</span>
                 </div>
                 <div class="terminal-prompt-row">
@@ -862,74 +1077,127 @@
             </div>
         </section>
 
-        <!-- Speculative Branching Interactive Simulator -->
+        <!-- Speculative Branching Interactive Simulator Sandbox -->
         <section class="simulator-card">
             <div class="sim-header">
                 <div>
-                    <span class="badge badge-yellow">LIVE WORKTREE SIMULATOR</span>
-                    <h2 style="font-size: 2.2rem; margin-top: 8px;">SPECULATIVE BRANCHING IN ACTION</h2>
+                    <span class="badge badge-yellow">INTERACTIVE WORKBENCH</span>
+                    <h2 style="font-size: 2.2rem; margin-top: 8px;">SPECULATIVE BRANCHING SANDBOX</h2>
                 </div>
-                <button class="btn btn-mint" id="run-sim-btn">▶ RUN /spec 3 SIMULATION</button>
+                <button class="btn btn-mint" id="run-sim-btn">▶ RUN /spec SIMULATION</button>
             </div>
-            <p style="color: var(--muted); margin-bottom: 20px;">
-                Watch how Offset creates 3 isolated git worktrees, runs competing AI models on the same task in parallel, runs deterministic test suites on each branch, and merges the winner.
-            </p>
+            
+            <div class="sim-controls">
+                <span class="sim-slider-label">PARALLEL BRANCHES: <span id="branch-count-val">3</span></span>
+                <input type="range" id="branch-slider" min="2" max="5" value="3" style="cursor: pointer;">
+                <span style="color: var(--muted); font-size: 0.8rem;">(Drag slider to configure concurrent model worktrees)</span>
+            </div>
 
-            <div class="branch-grid">
-                <div class="branch-col" id="branch-a">
-                    <div class="branch-title">
-                        <span>BRANCH A (Sonnet 4)</span>
-                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
-                    </div>
-                    <div class="branch-log">Awaiting task dispatch...</div>
+            <div class="branch-grid" id="dynamic-branch-grid">
+                <!-- Generated dynamically via JS -->
+            </div>
+        </section>
+
+        <!-- Interactive ROI & Speedup Calculator -->
+        <section class="calc-section">
+            <span class="badge badge-pink">EFFICIENCY CALCULATOR</span>
+            <h2 style="font-size: 2.2rem; margin-top: 8px;">PARALLEL SPEEDUP CALCULATOR</h2>
+            <div class="calc-grid">
+                <div class="calc-slider-group">
+                    <label style="font-weight: bold;">
+                        COMPLEXITY OF REFACTOR: <span id="loc-display">500</span> LOC
+                        <input type="range" id="loc-slider" min="100" max="2000" step="100" value="500" style="width: 100%; cursor: pointer;">
+                    </label>
+                    <label style="font-weight: bold;">
+                        FAILED RETRIES AVOIDED: <span id="retry-display">4</span> attempts
+                        <input type="range" id="retry-slider" min="1" max="10" value="4" style="width: 100%; cursor: pointer;">
+                    </label>
                 </div>
-                <div class="branch-col" id="branch-b">
-                    <div class="branch-title">
-                        <span>BRANCH B (GPT-4.1)</span>
-                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
-                    </div>
-                    <div class="branch-log">Awaiting task dispatch...</div>
-                </div>
-                <div class="branch-col" id="branch-c">
-                    <div class="branch-title">
-                        <span>BRANCH C (Gemini 3 Pro)</span>
-                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
-                    </div>
-                    <div class="branch-log">Awaiting task dispatch...</div>
+                <div class="calc-result-box">
+                    <div style="font-size: 0.9rem; font-weight: bold;">TIME SAVED PER RUN</div>
+                    <div class="calc-big-num" id="calc-hours-saved">4.2x</div>
+                    <div style="font-size: 0.85rem; color: var(--muted);">Faster than single-model trial & error</div>
                 </div>
             </div>
         </section>
 
-        <!-- Feature Grid -->
+        <!-- 3D Flippable Feature Cards -->
         <div class="section-header">
             <h2>UNAPOLOGETIC ENGINEERING</h2>
-            <p>Every tool, branch, and subagent built for speed and taste.</p>
+            <p>Click any card to flip and inspect technical details.</p>
         </div>
 
         <div class="features-grid">
-            <div class="feat-card" onclick="triggerEgg('spec')">
-                <div class="feat-num">01</div>
-                <span class="badge badge-pink">PARALLEL</span>
-                <h3>SPECULATIVE BRANCHING</h3>
-                <p>Don't bet on one hallucination. Fork N approaches at once in real git worktrees. Keep what passes verification.</p>
+            <div class="feat-card-container" onclick="flipCard(this)">
+                <div class="feat-card-inner">
+                    <div class="feat-card-front">
+                        <div>
+                            <div class="feat-num">01</div>
+                            <span class="badge badge-pink">PARALLEL</span>
+                            <h3>SPECULATIVE BRANCHING</h3>
+                        </div>
+                        <p style="color: var(--muted);">Fork N approaches at once in isolated git worktrees. Click to inspect &gt;</p>
+                    </div>
+                    <div class="feat-card-back">
+                        <h3>GIT WORKTREES</h3>
+                        <p>Zero cross-contamination. Each model writes to a separate worktree. Offset merges the first branch that passes local tests.</p>
+                        <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
+                    </div>
+                </div>
             </div>
-            <div class="feat-card" onclick="triggerEgg('flow')">
-                <div class="feat-num">02</div>
-                <span class="badge badge-cyan">ORCHESTRATION</span>
-                <h3>MULTI-MODEL /flow</h3>
-                <p>Assign planner, implementer, and critic roles across Claude, GPT-4, and Gemini in dependency order.</p>
+
+            <div class="feat-card-container" onclick="flipCard(this)">
+                <div class="feat-card-inner">
+                    <div class="feat-card-front">
+                        <div>
+                            <div class="feat-num">02</div>
+                            <span class="badge badge-cyan">ORCHESTRATION</span>
+                            <h3>MULTI-MODEL /flow</h3>
+                        </div>
+                        <p style="color: var(--muted);">Pipeline Claude, GPT, and Gemini in dependency order. Click to inspect &gt;</p>
+                    </div>
+                    <div class="feat-card-back">
+                        <h3>ROLE SCHEDULER</h3>
+                        <p>Assigns roles dynamically: Claude Opus as Planner, Sonnet 4 as Implementer, and OpenAI o3 as Critic.</p>
+                        <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
+                    </div>
+                </div>
             </div>
-            <div class="feat-card" onclick="triggerEgg('neofetch')">
-                <div class="feat-num">03</div>
-                <span class="badge badge-mint">NEUBRUTALIST</span>
-                <h3>ZERO BLUR UI</h3>
-                <p>Hard shadows, Archivo Black typography, instant prompt_toolkit keybindings, and custom easter egg engine.</p>
+
+            <div class="feat-card-container" onclick="flipCard(this)">
+                <div class="feat-card-inner">
+                    <div class="feat-card-front">
+                        <div>
+                            <div class="feat-num">03</div>
+                            <span class="badge badge-mint">NEUBRUTALIST</span>
+                            <h3>ZERO BLUR UI</h3>
+                        </div>
+                        <p style="color: var(--muted);">Hard shadows, Archivo Black, and instant prompt_toolkit keybindings. Click to inspect &gt;</p>
+                    </div>
+                    <div class="feat-card-back">
+                        <h3>TASTE FIRST</h3>
+                        <p>No rounded corners. Hard 45-degree shadows. High-contrast monospace design built for long coding sessions.</p>
+                        <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
+                    </div>
+                </div>
             </div>
-            <div class="feat-card" onclick="triggerEgg('antigravity')">
-                <div class="feat-num">04</div>
-                <span class="badge badge-yellow">MODELS</span>
-                <h3>GOOGLE ANTIGRAVITY</h3>
-                <p>Native support for Google Antigravity AI models, Anthropic Claude Pro, ChatGPT, and local Ollama nodes.</p>
+
+            <div class="feat-card-container" onclick="flipCard(this)">
+                <div class="feat-card-inner">
+                    <div class="feat-card-front">
+                        <div>
+                            <div class="feat-num">04</div>
+                            <span class="badge badge-yellow">MODELS</span>
+                            <h3>GOOGLE ANTIGRAVITY</h3>
+                        </div>
+                        <p style="color: var(--muted);">Full integration with Google Antigravity, Claude Pro, ChatGPT, & Ollama. Click to inspect &gt;</p>
+                    </div>
+                    <div class="feat-card-back">
+                        <h3>ANY PROVIDER</h3>
+                        <p>Prefix-aware routing for Google Antigravity AI models, Anthropic OAuth tokens, and local offline nodes.</p>
+                        <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -955,7 +1223,7 @@
                         <li class="disabled">Multi-Model Parallel Flow (/flow)</li>
                         <li class="disabled">Offset Cloud Managed Endpoints</li>
                     </ul>
-                    <a href="#install-section" class="btn btn-mint" style="text-align: center;">INSTALL LITE</a>
+                    <a href="#install-section" class="btn btn-mint" style="text-align: center;" onclick="playSuccessSound()">INSTALL LITE</a>
                 </div>
 
                 <!-- Plus Tier -->
@@ -971,7 +1239,7 @@
                         <li>Speculative Diff Evaluator & Auto-Merger</li>
                         <li>Priority Issue Support & Beta Releases</li>
                     </ul>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" style="text-align: center;">GET PLUS ON GUMROAD</a>
+                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" style="text-align: center;" onclick="playSuccessSound()">GET PLUS ON GUMROAD</a>
                     <div style="margin-top: 14px; font-size: 0.8rem; color: #888; text-align: center;">
                         Upgrade command: <code>offset upgrade &lt;key&gt;</code>
                     </div>
@@ -979,7 +1247,7 @@
             </div>
         </section>
 
-        <!-- Easter Egg Vault Tracker -->
+        <!-- Easter Egg Vault Section -->
         <section class="vault-section" id="vault-section">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                 <div>
@@ -989,18 +1257,18 @@
                 <button class="tool-btn" onclick="hintEgg()">NEED A HINT?</button>
             </div>
             <p style="margin-top: 8px; font-size: 0.95rem;">
-                Try typing hidden commands into the terminal above, clicking mysterious elements, or entering classic gamer key combinations.
+                Click any unlocked badge below to test its effect directly, or type hidden commands into the terminal above.
             </p>
 
             <div class="vault-grid">
-                <div class="egg-badge" id="badge-bear">🐻 BEAR</div>
-                <div class="egg-badge" id="badge-sudo">🔒 SUDO</div>
-                <div class="egg-badge" id="badge-matrix">🐇 MATRIX</div>
-                <div class="egg-badge" id="badge-hunter2">🔑 HUNTER2</div>
-                <div class="egg-badge" id="badge-neofetch">💻 NEOFETCH</div>
-                <div class="egg-badge" id="badge-gravity">💥 GRAVITY</div>
-                <div class="egg-badge" id="badge-konami">🕹️ KONAMI</div>
-                <div class="egg-badge" id="badge-coffee">☕ COFFEE</div>
+                <div class="egg-badge" id="badge-bear" onclick="executeCmd('bear')">🐻 BEAR</div>
+                <div class="egg-badge" id="badge-sudo" onclick="executeCmd('sudo')">🔒 SUDO</div>
+                <div class="egg-badge" id="badge-matrix" onclick="executeCmd('matrix')">🐇 MATRIX</div>
+                <div class="egg-badge" id="badge-hunter2" onclick="executeCmd('hunter2')">🔑 HUNTER2</div>
+                <div class="egg-badge" id="badge-neofetch" onclick="executeCmd('neofetch')">💻 NEOFETCH</div>
+                <div class="egg-badge" id="badge-gravity" onclick="toggleGravity()">💥 GRAVITY</div>
+                <div class="egg-badge" id="badge-konami" onclick="triggerKonamiDirect()">🕹️ KONAMI</div>
+                <div class="egg-badge" id="badge-coffee" onclick="executeCmd('coffee')">☕ COFFEE</div>
             </div>
         </section>
 
@@ -1014,7 +1282,7 @@
         <div class="footer-quote">"THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR."</div>
         <div class="footer-credits">
             OFFSET TERMINAL CODING AGENT • LICENSED UNDER <a href="https://github.com/The-Masked-Bear/offset-terminal/blob/main/LICENSE" target="_blank">AGPL-3.0</a><br>
-            CREATED BY <a href="https://github.com/The-Masked-Bear" target="_blank">THE MASKED BEAR</a> • INSPIRED BY <a href="https://the-masked-bear.github.io/wifisense-pi/" target="_blank">WIFISENSE-PI</a>
+            CREATED BY <a href="https://github.com/The-Masked-Bear" target="_blank">THE MASKED BEAR</a>
         </div>
     </footer>
 
@@ -1042,8 +1310,8 @@
                 const gain = ctx.createGain();
                 osc.type = type;
                 osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start();
@@ -1066,11 +1334,163 @@
             setTimeout(() => playBeep(523, 'square', 0.2), 240);
         }
 
+        function triggerWordSound(freq) {
+            playBeep(freq, 'triangle', 0.12);
+        }
+
+        function clickHeroWord(el, freq) {
+            triggerWordSound(freq);
+            spawnConfetti(el.getBoundingClientRect().left + 40, el.getBoundingClientRect().top + 20);
+            el.style.transform = 'scale(1.2) rotate(' + (Math.random() * 10 - 5) + 'deg)';
+            setTimeout(() => {
+                el.style.transform = '';
+            }, 200);
+        }
+
         document.getElementById('sound-toggle').addEventListener('click', () => {
             soundEnabled = !soundEnabled;
             document.getElementById('sound-toggle').innerText = soundEnabled ? '🔊 SFX: ON' : '🔇 SFX: OFF';
             if (soundEnabled) playBeep(600, 'sine', 0.1);
         });
+
+        // --- Interactive Particle Click System ---
+        const pCanvas = document.getElementById('particle-canvas');
+        const pCtx = pCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeParticleCanvas() {
+            pCanvas.width = window.innerWidth;
+            pCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeParticleCanvas);
+        resizeParticleCanvas();
+
+        function spawnConfetti(x, y) {
+            const colors = ['#FFDE59', '#FF90E8', '#8CFFFB', '#B2FF9E', '#FF5A5F', '#111111'];
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12 - 3,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1.0,
+                    decay: Math.random() * 0.03 + 0.02,
+                    rotation: Math.random() * 360,
+                    vRot: (Math.random() - 0.5) * 15
+                });
+            }
+        }
+
+        window.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT') {
+                spawnConfetti(e.clientX, e.clientY);
+                playBeep(800 + Math.random() * 200, 'sine', 0.03);
+            }
+        });
+
+        function updateParticles() {
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3; // gravity
+                p.rotation += p.vRot;
+                p.life -= p.decay;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                pCtx.save();
+                pCtx.translate(p.x, p.y);
+                pCtx.rotate((p.rotation * Math.PI) / 180);
+                pCtx.fillStyle = p.color;
+                pCtx.globalAlpha = p.life;
+                pCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                pCtx.restore();
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        updateParticles();
+
+        // --- Draggable Neubrutalist Stickers ---
+        function makeDraggable(el) {
+            let isDragging = false, startX, startY, origX, origY;
+            el.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                el.setPointerCapture(e.pointerId);
+                startX = e.clientX;
+                startY = e.clientY;
+                origX = el.offsetLeft;
+                origY = el.offsetTop;
+                playBeep(480, 'triangle', 0.05);
+            });
+            el.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                el.style.left = (origX + e.clientX - startX) + 'px';
+                el.style.top = (origY + e.clientY - startY) + 'px';
+                el.style.right = 'auto';
+            });
+            el.addEventListener('pointerup', () => {
+                isDragging = false;
+                playBeep(320, 'triangle', 0.05);
+            });
+        }
+        document.querySelectorAll('.draggable-sticker').forEach(makeDraggable);
+
+        // --- Theme Engine ---
+        const themes = ['default', 'matrix', 'cyberpunk', 'invert', 'party'];
+        let currentThemeIndex = 0;
+
+        document.getElementById('theme-btn').addEventListener('click', () => {
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            const theme = themes[currentThemeIndex];
+            document.body.className = `theme-${theme}`;
+            document.getElementById('theme-btn').innerText = `🎨 THEME: ${theme.toUpperCase().slice(0, 4)}`;
+            playSuccessSound();
+            showToast(`🎨 APPLIED THEME: ${theme.toUpperCase()}`);
+        });
+
+        // --- Interactive Marquee Click ---
+        document.getElementById('marquee-header').addEventListener('click', () => {
+            playBeep(520, 'square', 0.1);
+            const msgs = [
+                "★ THE CODE HAS BEEN MERGED ★ 0 BUGS DETECTED ★ SPECULATING AT MAXIMUM SPEED ★",
+                "★ OFFSET PLUS UNLOCKS PARALLEL POWER ★ TRY /spec 3 IN TERMINAL ★",
+                "★ ROOT ACCESS ACQUIRED ★ THE-MASKED-BEAR APPROVES THIS BUILD ★",
+                "★ 4 MODELS ENTER, 1 MODEL WINS ★ SPECULATIVE BRANCHING IN ACTION ★"
+            ];
+            document.getElementById('marquee-text').innerText = msgs[Math.floor(Math.random() * msgs.length)];
+            showToast("★ MARQUEE BROADCAST UPDATED!");
+        });
+
+        // --- Card Flip Interaction ---
+        function flipCard(card) {
+            card.classList.toggle('flipped');
+            playBeep(360, 'sine', 0.06);
+        }
+
+        // --- Interactive Calculator ---
+        const locSlider = document.getElementById('loc-slider');
+        const retrySlider = document.getElementById('retry-slider');
+        const locDisplay = document.getElementById('loc-display');
+        const retryDisplay = document.getElementById('retry-display');
+        const calcOutput = document.getElementById('calc-hours-saved');
+
+        function updateCalc() {
+            const loc = parseInt(locSlider.value);
+            const retries = parseInt(retrySlider.value);
+            locDisplay.innerText = loc;
+            retryDisplay.innerText = retries;
+            const speedup = (1 + (retries * 0.8)).toFixed(1);
+            calcOutput.innerText = `${speedup}x`;
+        }
+        locSlider.addEventListener('input', () => { updateCalc(); playBeep(300 + locSlider.value / 5, 'sine', 0.02); });
+        retrySlider.addEventListener('input', () => { updateCalc(); playBeep(400 + retrySlider.value * 30, 'sine', 0.02); });
 
         // --- Easter Egg State Tracker ---
         const discoveredEggs = new Set();
@@ -1090,7 +1510,7 @@
 
                 if (discoveredEggs.size === TOTAL_EGGS) {
                     setTimeout(() => {
-                        showToast('🏆 100% EGGS FOUND! YOU HAVE FULL ROOT PRIVILEGES.');
+                        showToast('🏆 100% EGGS FOUND! FULL ROOT PRIVILEGES GRANTED.');
                     }, 500);
                 }
             }
@@ -1175,7 +1595,7 @@
 
         function toggleMatrix() {
             matrixActive = !matrixActive;
-            document.body.classList.toggle('matrix-mode', matrixActive);
+            document.body.className = matrixActive ? 'theme-matrix' : 'theme-default';
             matrixCanvas.style.display = matrixActive ? 'block' : 'none';
             if (matrixActive) {
                 unlockEgg('matrix', 'WAKE UP, OPERATOR');
@@ -1188,14 +1608,13 @@
                 }
             }
         }
-        document.getElementById('matrix-toggle').addEventListener('click', toggleMatrix);
 
         // --- Gravity Physics Easter Egg ---
         let gravityActive = false;
-        document.getElementById('gravity-toggle').addEventListener('click', () => {
+        function toggleGravity() {
             gravityActive = !gravityActive;
             playBeep(180, 'sawtooth', 0.3);
-            const targets = document.querySelectorAll('.hero-text, .terminal-wrapper, .simulator-card, .feat-card, .plan-card');
+            const targets = document.querySelectorAll('.hero-text, .terminal-wrapper, .simulator-card, .feat-card-container, .plan-card, .calc-section');
             targets.forEach(el => {
                 if (gravityActive) {
                     el.classList.add('physics-active');
@@ -1207,6 +1626,86 @@
                 unlockEgg('gravity', 'GRAVITY ENABLED');
                 showToast('💥 GRAVITY ENABLED! EVERYTHING FALLS DOWN.');
             }
+        }
+        document.getElementById('gravity-toggle').addEventListener('click', toggleGravity);
+
+        // --- Dynamic Speculative Branching Sandbox Builder ---
+        const branchSlider = document.getElementById('branch-slider');
+        const branchCountVal = document.getElementById('branch-count-val');
+        const dynamicBranchGrid = document.getElementById('dynamic-branch-grid');
+
+        const modelPool = [
+            { name: 'Claude Sonnet 4', role: 'Implementer' },
+            { name: 'GPT-4.1', role: 'Planner' },
+            { name: 'Gemini 3 Pro', role: 'Critic' },
+            { name: 'DeepSeek V3', role: 'Cheap' },
+            { name: 'Claude Opus 4', role: 'Architect' }
+        ];
+
+        function renderBranchGrid() {
+            const count = parseInt(branchSlider.value);
+            branchCountVal.innerText = count;
+            dynamicBranchGrid.innerHTML = '';
+
+            for (let i = 0; i < count; i++) {
+                const col = document.createElement('div');
+                col.className = 'branch-col';
+                col.id = `dyn-branch-${i}`;
+                const m = modelPool[i % modelPool.length];
+                col.innerHTML = `
+                    <div class="branch-title">
+                        <span>BRANCH ${String.fromCharCode(65 + i)} (${m.name})</span>
+                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
+                    </div>
+                    <div class="branch-log">Awaiting task dispatch...</div>
+                `;
+                dynamicBranchGrid.appendChild(col);
+            }
+        }
+        branchSlider.addEventListener('input', () => {
+            renderBranchGrid();
+            playBeep(350 + branchSlider.value * 40, 'sine', 0.03);
+        });
+        renderBranchGrid();
+
+        document.getElementById('run-sim-btn').addEventListener('click', () => {
+            playBeep(440, 'triangle', 0.1);
+            const btn = document.getElementById('run-sim-btn');
+            btn.disabled = true;
+            btn.innerText = '⏳ SPECULATING...';
+
+            const count = parseInt(branchSlider.value);
+            const winnerIndex = Math.floor(Math.random() * count);
+
+            for (let i = 0; i < count; i++) {
+                const b = document.getElementById(`dyn-branch-${i}`);
+                if (!b) continue;
+                b.classList.remove('winner');
+                b.querySelector('.status-badge').innerText = 'RUNNING';
+                b.querySelector('.status-badge').style.background = 'var(--cyan)';
+                b.querySelector('.branch-log').innerText = 'Generating AST refactor & running worktree tests...';
+            }
+
+            setTimeout(() => {
+                for (let i = 0; i < count; i++) {
+                    const b = document.getElementById(`dyn-branch-${i}`);
+                    if (!b) continue;
+                    if (i === winnerIndex) {
+                        b.classList.add('winner');
+                        b.querySelector('.status-badge').innerText = 'WINNER (MERGED)';
+                        b.querySelector('.status-badge').style.background = 'var(--mint)';
+                        b.querySelector('.branch-log').innerText = '14/14 tests passed! Auto-merged to main branch.';
+                    } else {
+                        b.querySelector('.status-badge').innerText = 'DISCARDED';
+                        b.querySelector('.status-badge').style.background = 'var(--red)';
+                        b.querySelector('.branch-log').innerText = 'Test failure / suboptimal complexity. Cleaned up.';
+                    }
+                }
+                btn.disabled = false;
+                btn.innerText = '▶ RUN /spec SIMULATION AGAIN';
+                playSuccessSound();
+                showToast(`🏆 BRANCH ${String.fromCharCode(65 + winnerIndex)} WON & AUTO-MERGED!`);
+            }, 1000);
         });
 
         // --- Terminal Simulator State & Engine ---
@@ -1214,6 +1713,8 @@
         const termInput = document.getElementById('term-input');
         let bearCount = 0;
         let sudoCount = 0;
+        const cmdHistory = [];
+        let historyIndex = -1;
 
         function printTerm(text, color = 'var(--mint)') {
             const line = document.createElement('div');
@@ -1227,9 +1728,18 @@
             executeCmd(eggName);
         }
 
+        function triggerKonamiDirect() {
+            unlockEgg('konami', '30 LIVES GRANTED');
+            showToast('🕹️ 30 LIVES GRANTED! GOD MODE UNLOCKED.');
+            toggleMatrix();
+        }
+
         function executeCmd(rawCmd) {
             const cmd = rawCmd.trim();
             if (!cmd) return;
+
+            cmdHistory.push(cmd);
+            historyIndex = cmdHistory.length;
 
             playBeep(520, 'sine', 0.04);
             printTerm(`<span style="color: var(--yellow);">offset &gt;</span> ${cmd}`, '#ffffff');
@@ -1246,6 +1756,7 @@
   neofetch           - System architecture & ASCII bear<br>
   hunter2            - Security credentials check<br>
   coffee             - RFC 2324 teapot protocol<br>
+  theme              - Cycle visual themes<br>
   clear              - Wipe terminal output`, 'var(--cyan)');
             } else if (lower.startsWith('/spec') || lower.startsWith('spec')) {
                 printTerm(`[SPEC] Forking repository into 3 isolated worktrees...`, 'var(--yellow)');
@@ -1319,6 +1830,8 @@ This changes nothing about the code review.</pre>`, 'var(--pink)');
             } else if (lower === 'coffee' || lower === 'brew') {
                 unlockEgg('coffee', 'HTCPCP 418');
                 printTerm(`HTCPCP 418: I'm a teapot.<br>I am also a Raspberry Pi. Do not pour anything into me.`, 'var(--red)');
+            } else if (lower === 'theme') {
+                document.getElementById('theme-btn').click();
             } else if (lower === 'clear') {
                 termOutput.innerHTML = '';
             } else {
@@ -1331,50 +1844,22 @@ This changes nothing about the code review.</pre>`, 'var(--pink)');
                 const val = termInput.value;
                 termInput.value = '';
                 executeCmd(val);
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    termInput.value = cmdHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < cmdHistory.length - 1) {
+                    historyIndex++;
+                    termInput.value = cmdHistory[historyIndex];
+                } else {
+                    historyIndex = cmdHistory.length;
+                    termInput.value = '';
+                }
+            } else {
+                playBeep(600 + Math.random() * 200, 'square', 0.02);
             }
-        });
-
-        // --- Speculative Branching Visualizer Simulator ---
-        document.getElementById('run-sim-btn').addEventListener('click', () => {
-            playBeep(440, 'triangle', 0.1);
-            const btn = document.getElementById('run-sim-btn');
-            btn.disabled = true;
-            btn.innerText = '⏳ SPECULATING...';
-
-            const bA = document.getElementById('branch-a');
-            const bB = document.getElementById('branch-b');
-            const bC = document.getElementById('branch-c');
-
-            bA.classList.remove('winner');
-            bB.classList.remove('winner');
-            bC.classList.remove('winner');
-
-            bA.querySelector('.branch-log').innerText = 'Generating AST refactor...';
-            bB.querySelector('.branch-log').innerText = 'Rewriting async loop...';
-            bC.querySelector('.branch-log').innerText = 'Applying type guard patch...';
-
-            setTimeout(() => {
-                bA.querySelector('.branch-log').innerText = 'Running cargo/pytest test suite (14/14 passed)...';
-                bB.querySelector('.branch-log').innerText = 'SyntaxError on line 42 (FAILED)';
-                bC.querySelector('.branch-log').innerText = 'Running tests (12/14 passed)...';
-
-                setTimeout(() => {
-                    bA.classList.add('winner');
-                    bA.querySelector('.status-badge').innerText = 'WINNER (MERGED)';
-                    bA.querySelector('.status-badge').style.background = 'var(--mint)';
-                    
-                    bB.querySelector('.status-badge').innerText = 'DISCARDED';
-                    bB.querySelector('.status-badge').style.background = 'var(--red)';
-
-                    bC.querySelector('.status-badge').innerText = 'REJECTED';
-                    bC.querySelector('.status-badge').style.background = 'var(--yellow)';
-
-                    btn.disabled = false;
-                    btn.innerText = '▶ RUN SIMULATION AGAIN';
-                    playSuccessSound();
-                    showToast('🏆 BRANCH A WON & WAS AUTO-MERGED INTO MAIN!');
-                }, 900);
-            }, 800);
         });
 
         // --- Konami Code Listener (Up Up Down Down Left Right Left Right B A) ---
@@ -1390,9 +1875,7 @@ This changes nothing about the code review.</pre>`, 'var(--pink)');
                 playBeep(400 + (konamiIndex * 80), 'square', 0.05);
                 if (konamiIndex === konamiSequence.length) {
                     konamiIndex = 0;
-                    unlockEgg('konami', '30 LIVES GRANTED');
-                    showToast('🕹️ 30 LIVES GRANTED! GOD MODE UNLOCKED.');
-                    toggleMatrix();
+                    triggerKonamiDirect();
                 }
             } else {
                 konamiIndex = 0;

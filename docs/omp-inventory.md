@@ -11,7 +11,7 @@ Raspberry Pi, linux arm64, kernel 6.18. Terminal-first. Repo dir is EMPTY (green
 5. ALL tool types enabled by default, including user-authored custom tools, which must actually work.
 6. Neubrutalist design is DNA, not a theme toggle.
 
-## Owner's design DNA (extracted from the-masked-bear.github.io/wifisense-pi)
+## Owner's design DNA
 palette: black #111111, bg #F4F4F0, white #FFFFFF, yellow #FFDE59, pink #FF90E8, cyan #8CFFFB, mint #B2FF9E, red #FF5A5F, muted #555555
 borders: 2-5px solid black, radius 0 (circles only for dots). shadows: `Npx Npx 0px` HARD, zero blur, N in 4..23.
 press interaction: translate(4px,4px) + shadow collapses to 0 (button physically sinks into its own shadow).
