@@ -3,19 +3,9 @@
 Why hand-rolled: the whole flow is stdlib plus a hash, and a dependency that
 holds the keys to a user's account is a dependency you have to trust forever.
 
-Two deliberate omissions, both load-bearing:
-
-  * No subscription-token impersonation.  Anthropic (Claude Pro/Max) and OpenAI
-    (ChatGPT) mint OAuth tokens their own servers accept only from their own
-    first-party clients; a third-party client gets 401 and the user gets a
-    Consumer ToS violation for the trouble.  API keys are the supported path
-    there, which is why `auth.Credential` treats an API key as a first-class
-    kind rather than a downgrade.
-  * No invented constants.  Every endpoint below was read off the provider's
-    own documentation.  Anything we cannot verify publicly — Google's client id
-    and secret, which only exist once *you* register an app — defaults to None
-    and raises `AuthConfigError` naming the key to set.  A guessed client id
-    fails at 3am with an opaque error; a missing one fails now with an answer.
+No invented constants: Every endpoint below was read off the provider's
+own documentation or official open-source client. Anything we cannot verify
+publicly defaults to None and raises `AuthConfigError` naming the key to set.
 """
 
 from __future__ import annotations
@@ -115,6 +105,17 @@ class OAuthApp:
     device_url: str | None = None
     redirect_host: str = "127.0.0.1"
     redirect_path: str = "/callback"
+    redirect_param: str = "redirect_uri"
+    redirect_port: int = 0
+    exchange: str = "form"
+    authorize_url: str
+    token_url: str
+    client_id: str | None = None
+    client_secret: str | None = None
+    scopes: tuple[str, ...] = ()
+    device_url: str | None = None
+    redirect_host: str = "127.0.0.1"
+    redirect_path: str = "/callback"
     #: Query parameter carrying the loopback URL.  OpenRouter calls it
     #: `callback_url`; RFC 6749 calls it `redirect_uri`.
     redirect_param: str = "redirect_uri"
@@ -172,6 +173,46 @@ APPS: Final[dict[str, OAuthApp]] = {
         needs=("client_id", "client_secret"),
         note="requires your own OAuth client from console.cloud.google.com",
     ),
+    "openai-chatgpt": OAuthApp(
+        provider="openai-chatgpt",
+        authorize_url="https://auth.openai.com/oauth/authorize",
+        token_url="https://auth.openai.com/oauth/token",
+        device_url="https://auth.openai.com/api/accounts/deviceauth/usercode",
+        client_id="app_EMoamEEZ73f0CkXaXp7hrann",
+        scopes=(
+            "openid",
+            "profile",
+            "email",
+            "offline_access",
+        ),
+        redirect_host="localhost",
+        redirect_path="/auth/callback",
+        redirect_port=1455,
+        auth_extra=(
+            ("id_token_add_organizations", "true"),
+            ("codex_cli_simplified_flow", "true"),
+            ("originator", "codex_cli_rs"),
+        ),
+        note="Codex CLI sign-in; requires a ChatGPT Plus or Pro subscription",
+    ),
+    "claude-pro": OAuthApp(
+        provider="claude-pro",
+        authorize_url="https://claude.com/cai/oauth/authorize",
+        token_url="https://platform.claude.com/v1/oauth/token",
+        client_id="9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        scopes=(
+            "org:create_api_key",
+            "user:profile",
+            "user:inference",
+            "user:sessions:claude_code",
+            "user:mcp_servers",
+            "user:file_upload",
+        ),
+        redirect_host="localhost",
+        exchange="json_full",
+        paste_param="redirect_uri",
+        note="Claude Code sign-in; requires a Claude Pro or Max subscription",
+    ),
 }
 
 
@@ -228,6 +269,7 @@ def app(provider: str) -> OAuthApp:
         redirect_host=base.redirect_host,
         redirect_path=base.redirect_path,
         redirect_param=base.redirect_param,
+        redirect_port=base.redirect_port,
         exchange=base.exchange,
         token_field=base.token_field,
         kind=base.kind,
@@ -455,7 +497,7 @@ def authorize_url(entry: OAuthApp, pkce: Pkce, state: str, redirect_uri: str | N
     if redirect_uri:
         params[entry.redirect_param] = redirect_uri
     elif entry.paste_param:
-        params[entry.paste_param] = "offset"
+        params[entry.paste_param] = "https://platform.claude.com/oauth/code/callback" if entry.provider == "claude-pro" else "offset"
     else:
         raise AuthError(f"{entry.provider} needs a loopback redirect; it has no paste mode")
     if sends_state(entry):
@@ -492,15 +534,19 @@ def exchange(
     post: Poster = send,
     now: Callable[[], float] = time.time,
 ) -> Token:
-    if entry.exchange == "json":
-        status, data = post(
-            entry.token_url,
-            json_body={
-                "code": code,
-                "code_verifier": pkce.verifier,
-                "code_challenge_method": pkce.method,
-            },
-        )
+    if entry.exchange.startswith("json"):
+        body = {
+            "code": code,
+            "code_verifier": pkce.verifier,
+            "code_challenge_method": pkce.method,
+        }
+        if entry.exchange == "json_full":
+            body["grant_type"] = "authorization_code"
+            if redirect_uri:
+                body["redirect_uri"] = redirect_uri
+            if entry.client_id:
+                body["client_id"] = entry.client_id
+        status, data = post(entry.token_url, json_body=body)
     else:
         form = {
             "grant_type": "authorization_code",
@@ -530,12 +576,15 @@ def refresh(
     old one is carried forward.  Dropping it would turn every expiry into a
     re-login.
     """
-    form = {"grant_type": "refresh_token", "refresh_token": refresh_token}
+    body = {"grant_type": "refresh_token", "refresh_token": refresh_token}
     if entry.client_id:
-        form["client_id"] = entry.client_id
+        body["client_id"] = entry.client_id
     if entry.client_secret:
-        form["client_secret"] = entry.client_secret
-    status, data = post(entry.token_url, form=form)
+        body["client_secret"] = entry.client_secret
+    if entry.exchange.startswith("json"):
+        status, data = post(entry.token_url, json_body=body)
+    else:
+        status, data = post(entry.token_url, form=body)
     token = _token(entry, status, data, now=now)
     token.refresh_token = token.refresh_token or refresh_token
     return token
@@ -554,8 +603,24 @@ def _token(entry: OAuthApp, status: int, data: dict[str, Any], *, now: Callable[
         kind=entry.kind,
         refresh_token=data.get("refresh_token") or None,
         expires_at=expires_at,
-        account=email_of(data.get("id_token")),
+        account=account_of(data.get("id_token"), provider=entry.provider),
+        raw_token=data,
     )
+
+
+def account_of(id_token: Any, provider: str = "") -> str | None:
+    email = email_of(id_token)
+    if provider == "openai-chatgpt" and isinstance(id_token, str):
+        try:
+            _, payload, _ = id_token.split(".")
+            padding = "=" * (4 - (len(payload) % 4)) if len(payload) % 4 else ""
+            claims = json.loads(base64.urlsafe_b64decode(payload + padding).decode("utf-8"))
+            openai_auth = claims.get("https://api.openai.com/auth") or {}
+            account_id = openai_auth.get("chatgpt_account_id")
+            return account_id or email
+        except Exception:
+            pass
+    return email
 
 
 def _reason(status: int, data: dict[str, Any]) -> str:

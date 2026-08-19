@@ -339,8 +339,8 @@ def _council(state: ShellState, args: list[str]) -> Outcome:
 
 #: Providers a person can plausibly hold an account with.
 LOGIN_TARGETS: tuple[str, ...] = (
-    "anthropic", "openai", "google", "deepseek", "openrouter",
-    "opencode", "opencode-go",
+    "anthropic", "claude-pro", "openai", "openai-chatgpt", "google", "google-antigravity", "deepseek",
+    "openrouter", "opencode", "opencode-go",
 )
 
 
@@ -563,6 +563,10 @@ def _flow(state: ShellState, args: list[str]) -> Outcome:
     the best: this decomposes the task once and runs the pieces on different
     models, in dependency order, against this repository.
     """
+    from offset.auth import require_plus
+    if not require_plus("flow"):
+        return Outcome.error("Offset Lite does not support /flow.", "Upgrade to Offset Plus via 'offset upgrade <key>'.")
+
     goal = " ".join(args)
     if not goal:
         return Outcome.error("usage: /flow <task>", "example: /flow add a --json flag to the cli")
@@ -660,6 +664,10 @@ def reviser_for(roster: Ensemble, planner: Seat) -> workflow.Reviser:
 
 def _spec(state: ShellState, args: list[str]) -> Outcome:
     """Really run N approaches in isolated worktrees, then rank them."""
+    from offset.auth import require_plus
+    if not require_plus("spec"):
+        return Outcome.error("Offset Lite does not support /spec.", "Upgrade to Offset Plus via 'offset upgrade <key>'.")
+
     if not args:
         if state.spec_run is not None:
             return Outcome(state.spec_run.report(), TONE_INFO)

@@ -58,8 +58,17 @@ class Seat:
         provider, meta = (resolver or _resolver())(self.model)
         return (self.provider or provider), meta
 
+    def cred(self, provider: Provider) -> Any:
+        """The credential to use, if any."""
+        if self.api_key is not None:
+            from offset.providers.auth import Credential
+            return Credential(provider=provider.name, value=self.api_key, kind="api_key")
+        from offset.providers.auth import load
+        return load(provider.name)
+        
     def key(self, provider: Provider) -> str | None:
-        return self.api_key if self.api_key is not None else credential(provider)
+        cred = self.cred(provider)
+        return cred.value if cred and cred.kind == "api_key" else None
 
 
 @dataclass(slots=True)
@@ -136,7 +145,7 @@ class Ensemble:
                 scoped.thinking_budget = None
             if not meta.tools:
                 scoped.tools = ()
-            turn = TurnBuilder().consume(provider.stream(scoped, api_key=seat.key(provider))).finish()
+            turn = TurnBuilder().consume(provider.stream(scoped, api_key=seat.key(provider), credential=seat.cred(provider))).finish()
             return Opinion(seat, turn, time.monotonic() - started, turn.error)
         except Exception as exc:  # isolation: this seat only
             return Opinion(seat, Turn(stop_reason="error"), time.monotonic() - started, f"{type(exc).__name__}: {exc}")
@@ -166,7 +175,7 @@ class Ensemble:
                 provider, meta = seat.endpoint(self._resolve)
                 scoped = request.with_model(seat.model)
                 scoped.max_tokens = min(request.max_tokens, meta.max_output)
-                for event in provider.stream(scoped, api_key=seat.key(provider)):
+                for event in provider.stream(scoped, api_key=seat.key(provider), credential=seat.cred(provider)):
                     outbox.put((seat, event))
             except Exception as exc:
                 outbox.put((seat, Stop("error")))

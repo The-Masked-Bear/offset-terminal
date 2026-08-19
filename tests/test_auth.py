@@ -155,13 +155,13 @@ def test_an_api_key_is_stored_as_a_plain_string(isolated):
     assert registry_credential(provider_for("openai")) == "sk-flat"
 
 
-def test_an_oauth_token_is_stored_as_an_object_and_ignored_by_the_registry(isolated):
+def test_an_oauth_token_is_stored_as_an_object_and_parsed_by_the_registry(isolated):
     auth.save(Credential("google", OAUTH, "ya29.token", refresh_token="r", expires_at=9e9))
     raw = json.loads((isolated / "credentials.json").read_text())
     assert raw["google"]["kind"] == OAUTH
     assert auth.stored("google").refresh_token == "r"
-    # The registry only understands plain keys; an object must not become "{...}".
-    assert registry_credential(provider_for("google")) is None
+    # The registry now extracts the value string so OAuth works in multi-model and /model
+    assert registry_credential(provider_for("google")) == "ya29.token"
 
 
 def test_a_key_typed_into_offset_beats_a_stale_vendor_variable(isolated, monkeypatch):
@@ -282,12 +282,12 @@ def test_google_asks_for_the_users_own_client_credentials():
     assert auth.missing_config("google"), "Google requires app registration"
 
 
-def test_subscription_impersonation_is_not_offered():
-    """Claude Pro/Max and ChatGPT tokens are vendor-locked; offering them would
-    get the user a 401 and break the consumer terms."""
-    assert "anthropic" not in oauth.APPS
-    assert "openai" not in oauth.APPS
-    assert "claude" not in oauth.APPS
+def test_subscription_oauth_is_offered_for_pro_plans():
+    """Claude Pro/Max and ChatGPT Plus/Pro subscription sign-ins are available."""
+    assert "claude-pro" in oauth.APPS
+    assert "openai-chatgpt" in oauth.APPS
+    assert oauth.APPS["openai-chatgpt"].client_id == "app_EMoamEEZ73f0CkXaXp7hrann"
+    assert oauth.APPS["claude-pro"].client_id == "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 
 
 def test_a_browser_login_refuses_when_config_is_missing():

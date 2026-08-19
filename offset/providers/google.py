@@ -138,3 +138,28 @@ class Google(Provider):
         except HTTPFailure as exc:
             yield StreamError(exc.detail(), status=exc.status, retryable=exc.retryable)
             yield Stop("error")
+
+class GoogleAntigravity(Google):
+    name = "google-antigravity"
+    env_keys = ("ANTIGRAVITY_API_KEY", "GOOGLE_ANTIGRAVITY_API_KEY", "GEMINI_API_KEY")
+
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
+        # The model id includes the 'google-antigravity/' prefix; the backend needs the bare name.
+        bare_model = request.model
+        if bare_model.startswith("google-antigravity/"):
+            bare_model = bare_model[len("google-antigravity/"):]
+            
+        req = Request(
+            model=bare_model,
+            messages=request.messages,
+            system=request.system,
+            tools=request.tools,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stop=request.stop,
+            timeout=request.timeout,
+            thinking_budget=request.thinking_budget,
+        )
+        yield from super().stream(req, api_key=api_key, credential=credential)

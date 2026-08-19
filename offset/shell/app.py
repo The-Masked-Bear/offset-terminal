@@ -800,5 +800,7 @@ Never claim a command succeeded without running it."""
 
 
 def main(workspace: str = ".", model: str | None = None, approval: str | None = None) -> int:
+    from offset.auth import check_login
+    check_login()
     Shell(build_state(workspace, model=model, approval=approval)).run()
     return 0

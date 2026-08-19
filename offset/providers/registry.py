@@ -60,6 +60,15 @@ MODELS: Final[tuple[ModelInfo, ...]] = (
     ModelInfo("gpt-4o-mini", "openai", "gpt-4o mini", 128_000, 16_384, role_hint="cheap"),
     ModelInfo("o3", "openai", "o3", 200_000, 100_000, thinking=True, role_hint="critic"),
     ModelInfo("o4-mini", "openai", "o4 mini", 200_000, 100_000, thinking=True, role_hint="critic"),
+    ModelInfo("claude-pro/claude-sonnet-4-20250514", "claude-pro", "claude-pro: sonnet 4", 200_000, 64_000, thinking=True, role_hint="implementer"),
+    ModelInfo("claude-pro/claude-opus-4-20250514", "claude-pro", "claude-pro: opus 4", 200_000, 32_000, thinking=True, role_hint="planner"),
+    ModelInfo("openai-chatgpt/gpt-4o", "openai-chatgpt", "chatgpt: gpt-4o", 128_000, 16_384, role_hint="implementer"),
+    ModelInfo("openai-chatgpt/gpt-4.1", "openai-chatgpt", "chatgpt: gpt-4.1", 1_000_000, 32_768, role_hint="planner"),
+    ModelInfo("o3", "openai", "o3", 200_000, 100_000, thinking=True, role_hint="critic"),
+    ModelInfo("o4-mini", "openai", "o4 mini", 200_000, 100_000, thinking=True, role_hint="critic"),
+    ModelInfo("google-antigravity/gemini-3.1-pro", "google-antigravity", "antigravity: gemini 3.1 pro", 1_048_576, 65_536, thinking=True, role_hint="critic"),
+    ModelInfo("google-antigravity/gemini-3-flash", "google-antigravity", "antigravity: gemini 3 flash", 1_048_576, 65_536, thinking=True, role_hint="cheap"),
+    ModelInfo("google-antigravity/gemini-3.1-flash-lite", "google-antigravity", "antigravity: gemini 3.1 flash lite", 1_048_576, 65_536, role_hint="bulk"),
     # Verified against a real key: every `gemini-2.5-*` id answers 404 "no longer
     # available to new users", so a new account could not use a single Google
     # model we shipped. The limits below are the ones the API itself reports.
@@ -106,8 +115,11 @@ BY_ID: Final[dict[str, ModelInfo]] = {m.id: m for m in MODELS}
 #: provider is actually built.
 _FACTORIES: Final[dict[str, tuple[str, str]]] = {
     "anthropic": ("anthropic", "Anthropic"),
+    "claude-pro": ("anthropic", "ClaudePro"),
     "openai": ("openai", "OpenAI"),
+    "openai-chatgpt": ("openai", "ChatGPT"),
     "google": ("google", "Google"),
+    "google-antigravity": ("google", "GoogleAntigravity"),
     "deepseek": ("openai", "deepseek"),
     "openrouter": ("openai", "openrouter"),
     "llamacpp": ("openai", "llamacpp"),
@@ -173,10 +185,13 @@ PROVIDERS: Final[MutableMapping[str, Callable[[], Provider]]] = _Providers()
 
 #: Used when a model id is not in the catalogue.  Prefix wins over guessing.
 PREFIXES: Final[tuple[tuple[str, str], ...]] = (
+    ("claude-pro/", "claude-pro"),
+    ("openai-chatgpt/", "openai-chatgpt"),
     ("claude", "anthropic"),
     ("gpt", "openai"),
     ("o1", "openai"),
     ("o3", "openai"),
+    ("google-antigravity/", "google-antigravity"),
     ("o4", "openai"),
     ("gemini", "google"),
     ("deepseek", "deepseek"),
@@ -222,31 +237,31 @@ _CACHE: dict[str, Any] = {"stamp": None, "data": {}}
 
 
 def _stored() -> dict[str, str]:
-    """Plain API keys from disk, parsed at most once per change.
-
-    `available()` asks about every model in the catalogue and each question used
-    to re-read and re-parse this file: about thirty reads of the same bytes to
-    build one roster, on every startup and every `/models`. Keying the cache on
-    the file's identity rather than a timestamp of our own keeps a key written by
-    another process - a second offset, or a text editor - visible immediately.
+    """API keys from disk, parsed at most once per change.
+    Returns string values for API keys, or JSON objects for OAuth tokens.
     """
     try:
-        stat = credentials_file().stat()
-        stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+        stamp = os.stat(credentials_file()).st_mtime
     except OSError:
-        _CACHE["stamp"], _CACHE["data"] = None, {}
-        return {}
+        stamp = 0.0
     if _CACHE["stamp"] == stamp:
         return _CACHE["data"]
+
     try:
         raw = json.loads(credentials_file().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        _CACHE["stamp"], _CACHE["data"] = None, {}
-        return {}
-    # Richer entries (OAuth tokens) are objects; `offset.providers.auth` owns
-    # those. Here we only surface plain API-key strings.
-    data = {str(k): v for k, v in raw.items() if isinstance(v, str)} if isinstance(raw, dict) else {}
-    _CACHE["stamp"], _CACHE["data"] = stamp, data
+        raw = {}
+
+    data = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            if isinstance(v, str):
+                data[k] = v
+            elif isinstance(v, dict) and "value" in v:
+                data[k] = v["value"]
+
+    _CACHE["stamp"] = stamp
+    _CACHE["data"] = data
     return data
 
 

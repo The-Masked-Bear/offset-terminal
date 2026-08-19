@@ -157,6 +157,79 @@ class OpenAI(Provider):
             yield StreamError(exc.detail(), status=exc.status, retryable=exc.retryable)
             yield Stop("error")
 
+class ChatGPT(OpenAI):
+    name = "openai-chatgpt"
+    env_keys = ("CHATGPT_API_KEY",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__("https://chatgpt.com/backend-api/codex", name="openai-chatgpt")
+
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
+        token = credential.value if credential is not None else api_key
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers["originator"] = "codex_cli_rs"
+        
+        if credential is not None and getattr(credential, "account", None):
+            headers["chatgpt-account-id"] = credential.account
+            
+        if credential is not None and credential.raw_token:
+            id_token = credential.raw_token.get("id_token")
+            if isinstance(id_token, str):
+                try:
+                    import json, base64
+                    _, payload, _ = id_token.split(".")
+                    padding = "=" * (4 - (len(payload) % 4)) if len(payload) % 4 else ""
+                    claims = json.loads(base64.urlsafe_b64decode(payload + padding).decode("utf-8"))
+                    openai_auth = claims.get("https://api.openai.com/auth") or {}
+                    if openai_auth.get("chatgpt_account_is_fedramp"):
+                        headers["X-OpenAI-Fedramp"] = "true"
+                except Exception:
+                    pass
+
+        # Responses API requires a slightly different shape
+        payload = {
+            "model": request.model,
+            "instructions": request.system or "You are ChatGPT, a large language model trained by OpenAI.",
+            "store": False,
+            "stream": True,
+            "include": ["reasoning.encrypted_content"],
+            "input": [],
+        }
+        if request.temperature is not None:
+            payload["temperature"] = request.temperature
+            
+        for m in request.messages:
+            if m.role == "system":
+                continue
+            content = m.text
+            if m.tool_calls:
+                payload["input"].append({"role": "assistant", "content": [{"type": "tool_call", "id": tc.id, "name": tc.name, "arguments": json.loads(tc.arguments)} for tc in m.tool_calls]})
+            elif m.role == "tool":
+                payload["input"].append({"role": "tool", "tool_call_id": m.name, "content": m.text})
+            else:
+                payload["input"].append({"role": m.role, "content": content})
+
+        if request.tools:
+            from offset.providers.schema import normalise
+            payload["tools"] = [{"type": "function", "function": {"name": t.name, "description": t.description, "parameters": normalise(t.schema, "openai")}} for t in request.tools]
+            
+        if request.thinking_budget:
+            payload["reasoning"] = {"type": "enabled", "budget_tokens": request.thinking_budget}
+
+        try:
+            lines = post_lines(
+                f"{self.base_url}/responses",
+                payload,
+                headers,
+                timeout=request.timeout,
+                retry=Retry(),
+            )
+            yield from parse(lines)
+        except HTTPFailure as exc:
+            yield StreamError(exc.detail(), status=exc.status, retryable=exc.retryable)
+            yield Stop("error")
 
 def deepseek() -> OpenAI:
     return OpenAI("https://api.deepseek.com/v1", name="deepseek", env_keys=("DEEPSEEK_API_KEY",))

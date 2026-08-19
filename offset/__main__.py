@@ -18,6 +18,9 @@ def main(argv: list[str] | None = None) -> int:
                   choices=("safe", "auto-edit", "yolo", "full"),
                   help="approval mode; defaults to the stored permission grant")
 
+    upgrade = sub.add_parser("upgrade", help="upgrade to Offset Plus with a license key")
+    upgrade.add_argument("key", help="gumroad license key")
+
     demo = sub.add_parser("demo", help="render the design system")
     demo.add_argument("--once", action="store_true", help="print one frame and exit")
     demo.add_argument("--time", type=float, default=2.4, help="timestamp of the frame to print")
@@ -26,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     demo.add_argument("--height", type=int, default=None)
 
     args = parser.parse_args(argv)
+    if args.cmd == "upgrade":
+        from offset.auth import upgrade_license
+        return upgrade_license(args.key)
 
     if args.cmd == "demo":
         from offset.ui import demo as demo_mod

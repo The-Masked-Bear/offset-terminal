@@ -5,14 +5,7 @@ and has to be refreshed before the request rather than after it fails. Both
 arrive here as a `Credential`, so nothing above this layer has to care which
 one it got.
 
-What this deliberately does NOT do: impersonate a Claude Pro/Max or ChatGPT
-subscription. Those tokens are restricted server-side to their vendors' own
-clients, third-party use returns 401, and it breaks the consumer terms. The
-supported paths are an API key, or an OAuth provider that actually offers one
-(see `offset.providers.oauth.APPS`).
-
-Storage is `~/.offset/credentials.json` at mode 0600, and it stays compatible
-with the flat `{provider: "key"}` shape the registry already reads.
+Storage is `~/.offset/credentials.json` at mode 0600.
 """
 
 from __future__ import annotations
@@ -45,10 +38,13 @@ OAUTH: Final = "oauth"
 HEADERS: Final[dict[str, tuple[str, str]]] = {
     # provider: (api-key header, oauth header)
     "anthropic": ("x-api-key", "Authorization"),
+    "claude-pro": ("x-api-key", "Authorization"),
     "openai": ("Authorization", "Authorization"),
+    "openai-chatgpt": ("Authorization", "Authorization"),
     "openrouter": ("Authorization", "Authorization"),
     "deepseek": ("Authorization", "Authorization"),
     "google": ("x-goog-api-key", "Authorization"),
+    "google-antigravity": ("x-goog-api-key", "Authorization"),
     "llamacpp": ("Authorization", "Authorization"),
     "opencode": ("Authorization", "Authorization"),
     "opencode-go": ("Authorization", "Authorization"),
@@ -71,6 +67,7 @@ class Credential:
     refresh_token: str | None = None
     expires_at: float | None = None
     account: str | None = None
+    raw_token: dict[str, Any] | None = None
 
     # -- state ------------------------------------------------------------
 
@@ -119,6 +116,7 @@ class Credential:
             "refresh_token": self.refresh_token,
             "expires_at": self.expires_at,
             "account": self.account,
+            "raw_token": self.raw_token,
         }
 
     @classmethod
@@ -141,6 +139,7 @@ class Credential:
                 float(raw["expires_at"]) if raw.get("expires_at") is not None else None
             ),
             account=raw.get("account"),
+            raw_token=raw.get("raw_token"),
         )
 
     @classmethod
@@ -152,6 +151,7 @@ class Credential:
             refresh_token=token.refresh_token,
             expires_at=token.expires_at,
             account=token.account,
+            raw_token=getattr(token, "raw_token", None),
         )
 
     def __repr__(self) -> str:  # never let a secret reach a log or a traceback
@@ -257,8 +257,8 @@ def accounts() -> list[Credential]:
         if cred is not None:
             out.append(cred)
             seen.add(provider)
-    for provider in ("anthropic", "openai", "google", "deepseek", "openrouter",
-                     "opencode", "opencode-go"):
+    for provider in ("anthropic", "claude-pro", "openai", "openai-chatgpt",
+                     "google", "deepseek", "openrouter", "opencode", "opencode-go"):
         if provider in seen:
             continue
         cred = from_env(provider)
@@ -369,7 +369,8 @@ def begin_login(provider: str, *, open_browser: bool = True) -> Pending:
     pkce = oauth.Pkce.create()
     state = oauth.new_state()
     server = oauth.start_loopback(state if oauth.sends_state(entry) else None,
-                                  host=entry.redirect_host, path=entry.redirect_path)
+                                  host=entry.redirect_host, path=entry.redirect_path,
+                                  port=entry.redirect_port)
     redirect_uri = f"http://{entry.redirect_host}:{server.port}{entry.redirect_path}"
     url = oauth.authorize_url(entry, pkce, state, redirect_uri)
     opened = oauth.launch(url) if open_browser else False

@@ -136,3 +136,28 @@ class Anthropic(Provider):
         except HTTPFailure as exc:
             yield StreamError(exc.detail(), status=exc.status, retryable=exc.retryable)
             yield Stop("error")
+
+
+class ClaudePro(Anthropic):
+    name = "claude-pro"
+    env_keys = ("CLAUDE_PRO_API_KEY",)
+
+    def stream(
+        self, request: Request, *, api_key: str | None = None, credential: Any = None
+    ) -> Iterator[Event]:
+        token = credential.value if credential is not None else api_key
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers["anthropic-version"] = self.version
+        headers["anthropic-beta"] = "oauth-2025-04-20"
+        try:
+            lines = post_lines(
+                f"{self.base_url}/v1/messages",
+                build_payload(request),
+                headers,
+                timeout=request.timeout,
+                retry=Retry(),
+            )
+            yield from parse(lines)
+        except HTTPFailure as exc:
+            yield StreamError(exc.detail(), status=exc.status, retryable=exc.retryable)
+            yield Stop("error")
