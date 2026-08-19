@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offset | The Terminal Coding Agent</title>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <title>OFFSET // The Neubrutalist Terminal Coding Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
         :root {
             --ink: #111111;
@@ -16,9 +18,30 @@
             --cyan: #8CFFFB;
             --mint: #B2FF9E;
             --red: #FF5A5F;
-            --shadow: 6px 6px 0px var(--ink);
-            --shadow-hover: 10px 10px 0px var(--ink);
             --border: 3px solid var(--ink);
+            --border-heavy: 4px solid var(--ink);
+            --shadow: 5px 5px 0px var(--ink);
+            --shadow-lg: 8px 8px 0px var(--ink);
+            --shadow-xl: 12px 12px 0px var(--ink);
+            --spring: cubic-bezier(.175,.885,.32,1.275);
+        }
+
+        body.matrix-mode {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --ink: #00ff66;
+            --muted: #008f39;
+            --yellow: #00ff66;
+            --pink: #00cc55;
+            --cyan: #00ff66;
+            --mint: #003b15;
+            --red: #ff3333;
+            --border: 3px solid #00ff66;
+            --border-heavy: 4px solid #00ff66;
+            --shadow: 5px 5px 0px #00ff66;
+            --shadow-lg: 8px 8px 0px #00ff66;
+            --shadow-xl: 12px 12px 0px #00ff66;
+            color: #00ff66;
         }
 
         * {
@@ -31,15 +54,73 @@
             background-color: var(--bg);
             color: var(--ink);
             font-family: 'Space Mono', monospace;
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+            overflow-x: hidden;
+            transition: background-color 0.2s, color 0.2s;
         }
 
-        h1, h2, h3, h4, .display {
+        h1, h2, h3, h4, .display-font {
             font-family: 'Archivo Black', sans-serif;
             text-transform: uppercase;
             letter-spacing: 1px;
             line-height: 1.1;
+        }
+
+        /* Scanline Overlay on Matrix mode */
+        body.matrix-mode::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 999;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* Matrix Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 998;
+            display: none;
+            opacity: 0.85;
+        }
+
+        /* Ticker Marquee */
+        .marquee-container {
+            background: var(--ink);
+            color: var(--yellow);
+            padding: 8px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            border-bottom: var(--border-heavy);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        body.matrix-mode .marquee-container {
+            background: #002200;
+            color: #00ff66;
+            border-bottom: 3px solid #00ff66;
+        }
+
+        .marquee-track {
+            display: inline-block;
+            animation: marquee 25s linear infinite;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
         }
 
         /* Navbar */
@@ -47,325 +128,1257 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 24px 48px;
+            padding: 16px 32px;
             background: var(--surface);
             border-bottom: var(--border);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .brand-cluster {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
         .logo {
-            font-size: 1.5rem;
-            font-weight: 900;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.6rem;
             text-decoration: none;
             color: var(--ink);
             background: var(--yellow);
-            padding: 4px 12px;
+            padding: 6px 14px;
+            border: var(--border);
+            box-shadow: var(--shadow);
+            transform: rotate(-1deg);
+            transition: transform 0.1s;
+        }
+
+        .logo:hover {
+            transform: rotate(2deg) scale(1.05);
+        }
+
+        .badge {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.75rem;
+            padding: 4px 8px;
             border: 2px solid var(--ink);
+            text-transform: uppercase;
         }
 
-        .nav-links a {
-            font-family: 'Archivo Black', sans-serif;
-            text-decoration: none;
-            color: var(--ink);
-            margin-left: 32px;
-            font-size: 1.1rem;
-        }
+        .badge-cyan { background: var(--cyan); }
+        .badge-pink { background: var(--pink); }
+        .badge-mint { background: var(--mint); }
 
-        .nav-links a:hover {
-            text-decoration: underline;
-            text-decoration-thickness: 3px;
-        }
-
-        /* Container */
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        /* Hero */
-        .hero {
-            padding: 120px 0 100px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-        }
-
-        .hero-text h1 {
-            font-size: 5rem;
-            margin-bottom: 24px;
-        }
-
-        .hero-text p {
-            font-size: 1.25rem;
-            color: var(--muted);
-            margin-bottom: 40px;
-            max-width: 480px;
-        }
-
-        .btn-group {
+        .nav-controls {
             display: flex;
-            gap: 20px;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
-        .btn {
-            display: inline-block;
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 1.1rem;
-            text-decoration: none;
-            color: var(--ink);
+        /* Interactive Sound & Mode Buttons */
+        .tool-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 6px 12px;
             background: var(--surface);
             border: var(--border);
-            padding: 16px 32px;
-            box-shadow: var(--shadow);
-            transition: transform 0.1s, box-shadow 0.1s;
+            color: var(--ink);
+            cursor: pointer;
+            box-shadow: 3px 3px 0px var(--ink);
+            transition: transform 0.05s, box-shadow 0.05s;
+        }
+
+        .tool-btn:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 4px 4px 0px var(--ink);
+        }
+
+        .tool-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px var(--ink);
+        }
+
+        .egg-counter {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+            background: var(--pink);
+            border: var(--border);
+            padding: 6px 12px;
+            box-shadow: 3px 3px 0px var(--ink);
             cursor: pointer;
         }
 
+        /* Layout Container */
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Hero Section */
+        .hero {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 48px;
+            align-items: center;
+            margin-bottom: 70px;
+        }
+
+        .hero-text h1 {
+            font-size: 4.5rem;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .highlight-box {
+            display: inline-block;
+            background: var(--yellow);
+            border: var(--border);
+            padding: 2px 10px;
+            box-shadow: var(--shadow);
+            transform: rotate(-1deg);
+        }
+
+        .hero-desc {
+            font-size: 1.15rem;
+            color: var(--muted);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.15rem;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: var(--ink);
+            background: var(--surface);
+            border: var(--border-heavy);
+            padding: 14px 28px;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+            transition: transform 0.08s, box-shadow 0.08s;
+            user-select: none;
+        }
+
         .btn:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: var(--shadow-hover);
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow-xl);
         }
 
         .btn:active {
-            transform: translate(6px, 6px);
-            box-shadow: 0 0 0 var(--ink);
+            transform: translate(5px, 5px);
+            box-shadow: 0px 0px 0px var(--ink);
         }
 
-        .btn-primary {
-            background: var(--cyan);
-        }
+        .btn-cyan { background: var(--cyan); }
+        .btn-yellow { background: var(--yellow); }
+        .btn-pink { background: var(--pink); }
+        .btn-mint { background: var(--mint); }
 
-        .btn-pro {
-            background: var(--pink);
-        }
-
-        /* Terminal Window */
-        .terminal-window {
-            background: var(--ink);
-            border: var(--border);
-            box-shadow: 12px 12px 0px var(--ink);
-            border-radius: 0;
-            overflow: hidden;
-        }
-
-        .terminal-header {
+        /* Quick Install Box */
+        .install-box {
             background: var(--surface);
-            border-bottom: var(--border);
-            padding: 12px 16px;
+            border: var(--border-heavy);
+            padding: 16px 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .install-code {
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            font-size: 0.95rem;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .copy-btn {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+            background: var(--mint);
+            border: 2px solid var(--ink);
+            padding: 8px 14px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px var(--ink);
+            white-space: nowrap;
+        }
+
+        .copy-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* Interactive Terminal Playground */
+        .terminal-wrapper {
+            background: var(--ink);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            flex-direction: column;
+            height: 480px;
+            position: relative;
+        }
+
+        .terminal-bar {
+            background: var(--surface);
+            border-bottom: var(--border-heavy);
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dots {
             display: flex;
             gap: 8px;
         }
 
-        .dot {
+        .dot-circle {
             width: 14px;
             height: 14px;
             border-radius: 50%;
             border: 2px solid var(--ink);
+            cursor: pointer;
         }
 
-        .terminal-body {
-            padding: 32px;
+        .terminal-title {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+            color: var(--ink);
+            text-transform: uppercase;
+        }
+
+        .terminal-output {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
             color: var(--mint);
-            font-size: 0.95rem;
-        }
-        
-        .prompt {
-            color: var(--yellow);
-            margin-right: 12px;
-        }
-
-        /* Pricing Section */
-        .pricing {
-            padding: 100px 0;
-            border-top: var(--border);
-            background: var(--surface);
-        }
-
-        .pricing-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-
-        .pricing-header h2 {
-            font-size: 3.5rem;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-        }
-
-        .card {
-            background: var(--bg);
-            border: var(--border);
-            padding: 48px;
-            box-shadow: var(--shadow);
+            font-size: 0.9rem;
+            font-family: 'Space Mono', monospace;
             display: flex;
             flex-direction: column;
+            gap: 8px;
         }
 
-        .tag {
-            display: inline-block;
-            font-family: 'Archivo Black', sans-serif;
-            padding: 4px 12px;
-            border: 2px solid var(--ink);
-            margin-bottom: 24px;
-            font-size: 0.9rem;
-        }
-
-        .card-lite .tag { background: var(--mint); }
-        .card-plus .tag { background: var(--yellow); }
-
-        .card h3 {
-            font-size: 2.5rem;
-            margin-bottom: 16px;
-        }
-
-        .card p {
-            color: var(--muted);
-            margin-bottom: 32px;
-        }
-
-        ul.features {
-            list-style: none;
-            margin-bottom: 40px;
-            flex-grow: 1;
-        }
-
-        ul.features li {
-            margin-bottom: 16px;
+        .terminal-prompt-row {
             display: flex;
             align-items: center;
+            padding: 12px 18px;
+            background: #1a1a1a;
+            border-top: 2px solid #333;
         }
 
-        ul.features li::before {
-            content: "→";
-            margin-right: 12px;
+        body.matrix-mode .terminal-prompt-row {
+            background: #051408;
+            border-top: 2px solid #00ff66;
+        }
+
+        .term-prompt {
+            color: var(--yellow);
+            font-weight: bold;
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        #term-input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        body.matrix-mode #term-input {
+            color: #00ff66;
+        }
+
+        .quick-chips {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 8px 16px;
+            background: #1f1f1f;
+            border-top: 1px solid #333;
+        }
+
+        .chip {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            background: var(--surface);
+            color: var(--ink);
+            border: 1px solid var(--ink);
+            cursor: pointer;
             font-weight: bold;
         }
 
-        ul.features li.disabled {
-            color: #aaa;
+        .chip:hover {
+            background: var(--cyan);
         }
-        
-        ul.features li.disabled::before {
+
+        /* Section Headings */
+        .section-header {
+            text-align: center;
+            margin: 80px 0 40px;
+        }
+
+        .section-header h2 {
+            font-size: 3.2rem;
+            margin-bottom: 12px;
+        }
+
+        .section-header p {
+            font-size: 1.15rem;
+            color: var(--muted);
+            max-width: 650px;
+            margin: 0 auto;
+        }
+
+        /* Speculative Branching Simulator Widget */
+        .simulator-card {
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 36px;
+            margin-bottom: 80px;
+        }
+
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .branch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .branch-col {
+            background: var(--bg);
+            border: var(--border);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: transform 0.2s;
+        }
+
+        .branch-col.winner {
+            background: var(--mint);
+            border: var(--border-heavy);
+            transform: scale(1.02);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .branch-title {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 8px;
+        }
+
+        .branch-log {
+            font-size: 0.85rem;
+            color: var(--muted);
+            min-height: 80px;
+            line-height: 1.4;
+        }
+
+        .status-badge {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border: 2px solid var(--ink);
+            display: inline-block;
+        }
+
+        /* Features Matrix */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            margin-bottom: 80px;
+        }
+
+        .feat-card {
+            background: var(--surface);
+            border: var(--border-heavy);
+            padding: 32px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .feat-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .feat-card h3 {
+            font-size: 1.8rem;
+            margin: 16px 0 12px;
+        }
+
+        .feat-num {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 2.5rem;
+            color: var(--muted);
+            opacity: 0.3;
+            position: absolute;
+            top: 16px;
+            right: 20px;
+        }
+
+        /* Pricing Tiers */
+        .pricing-section {
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 60px 40px;
+            margin-bottom: 80px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .plan-card {
+            border: var(--border-heavy);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .plan-lite {
+            background: var(--bg);
+        }
+
+        .plan-plus {
+            background: var(--ink);
+            color: var(--surface);
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-plus .plan-price {
+            color: var(--yellow);
+        }
+
+        .plan-title {
+            font-size: 2.6rem;
+            margin-bottom: 8px;
+        }
+
+        .plan-price {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 24px;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 36px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .plan-features li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+        }
+
+        .plan-features li::before {
+            content: "✓";
+            font-family: 'Archivo Black', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: var(--mint);
+            color: var(--ink);
+            border: 2px solid var(--ink);
+            font-size: 0.8rem;
+        }
+
+        .plan-features li.disabled {
+            opacity: 0.5;
+        }
+
+        .plan-features li.disabled::before {
             content: "×";
+            background: var(--red);
+            color: #fff;
+        }
+
+        /* Easter Egg Vault Section */
+        .vault-section {
+            background: var(--yellow);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 40px;
+            margin-bottom: 80px;
+        }
+
+        .vault-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .egg-badge {
+            background: var(--surface);
+            border: 2px solid var(--ink);
+            padding: 12px 8px;
+            text-align: center;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.75rem;
+            opacity: 0.35;
+            box-shadow: 3px 3px 0px var(--ink);
+            transition: all 0.2s;
+        }
+
+        .egg-badge.unlocked {
+            opacity: 1;
+            background: var(--pink);
+            transform: rotate(-2deg);
+        }
+
+        /* Gravity Canvas / Fallen items container */
+        .physics-active {
+            transition: transform 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) !important;
+            transform: translateY(120vh) rotate(45deg) !important;
+            pointer-events: none;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            background: var(--pink);
+            color: var(--ink);
+            border: var(--border-heavy);
+            padding: 14px 20px;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.3s var(--spring);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(120%); }
+            to { transform: translateX(0); }
         }
 
         /* Footer */
         footer {
             background: var(--ink);
             color: var(--bg);
-            padding: 40px 0;
+            padding: 60px 24px;
+            border-top: var(--border-heavy);
             text-align: center;
-            border-top: var(--border);
         }
 
-        footer a {
+        .footer-quote {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.4rem;
+            color: var(--yellow);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .footer-credits {
+            font-size: 0.95rem;
+            color: #aaa;
+        }
+
+        .footer-credits a {
             color: var(--cyan);
             text-decoration: none;
-            font-weight: bold;
+            font-weight: 700;
         }
 
         @media (max-width: 900px) {
-            .hero, .grid {
+            .hero, .pricing-grid {
                 grid-template-columns: 1fr;
             }
             .hero-text h1 {
-                font-size: 4rem;
+                font-size: 3.2rem;
+            }
+            .terminal-wrapper {
+                height: 420px;
             }
         }
     </style>
 </head>
 <body>
 
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- Top Marquee Ticker -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            ★ OFFSET 0.1.0 ★ SPECULATIVE BRANCHING ★ MULTI-MODEL ORCHESTRATION ★ NEOBRUTALIST ARCHITECTURE ★ AGPL-3.0 LICENSED ★ THE TERMINAL IS YOURS ★ THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR ★ NO CORNERS WERE ROUNDED IN THE MAKING OF THIS CLI ★ 30 LIVES GRANTED ★
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
     <nav>
-        <a href="#" class="logo">OFFSET</a>
-        <div class="nav-links">
-            <a href="#install">Install</a>
-            <a href="#pricing">Tiers</a>
-            <a href="https://github.com/The-Masked-Bear/offset-terminal">GitHub</a>
+        <div class="brand-cluster">
+            <a href="#" class="logo">OFFSET</a>
+            <span class="badge badge-mint">v0.1.0</span>
+            <span class="badge badge-cyan">AGPL-3.0</span>
+        </div>
+        <div class="nav-controls">
+            <button class="tool-btn" id="sound-toggle" title="Toggle 8-bit Synth Audio">🔊 SFX: ON</button>
+            <button class="tool-btn" id="matrix-toggle" title="Toggle Matrix Mode">⚡ MATRIX</button>
+            <button class="tool-btn" id="gravity-toggle" title="Toggle Gravity Physics">💥 GRAVITY</button>
+            <div class="egg-counter" id="egg-tracker" title="Click to view Vault">🥚 EGGS: <span id="egg-found-count">0</span>/8</div>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container" id="main-content">
+        
+        <!-- Hero Section -->
         <section class="hero">
             <div class="hero-text">
-                <h1>WE WRITE CODE.<br>YOU TAKE CREDIT.</h1>
-                <p>The terminal coding agent that doesn't ask for permission. Multi-model orchestration, speculative branching, and a deadpan workflow.</p>
-                <div class="btn-group">
-                    <a href="#install" class="btn btn-primary">INSTALL LITE</a>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" class="btn btn-pro" target="_blank">GET PLUS</a>
+                <span class="badge badge-pink" style="margin-bottom: 16px; display: inline-block;">PARALLEL PROBLEM SOLVING</span>
+                <h1>WE WRITE CODE.<br><span class="highlight-box">YOU TAKE CREDIT.</span></h1>
+                <p class="hero-desc">
+                    The from-scratch terminal coding agent built with <strong>Speculative Branching</strong>. Fork your git repository into multiple approaches simultaneously, let Claude, GPT, and Gemini race in isolated worktrees, and merge whatever passes tests.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#install-section" class="btn btn-cyan">GET OFFSET LITE</a>
+                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow">UPGRADE TO PLUS ($)</a>
+                    <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn">★ GITHUB</a>
+                </div>
+
+                <div class="install-box" id="install-section">
+                    <div class="install-code">
+                        <span style="color: var(--muted);">$</span> pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
+                    </div>
+                    <button class="copy-btn" id="copy-install-btn">COPY</button>
                 </div>
             </div>
-            
-            <div class="terminal-window">
-                <div class="terminal-header">
-                    <div class="dot" style="background: var(--red);"></div>
-                    <div class="dot" style="background: var(--yellow);"></div>
-                    <div class="dot" style="background: var(--mint);"></div>
+
+            <!-- Interactive Terminal Playground -->
+            <div class="terminal-wrapper" id="terminal-wrapper">
+                <div class="terminal-bar">
+                    <div class="dots">
+                        <div class="dot-circle" style="background: var(--red);" onclick="triggerEgg('sudo')"></div>
+                        <div class="dot-circle" style="background: var(--yellow);" onclick="triggerEgg('bear')"></div>
+                        <div class="dot-circle" style="background: var(--mint);" onclick="triggerEgg('matrix')"></div>
+                    </div>
+                    <div class="terminal-title">OFFSET INTERACTIVE REPL</div>
+                    <div style="font-size: 0.75rem; color: var(--muted);">TYPE 'HELP'</div>
                 </div>
-                <div class="terminal-body" id="install">
-                    <div style="color: var(--muted); margin-bottom: 16px;"># Linux, macOS, & PowerShell</div>
-                    <div><span class="prompt">$</span>pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</div>
-                    <br>
-                    <div><span class="prompt">$</span>offset</div>
-                    <div style="color: #fff; margin-top: 8px;">> Authenticating via GitHub...</div>
-                    <div style="color: var(--cyan);">> Offset Lite activated.</div>
-                    <br>
-                    <div style="color: var(--muted); margin-bottom: 16px;"># Upgrade to Plus</div>
-                    <div><span class="prompt">$</span>offset upgrade &lt;license-key&gt;</div>
+                <div class="terminal-output" id="term-output">
+                    <div style="color: var(--yellow); font-weight: bold;">OFFSET REPL v0.1.0 [Neubrutalist x86_64/arm64]</div>
+                    <div style="color: #888;">Type commands below or click the quick action chips. Try 'spec 3', 'bear', 'matrix', or 'sudo'.</div>
+                    <div style="color: var(--cyan);">> Ready for instructions.</div>
+                </div>
+                <div class="quick-chips">
+                    <span class="chip" onclick="executeCmd('spec 3 fix auth memory leak')">/spec 3</span>
+                    <span class="chip" onclick="executeCmd('flow scaffold stripe api')">/flow</span>
+                    <span class="chip" onclick="executeCmd('bear')">bear</span>
+                    <span class="chip" onclick="executeCmd('sudo')">sudo</span>
+                    <span class="chip" onclick="executeCmd('matrix')">matrix</span>
+                    <span class="chip" onclick="executeCmd('neofetch')">neofetch</span>
+                    <span class="chip" onclick="executeCmd('hunter2')">hunter2</span>
+                    <span class="chip" onclick="executeCmd('help')">help</span>
+                </div>
+                <div class="terminal-prompt-row">
+                    <span class="term-prompt">offset &gt;</span>
+                    <input type="text" id="term-input" placeholder="type command (e.g. 'help', 'spec 3', 'bear')..." autocomplete="off" spellcheck="false">
                 </div>
             </div>
         </section>
-    </div>
 
-    <section class="pricing" id="pricing">
-        <div class="container">
-            <div class="pricing-header">
-                <h2>CHOOSE YOUR WEAPON</h2>
+        <!-- Speculative Branching Interactive Simulator -->
+        <section class="simulator-card">
+            <div class="sim-header">
+                <div>
+                    <span class="badge badge-yellow">LIVE WORKTREE SIMULATOR</span>
+                    <h2 style="font-size: 2.2rem; margin-top: 8px;">SPECULATIVE BRANCHING IN ACTION</h2>
+                </div>
+                <button class="btn btn-mint" id="run-sim-btn">▶ RUN /spec 3 SIMULATION</button>
             </div>
-            
-            <div class="grid">
-                <div class="card card-lite">
-                    <div><span class="tag">OPEN SOURCE</span></div>
-                    <h3>LITE</h3>
-                    <p>The core terminal agent experience. Runs locally, fully functional, beautifully brutalist.</p>
-                    <ul class="features">
-                        <li>Bring-Your-Own-Key support</li>
-                        <li>Standard agent commands</li>
-                        <li>Neo-brutalist CLI interface</li>
-                        <li class="disabled">Speculative Branching (/spec)</li>
-                        <li class="disabled">Multi-model Flow (/flow)</li>
-                    </ul>
-                    <a href="#install" class="btn" style="text-align: center;">FREE FOREVER</a>
-                </div>
+            <p style="color: var(--muted); margin-bottom: 20px;">
+                Watch how Offset creates 3 isolated git worktrees, runs competing AI models on the same task in parallel, runs deterministic test suites on each branch, and merges the winner.
+            </p>
 
-                <div class="card card-plus" style="background: var(--ink); color: var(--bg);">
-                    <div><span class="tag" style="color: var(--ink);">PREMIUM</span></div>
-                    <h3 style="color: var(--surface);">PLUS</h3>
-                    <p style="color: #aaa;">God mode unlocked. Massive orchestration and premium model access.</p>
-                    <ul class="features">
-                        <li>Everything in Lite</li>
-                        <li style="color: var(--cyan);"><strong>/spec</strong> — Parallel isolated branches</li>
-                        <li style="color: var(--pink);"><strong>/flow</strong> — Multi-model orchestration</li>
-                        <li>Offset Cloud premium model access</li>
-                        <li>Priority support</li>
-                    </ul>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" class="btn btn-pro" style="text-align: center;" target="_blank">UPGRADE TO PLUS</a>
+            <div class="branch-grid">
+                <div class="branch-col" id="branch-a">
+                    <div class="branch-title">
+                        <span>BRANCH A (Sonnet 4)</span>
+                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
+                    </div>
+                    <div class="branch-log">Awaiting task dispatch...</div>
                 </div>
+                <div class="branch-col" id="branch-b">
+                    <div class="branch-title">
+                        <span>BRANCH B (GPT-4.1)</span>
+                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
+                    </div>
+                    <div class="branch-log">Awaiting task dispatch...</div>
+                </div>
+                <div class="branch-col" id="branch-c">
+                    <div class="branch-title">
+                        <span>BRANCH C (Gemini 3 Pro)</span>
+                        <span class="status-badge" style="background: var(--yellow);">IDLE</span>
+                    </div>
+                    <div class="branch-log">Awaiting task dispatch...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Grid -->
+        <div class="section-header">
+            <h2>UNAPOLOGETIC ENGINEERING</h2>
+            <p>Every tool, branch, and subagent built for speed and taste.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feat-card" onclick="triggerEgg('spec')">
+                <div class="feat-num">01</div>
+                <span class="badge badge-pink">PARALLEL</span>
+                <h3>SPECULATIVE BRANCHING</h3>
+                <p>Don't bet on one hallucination. Fork N approaches at once in real git worktrees. Keep what passes verification.</p>
+            </div>
+            <div class="feat-card" onclick="triggerEgg('flow')">
+                <div class="feat-num">02</div>
+                <span class="badge badge-cyan">ORCHESTRATION</span>
+                <h3>MULTI-MODEL /flow</h3>
+                <p>Assign planner, implementer, and critic roles across Claude, GPT-4, and Gemini in dependency order.</p>
+            </div>
+            <div class="feat-card" onclick="triggerEgg('neofetch')">
+                <div class="feat-num">03</div>
+                <span class="badge badge-mint">NEUBRUTALIST</span>
+                <h3>ZERO BLUR UI</h3>
+                <p>Hard shadows, Archivo Black typography, instant prompt_toolkit keybindings, and custom easter egg engine.</p>
+            </div>
+            <div class="feat-card" onclick="triggerEgg('antigravity')">
+                <div class="feat-num">04</div>
+                <span class="badge badge-yellow">MODELS</span>
+                <h3>GOOGLE ANTIGRAVITY</h3>
+                <p>Native support for Google Antigravity AI models, Anthropic Claude Pro, ChatGPT, and local Ollama nodes.</p>
             </div>
         </div>
-    </section>
 
+        <!-- Pricing Tiers Comparison -->
+        <section class="pricing-section" id="pricing-section">
+            <div class="section-header" style="margin-top: 0;">
+                <h2>CHOOSE YOUR WEAPON</h2>
+                <p>Open source freedom or full multi-model God mode.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <!-- Lite Tier -->
+                <div class="plan-card plan-lite">
+                    <span class="badge badge-mint" style="align-self: flex-start;">FREE // AGPL-3.0</span>
+                    <h3 class="plan-title">OFFSET LITE</h3>
+                    <div class="plan-price">$0 <span style="font-size: 1rem; color: var(--muted);">/ FOREVER</span></div>
+                    <ul class="plan-features">
+                        <li>Bring-Your-Own-API-Keys (OpenAI, Anthropic, Gemini, Ollama)</li>
+                        <li>Full Neubrutalist Terminal Interface</li>
+                        <li>Built-in Easter Eggs & Honeypots</li>
+                        <li>Local Subagent Execution</li>
+                        <li class="disabled">Speculative Branching (/spec)</li>
+                        <li class="disabled">Multi-Model Parallel Flow (/flow)</li>
+                        <li class="disabled">Offset Cloud Managed Endpoints</li>
+                    </ul>
+                    <a href="#install-section" class="btn btn-mint" style="text-align: center;">INSTALL LITE</a>
+                </div>
+
+                <!-- Plus Tier -->
+                <div class="plan-card plan-plus">
+                    <span class="badge badge-yellow" style="align-self: flex-start; color: var(--ink);">GOD MODE</span>
+                    <h3 class="plan-title">OFFSET PLUS</h3>
+                    <div class="plan-price">PREMIUM ACCESS</div>
+                    <ul class="plan-features">
+                        <li>Everything in Offset Lite</li>
+                        <li style="color: var(--cyan); font-weight: bold;">/spec — Run N approaches in parallel git worktrees</li>
+                        <li style="color: var(--pink); font-weight: bold;">/flow — Multi-model collaborative pipeline</li>
+                        <li>Offset Cloud API Key Pool Access</li>
+                        <li>Speculative Diff Evaluator & Auto-Merger</li>
+                        <li>Priority Issue Support & Beta Releases</li>
+                    </ul>
+                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" style="text-align: center;">GET PLUS ON GUMROAD</a>
+                    <div style="margin-top: 14px; font-size: 0.8rem; color: #888; text-align: center;">
+                        Upgrade command: <code>offset upgrade &lt;key&gt;</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Easter Egg Vault Tracker -->
+        <section class="vault-section" id="vault-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <span class="badge badge-pink">DISCOVER SECRETS</span>
+                    <h2 style="font-size: 2.2rem; margin-top: 8px;">EASTER EGG VAULT (<span id="vault-count">0</span>/8)</h2>
+                </div>
+                <button class="tool-btn" onclick="hintEgg()">NEED A HINT?</button>
+            </div>
+            <p style="margin-top: 8px; font-size: 0.95rem;">
+                Try typing hidden commands into the terminal above, clicking mysterious elements, or entering classic gamer key combinations.
+            </p>
+
+            <div class="vault-grid">
+                <div class="egg-badge" id="badge-bear">🐻 BEAR</div>
+                <div class="egg-badge" id="badge-sudo">🔒 SUDO</div>
+                <div class="egg-badge" id="badge-matrix">🐇 MATRIX</div>
+                <div class="egg-badge" id="badge-hunter2">🔑 HUNTER2</div>
+                <div class="egg-badge" id="badge-neofetch">💻 NEOFETCH</div>
+                <div class="egg-badge" id="badge-gravity">💥 GRAVITY</div>
+                <div class="egg-badge" id="badge-konami">🕹️ KONAMI</div>
+                <div class="egg-badge" id="badge-coffee">☕ COFFEE</div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Toast notification container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Footer -->
     <footer>
-        <div class="container">
-            <p>CREATED BY <a href="https://github.com/The-Masked-Bear">THE MASKED BEAR</a></p>
-            <p style="margin-top: 12px; font-size: 0.85rem; color: #888;">This incident will be reported.</p>
+        <div class="footer-quote">"THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR."</div>
+        <div class="footer-credits">
+            OFFSET TERMINAL CODING AGENT • LICENSED UNDER <a href="https://github.com/The-Masked-Bear/offset-terminal/blob/main/LICENSE" target="_blank">AGPL-3.0</a><br>
+            CREATED BY <a href="https://github.com/The-Masked-Bear" target="_blank">THE MASKED BEAR</a> • INSPIRED BY <a href="https://the-masked-bear.github.io/wifisense-pi/" target="_blank">WIFISENSE-PI</a>
         </div>
     </footer>
 
+    <!-- Interactive JS Engine -->
+    <script>
+        // --- Web Audio 8-bit Sound Synthesizer ---
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playBeep(freq = 440, type = 'square', duration = 0.08) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playSuccessSound() {
+            if (!soundEnabled) return;
+            playBeep(440, 'sine', 0.06);
+            setTimeout(() => playBeep(660, 'sine', 0.06), 60);
+            setTimeout(() => playBeep(880, 'triangle', 0.12), 120);
+        }
+
+        function playEggSound() {
+            if (!soundEnabled) return;
+            playBeep(260, 'square', 0.08);
+            setTimeout(() => playBeep(330, 'square', 0.08), 80);
+            setTimeout(() => playBeep(392, 'square', 0.08), 160);
+            setTimeout(() => playBeep(523, 'square', 0.2), 240);
+        }
+
+        document.getElementById('sound-toggle').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-toggle').innerText = soundEnabled ? '🔊 SFX: ON' : '🔇 SFX: OFF';
+            if (soundEnabled) playBeep(600, 'sine', 0.1);
+        });
+
+        // --- Easter Egg State Tracker ---
+        const discoveredEggs = new Set();
+        const TOTAL_EGGS = 8;
+
+        function unlockEgg(name, displayName) {
+            if (!discoveredEggs.has(name)) {
+                discoveredEggs.add(name);
+                playEggSound();
+                showToast(`🎉 UNLOCKED SECRET: ${displayName}!`);
+                
+                const badge = document.getElementById(`badge-${name}`);
+                if (badge) badge.classList.add('unlocked');
+
+                document.getElementById('egg-found-count').innerText = discoveredEggs.size;
+                document.getElementById('vault-count').innerText = discoveredEggs.size;
+
+                if (discoveredEggs.size === TOTAL_EGGS) {
+                    setTimeout(() => {
+                        showToast('🏆 100% EGGS FOUND! YOU HAVE FULL ROOT PRIVILEGES.');
+                    }, 500);
+                }
+            }
+        }
+
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function hintEgg() {
+            playBeep(300, 'triangle', 0.1);
+            const hints = [
+                "Try typing 'bear' 4 times in the terminal.",
+                "Try asking for 'sudo' privileges.",
+                "Type 'matrix' to see reality decode.",
+                "Enter 'hunter2' for password check.",
+                "Use classic gamer arrows + B + A (Konami code).",
+                "Try ordering a 'coffee'.",
+                "Click the gravity button to test physics."
+            ];
+            showToast("💡 HINT: " + hints[Math.floor(Math.random() * hints.length)]);
+        }
+
+        // --- Copy Install Command ---
+        document.getElementById('copy-install-btn').addEventListener('click', () => {
+            const cmd = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
+            navigator.clipboard.writeText(cmd).then(() => {
+                playSuccessSound();
+                const btn = document.getElementById('copy-install-btn');
+                btn.innerText = 'COPIED!';
+                btn.style.background = 'var(--yellow)';
+                setTimeout(() => {
+                    btn.innerText = 'COPY';
+                    btn.style.background = 'var(--mint)';
+                }, 2000);
+                showToast('✓ COPIED TO CLIPBOARD. GO HACK.');
+            });
+        });
+
+        // --- Matrix Canvas Animation ---
+        const matrixCanvas = document.getElementById('matrix-canvas');
+        const mCtx = matrixCanvas.getContext('2d');
+        let matrixInterval = null;
+        let matrixActive = false;
+
+        function resizeMatrix() {
+            matrixCanvas.width = window.innerWidth;
+            matrixCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeMatrix);
+        resizeMatrix();
+
+        const letters = '0123456789ABCDEFOFFSETTHEMASKEDBEARλπ';
+        const fontSize = 16;
+        let columns = Math.floor(window.innerWidth / fontSize);
+        let drops = Array(columns).fill(1);
+
+        function drawMatrix() {
+            mCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            mCtx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+            mCtx.fillStyle = '#00ff66';
+            mCtx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                mCtx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > matrixCanvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        function toggleMatrix() {
+            matrixActive = !matrixActive;
+            document.body.classList.toggle('matrix-mode', matrixActive);
+            matrixCanvas.style.display = matrixActive ? 'block' : 'none';
+            if (matrixActive) {
+                unlockEgg('matrix', 'WAKE UP, OPERATOR');
+                playSuccessSound();
+                if (!matrixInterval) matrixInterval = setInterval(drawMatrix, 35);
+            } else {
+                if (matrixInterval) {
+                    clearInterval(matrixInterval);
+                    matrixInterval = null;
+                }
+            }
+        }
+        document.getElementById('matrix-toggle').addEventListener('click', toggleMatrix);
+
+        // --- Gravity Physics Easter Egg ---
+        let gravityActive = false;
+        document.getElementById('gravity-toggle').addEventListener('click', () => {
+            gravityActive = !gravityActive;
+            playBeep(180, 'sawtooth', 0.3);
+            const targets = document.querySelectorAll('.hero-text, .terminal-wrapper, .simulator-card, .feat-card, .plan-card');
+            targets.forEach(el => {
+                if (gravityActive) {
+                    el.classList.add('physics-active');
+                } else {
+                    el.classList.remove('physics-active');
+                }
+            });
+            if (gravityActive) {
+                unlockEgg('gravity', 'GRAVITY ENABLED');
+                showToast('💥 GRAVITY ENABLED! EVERYTHING FALLS DOWN.');
+            }
+        });
+
+        // --- Terminal Simulator State & Engine ---
+        const termOutput = document.getElementById('term-output');
+        const termInput = document.getElementById('term-input');
+        let bearCount = 0;
+        let sudoCount = 0;
+
+        function printTerm(text, color = 'var(--mint)') {
+            const line = document.createElement('div');
+            line.style.color = color;
+            line.innerHTML = text;
+            termOutput.appendChild(line);
+            termOutput.scrollTop = termOutput.scrollHeight;
+        }
+
+        function triggerEgg(eggName) {
+            executeCmd(eggName);
+        }
+
+        function executeCmd(rawCmd) {
+            const cmd = rawCmd.trim();
+            if (!cmd) return;
+
+            playBeep(520, 'sine', 0.04);
+            printTerm(`<span style="color: var(--yellow);">offset &gt;</span> ${cmd}`, '#ffffff');
+
+            const lower = cmd.toLowerCase();
+
+            if (lower === 'help') {
+                printTerm(`<strong>AVAILABLE COMMANDS:</strong><br>
+  /spec &lt;N&gt; &lt;task&gt;  - Run N speculative branches in isolated worktrees<br>
+  /flow &lt;task&gt;     - Multi-model orchestrated pipeline<br>
+  bear               - Sentience interrogation<br>
+  sudo               - Escalation request<br>
+  matrix             - Toggle reality decoding<br>
+  neofetch           - System architecture & ASCII bear<br>
+  hunter2            - Security credentials check<br>
+  coffee             - RFC 2324 teapot protocol<br>
+  clear              - Wipe terminal output`, 'var(--cyan)');
+            } else if (lower.startsWith('/spec') || lower.startsWith('spec')) {
+                printTerm(`[SPEC] Forking repository into 3 isolated worktrees...`, 'var(--yellow)');
+                printTerm(`[BRANCH A] Initialized with Claude Sonnet 4`, '#888');
+                printTerm(`[BRANCH B] Initialized with GPT-4.1`, '#888');
+                printTerm(`[BRANCH C] Initialized with Gemini 3 Pro`, '#888');
+                setTimeout(() => {
+                    printTerm(`[SPEC] Running deterministic test suites across all 3...`, 'var(--cyan)');
+                    setTimeout(() => {
+                        printTerm(`[RESULT] Branch A passed 14/14 tests. Branch B failed. Branch C passed 14/14 tests.`, 'var(--mint)');
+                        printTerm(`[MERGE] Merged Branch A into main repository cleanly. ✨`, 'var(--yellow)');
+                        playSuccessSound();
+                    }, 800);
+                }, 600);
+            } else if (lower.startsWith('/flow') || lower.startsWith('flow')) {
+                printTerm(`[FLOW] Assembling multi-model pipeline:`, 'var(--pink)');
+                printTerm(`  → Step 1 (Architect): Claude Opus 4 generating interface specification`, '#888');
+                printTerm(`  → Step 2 (Implementer): Claude Sonnet 4 writing atomic tool modules`, '#888');
+                printTerm(`  → Step 3 (Critic): OpenAI o3 reviewing diffs and verification`, '#888');
+                setTimeout(() => {
+                    printTerm(`[FLOW] Pipeline complete. 0 human interventions needed.`, 'var(--mint)');
+                    playSuccessSound();
+                }, 1000);
+            } else if (lower === 'bear') {
+                bearCount++;
+                unlockEgg('bear', 'ARE YOU A BEAR?');
+                if (bearCount === 1) {
+                    printTerm(`ARE YOU A BEAR?<br>No.`, 'var(--yellow)');
+                } else if (bearCount === 2) {
+                    printTerm(`ARE YOU A BEAR?<br>Still no.`, 'var(--yellow)');
+                } else if (bearCount === 3) {
+                    printTerm(`ARE YOU A BEAR?<br>...Define bear.`, 'var(--yellow)');
+                } else {
+                    printTerm(`<pre style="color: var(--pink); line-height: 1.1;">
+   ▄▄▄     ▄▄▄   
+  ████▄▄▄▄▄████  
+ ██████████████ 
+ ██ ██████ ██ 
+ █████ ██ █████ 
+ ██████████████ 
+  ████████████  
+FINE. YES.
+This changes nothing about the code review.</pre>`, 'var(--pink)');
+                }
+            } else if (lower === 'sudo') {
+                sudoCount++;
+                unlockEgg('sudo', 'PERMISSION DENIED');
+                if (sudoCount <= 1) {
+                    printTerm(`PERMISSION DENIED.<br>guest is not in the sudoers file.<br>This incident will be reported to The-Masked-Bear.`, 'var(--red)');
+                } else if (sudoCount === 2) {
+                    printTerm(`STILL DENIED.<br>The incident was reported. He read it. He said no.`, 'var(--red)');
+                } else {
+                    printTerm(`ROOT GRANTED.<br>Just kidding. You have root over this dialog box and nothing else.`, 'var(--yellow)');
+                }
+            } else if (lower === 'matrix') {
+                toggleMatrix();
+                printTerm(`WAKE UP, OPERATOR. Follow the white rabbit.`, 'var(--mint)');
+            } else if (lower === 'neofetch' || lower === 'fetch') {
+                unlockEgg('neofetch', 'NEOFETCH SYSTEM INFO');
+                printTerm(`<pre style="color: var(--cyan); line-height: 1.2;">
+   ▄▄▄     ▄▄▄     operator@offset
+  ████▄▄▄▄▄████    ---------------
+ ██████████████    OS      : offset 0.1.0 (AGPL-3.0)
+ ██ ██████ ██    Style   : neubrutalist
+ █████ ██ █████    WM      : hard borders, zero blur
+ ██████████████    Theme   : #FFDE59 on #111111
+  ████████████     Corners : 0px, non-negotiable</pre>`, 'var(--cyan)');
+            } else if (lower === 'hunter2' || lower === 'password') {
+                unlockEgg('hunter2', 'HUNTER2 HONEYPOT');
+                printTerm(`ACCESS DENIED.<br>KEY: *******<br>Everyone else in this room just sees *******.`, 'var(--red)');
+            } else if (lower === 'coffee' || lower === 'brew') {
+                unlockEgg('coffee', 'HTCPCP 418');
+                printTerm(`HTCPCP 418: I'm a teapot.<br>I am also a Raspberry Pi. Do not pour anything into me.`, 'var(--red)');
+            } else if (lower === 'clear') {
+                termOutput.innerHTML = '';
+            } else {
+                printTerm(`offset: command not found: '${cmd}'. Type 'help' for options.`, '#888');
+            }
+        }
+
+        termInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = termInput.value;
+                termInput.value = '';
+                executeCmd(val);
+            }
+        });
+
+        // --- Speculative Branching Visualizer Simulator ---
+        document.getElementById('run-sim-btn').addEventListener('click', () => {
+            playBeep(440, 'triangle', 0.1);
+            const btn = document.getElementById('run-sim-btn');
+            btn.disabled = true;
+            btn.innerText = '⏳ SPECULATING...';
+
+            const bA = document.getElementById('branch-a');
+            const bB = document.getElementById('branch-b');
+            const bC = document.getElementById('branch-c');
+
+            bA.classList.remove('winner');
+            bB.classList.remove('winner');
+            bC.classList.remove('winner');
+
+            bA.querySelector('.branch-log').innerText = 'Generating AST refactor...';
+            bB.querySelector('.branch-log').innerText = 'Rewriting async loop...';
+            bC.querySelector('.branch-log').innerText = 'Applying type guard patch...';
+
+            setTimeout(() => {
+                bA.querySelector('.branch-log').innerText = 'Running cargo/pytest test suite (14/14 passed)...';
+                bB.querySelector('.branch-log').innerText = 'SyntaxError on line 42 (FAILED)';
+                bC.querySelector('.branch-log').innerText = 'Running tests (12/14 passed)...';
+
+                setTimeout(() => {
+                    bA.classList.add('winner');
+                    bA.querySelector('.status-badge').innerText = 'WINNER (MERGED)';
+                    bA.querySelector('.status-badge').style.background = 'var(--mint)';
+                    
+                    bB.querySelector('.status-badge').innerText = 'DISCARDED';
+                    bB.querySelector('.status-badge').style.background = 'var(--red)';
+
+                    bC.querySelector('.status-badge').innerText = 'REJECTED';
+                    bC.querySelector('.status-badge').style.background = 'var(--yellow)';
+
+                    btn.disabled = false;
+                    btn.innerText = '▶ RUN SIMULATION AGAIN';
+                    playSuccessSound();
+                    showToast('🏆 BRANCH A WON & WAS AUTO-MERGED INTO MAIN!');
+                }, 900);
+            }, 800);
+        });
+
+        // --- Konami Code Listener (Up Up Down Down Left Right Left Right B A) ---
+        const konamiSequence = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+        let konamiIndex = 0;
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+            const expected = konamiSequence[konamiIndex].length === 1 ? konamiSequence[konamiIndex].toLowerCase() : konamiSequence[konamiIndex];
+
+            if (key === expected) {
+                konamiIndex++;
+                playBeep(400 + (konamiIndex * 80), 'square', 0.05);
+                if (konamiIndex === konamiSequence.length) {
+                    konamiIndex = 0;
+                    unlockEgg('konami', '30 LIVES GRANTED');
+                    showToast('🕹️ 30 LIVES GRANTED! GOD MODE UNLOCKED.');
+                    toggleMatrix();
+                }
+            } else {
+                konamiIndex = 0;
+            }
+        });
+    </script>
 </body>
 </html>
