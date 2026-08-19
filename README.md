@@ -13,7 +13,7 @@
 ```
 
 [![Official Website](https://img.shields.io/badge/OFFICIAL_WEBSITE-VISIT_PORTAL-black?style=for-the-badge&logo=googlechrome&logoColor=white&colorA=111111&colorB=FFDE59)](https://the-masked-bear.github.io/offset-terminal/)
-[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-MONTHLY_SUBSCRIPTION-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
+[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-MONTHLY_OR_YEARLY-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
 
 <br>
 
@@ -80,9 +80,9 @@ offset
 
 ## 💎 TIERS: LITE vs PLUS
 
-| Feature | Offset Lite (Free) | Offset Plus (Monthly Subscription) |
+| Feature | Offset Lite (Free) | Offset Plus (Monthly / Yearly Subscription) |
 | :--- | :---: | :---: |
-| **Pricing** | Free Forever | Monthly Subscription (Cancel Anytime) |
+| **Pricing** | Free Forever | Monthly or Yearly Subscription (Cancel Anytime) |
 | **License** | Open Source (AGPL-3.0) | Commercial Subscription License |
 | **API Keys** | Bring Your Own (BYOK) | BYOK + Cloud Key Pool Access |
 | **Neubrutalist Terminal UI** | ✅ | ✅ |
@@ -93,7 +93,7 @@ offset
 | **Auto-Worktree Diff & Merge** | ❌ | ✅ |
 | **Priority Updates & Releases** | ❌ | ✅ |
 
-👉 **[Subscribe to Offset Plus on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)**
+👉 **[Subscribe to Offset Plus on Gumroad (Monthly & Yearly Plans)](https://debarghya47.gumroad.com/l/qzqnxk)**
 
 ---
 

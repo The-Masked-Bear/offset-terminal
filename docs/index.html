@@ -1008,7 +1008,7 @@
                 </p>
                 <div class="hero-buttons">
                     <a href="#install-section" class="btn btn-cyan" onclick="playSuccessSound()">GET OFFSET LITE</a>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" onclick="playSuccessSound()">SUBSCRIBE TO PLUS ($/mo)</a>
+                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" onclick="playSuccessSound()">SUBSCRIBE TO PLUS (MONTHLY / YEARLY)</a>
                     <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn" onclick="playBeep(400)">★ GITHUB</a>
                 </div>
 
@@ -1205,11 +1205,16 @@
 
                 <!-- Plus Tier -->
                 <div class="plan-card plan-plus">
-                    <span class="badge badge-yellow" style="align-self: flex-start; color: var(--ink);">GOD MODE</span>
-                    <h3 class="plan-title">OFFSET PLUS</h3>
-                    <div class="plan-price">MONTHLY SUBSCRIPTION</div>
-                    <div style="font-size: 0.85rem; color: #888; margin-top: -16px; margin-bottom: 20px;">CANCEL ANYTIME</div>
-                    <ul class="plan-features">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span class="badge badge-yellow" style="color: var(--ink);">GOD MODE</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="tool-btn" id="plan-monthly-btn" style="padding: 3px 8px; font-size: 0.72rem; background: var(--pink); color: #fff;" onclick="setBillingPlan('monthly')">MONTHLY</button>
+                            <button class="tool-btn" id="plan-yearly-btn" style="padding: 3px 8px; font-size: 0.72rem; background: var(--surface); color: var(--ink);" onclick="setBillingPlan('yearly')">YEARLY (SAVE)</button>
+                        </div>
+                    </div>
+                    <h3 class="plan-title" style="margin-top: 12px;">OFFSET PLUS</h3>
+                    <div class="plan-price" id="plan-billing-title">MONTHLY / YEARLY</div>
+                    <div id="plan-billing-sub" style="font-size: 0.85rem; color: #888; margin-top: -16px; margin-bottom: 20px;">FLEXIBLE SUBSCRIPTION • CANCEL ANYTIME</div>
                         <li>Everything in Offset Lite</li>
                         <li style="color: var(--cyan); font-weight: bold;">/spec — Run N approaches in parallel git worktrees</li>
                         <li style="color: var(--pink); font-weight: bold;">/flow — Multi-model collaborative pipeline</li>
@@ -1434,6 +1439,34 @@
         const locDisplay = document.getElementById('loc-display');
         const retryDisplay = document.getElementById('retry-display');
         const calcOutput = document.getElementById('calc-hours-saved');
+        // --- Plan Switcher ---
+        function setBillingPlan(plan) {
+            const mBtn = document.getElementById('plan-monthly-btn');
+            const yBtn = document.getElementById('plan-yearly-btn');
+            const title = document.getElementById('plan-billing-title');
+            const sub = document.getElementById('plan-billing-sub');
+
+            if (plan === 'yearly') {
+                mBtn.style.background = 'var(--surface)';
+                mBtn.style.color = 'var(--ink)';
+                yBtn.style.background = 'var(--pink)';
+                yBtn.style.color = '#fff';
+                title.innerText = 'YEARLY PLAN';
+                sub.innerText = 'BILLED ANNUALLY • MAXIMUM VALUE';
+                playSuccessSound();
+                showToast('★ SWITCHED TO YEARLY PLAN (BEST VALUE)');
+            } else {
+                mBtn.style.background = 'var(--pink)';
+                mBtn.style.color = '#fff';
+                yBtn.style.background = 'var(--surface)';
+                yBtn.style.color = 'var(--ink)';
+                title.innerText = 'MONTHLY PLAN';
+                sub.innerText = 'BILLED MONTHLY • CANCEL ANYTIME';
+                playBeep(480, 'triangle', 0.08);
+                showToast('★ SWITCHED TO MONTHLY PLAN');
+            }
+        }
+
 
         function updateCalc() {
             const loc = parseInt(locSlider.value);
