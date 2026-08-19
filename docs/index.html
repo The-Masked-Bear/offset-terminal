@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFFSET TERMINAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #111111;
+            --bg: #F4F4F0;
+            --surface: #FFFFFF;
+            --muted: #555555;
+            --yellow: #FFDE59;
+            --pink: #FF90E8;
+            --cyan: #8CFFFB;
+            --mint: #B2FF9E;
+            --red: #FF5A5F;
+            --shadow: 8px 8px 0px var(--ink);
+            --shadow-hover: 12px 12px 0px var(--ink);
+            --border: 4px solid var(--ink);
+            --spring: cubic-bezier(.175,.885,.32,1.275);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--ink);
+            font-family: 'Space Mono', monospace;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .display {
+            font-family: 'Archivo Black', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        .marquee {
+            background: var(--ink);
+            color: var(--yellow);
+            padding: 10px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            border-bottom: var(--border);
+            border-top: var(--border);
+        }
+
+        .marquee span {
+            display: inline-block;
+            font-family: 'Archivo Black', sans-serif;
+            letter-spacing: 2px;
+            animation: marquee 20s linear infinite;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 80px 0;
+        }
+
+        .hero h1 {
+            font-size: 6rem;
+            line-height: 1;
+            margin-bottom: 20px;
+            background: var(--pink);
+            border: var(--border);
+            padding: 20px 40px;
+            box-shadow: 16px 16px 0px var(--ink);
+            transform: rotate(-2deg);
+            animation: wiggle 3s var(--spring) infinite;
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            max-width: 600px;
+            margin: 30px 0;
+            font-weight: 700;
+        }
+
+        .btn {
+            display: inline-block;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: var(--ink);
+            background: var(--cyan);
+            border: var(--border);
+            padding: 15px 40px;
+            box-shadow: var(--shadow);
+            transition: all 0.1s ease;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translate(-4px, -4px);
+        }
+
+        .btn:active {
+            box-shadow: 0px 0px 0px var(--ink);
+            transform: translate(8px, 8px);
+        }
+
+        .btn-plus {
+            background: var(--yellow);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: var(--border);
+            padding: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .card h3 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            border-bottom: 4px solid var(--ink);
+            padding-bottom: 10px;
+        }
+
+        .terminal {
+            background: var(--ink);
+            color: var(--mint);
+            padding: 20px;
+            border: var(--border);
+            font-family: 'Space Mono', monospace;
+            margin: 40px 0;
+            box-shadow: var(--shadow);
+        }
+
+        .terminal span.prompt {
+            color: var(--pink);
+        }
+
+        footer {
+            text-align: center;
+            padding: 60px 20px;
+            border-top: var(--border);
+            background: var(--surface);
+            margin-top: 80px;
+            font-weight: 700;
+        }
+        
+        .easter-egg {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            cursor: crosshair;
+        }
+        
+        .easter-egg:hover {
+            color: var(--red);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="marquee">
+        <span>* OFFSET * SPECULATIVE BRANCHING * MULTI-MODEL COLLABORATION * NEOBRUTALIST UI * THE TERMINAL IS YOURS * OFFSET LITE * UPGRADE TO PLUS * OFFSET * SPECULATIVE BRANCHING * MULTI-MODEL COLLABORATION * NEOBRUTALIST UI * THE TERMINAL IS YOURS * OFFSET LITE * UPGRADE TO PLUS *</span>
+    </div>
+
+    <div class="container">
+        <div class="hero">
+            <h1>OFFSET</h1>
+            <p>THE NEOBRUTALIST TERMINAL CODING AGENT. <br>WE WRITE CODE. YOU TAKE CREDIT.</p>
+            <div>
+                <a href="#install" class="btn">GET OFFSET LITE</a>
+                <a href="https://debarghya47.gumroad.com/l/qzqnxk" class="btn btn-plus" target="_blank">BUY OFFSET PLUS</a>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card" style="background: var(--mint);">
+                <h3>OFFSET LITE (FREE)</h3>
+                <p>The terminal coding agent that actually works.</p>
+                <br>
+                <ul>
+                    <li>✓ Local execution</li>
+                    <li>✓ Standard agent commands</li>
+                    <li>✓ Neo-brutalist UI</li>
+                    <li>✗ Speculative Branching (/spec)</li>
+                    <li>✗ Multi-model Flow (/flow)</li>
+                </ul>
+            </div>
+            <div class="card" style="background: var(--pink);">
+                <h3>OFFSET PLUS ($)</h3>
+                <p>God mode for your terminal.</p>
+                <br>
+                <ul>
+                    <li>✓ Everything in Lite</li>
+                    <li>✓ <strong>/flow</strong> - Parallel model execution</li>
+                    <li>✓ <strong>/spec</strong> - Speculative branching</li>
+                    <li>✓ Cloud Model Access</li>
+                    <li>✓ Unrestricted Power</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2 class="display" style="margin-top: 80px; margin-bottom: 20px; text-align: center;" id="install">INSTALLATION</h2>
+        <div class="terminal">
+            <p><span class="prompt">PS C:\></span> # POWERSHELL</p>
+            <p><span class="prompt">PS C:\></span> pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</p>
+            <br>
+            <p><span class="prompt">user@linux:~$</span> # LINUX & macOS</p>
+            <p><span class="prompt">user@linux:~$</span> pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</p>
+            <br>
+            <p><span class="prompt">user@linux:~$</span> # RUN IT</p>
+            <p><span class="prompt">user@linux:~$</span> offset</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px;">
+            <p style="font-weight: bold; background: var(--yellow); border: var(--border); padding: 15px; display: inline-block; box-shadow: var(--shadow);">
+                UPGRADE COMMAND: <code>offset upgrade &lt;your-gumroad-key&gt;</code>
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        CREATED BY <a href="https://github.com/The-Masked-Bear" style="color: var(--ink); background: var(--cyan); padding: 2px 5px; text-decoration: none; border: 2px solid var(--ink);">DEBARGHYA47</a> (THE-MASKED-BEAR). <br><br>THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR.
+    </footer>
+    
+    <div class="easter-egg" onclick="alert('Gravity disabled.')">hunter2</div>
+
+</body>
+</html>
