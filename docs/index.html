@@ -115,6 +115,37 @@
             overflow-wrap: break-word;
             word-break: break-word;
         }
+        /* Custom Neubrutalist Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--surface);
+            border: var(--border);
+            height: 18px;
+            outline: none;
+            box-shadow: 2px 2px 0px var(--ink);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--yellow);
+            border: 3px solid var(--ink);
+            cursor: pointer;
+            border-radius: 0;
+            box-shadow: 2px 2px 0px var(--ink);
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: var(--yellow);
+            border: 3px solid var(--ink);
+            cursor: pointer;
+            border-radius: 0;
+            box-shadow: 2px 2px 0px var(--ink);
+        }
+
 
         /* Particle Overlay Canvas */
         #particle-canvas {
@@ -461,10 +492,6 @@
             transition: transform 0.1s;
         }
 
-        .dot-circle:hover {
-            transform: scale(1.3);
-        }
-
         .terminal-title {
             font-family: 'Archivo Black', sans-serif;
             font-size: 0.85rem;
@@ -663,8 +690,12 @@
         }
 
         .feat-card-container {
-            height: 280px;
+            min-height: 290px;
+            height: 100%;
             cursor: pointer;
+        }
+        .plan-card .btn {
+            margin-top: auto;
         }
 
         .feat-card-inner {

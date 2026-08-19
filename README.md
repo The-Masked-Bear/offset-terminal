@@ -24,7 +24,7 @@
 
 <br><br>
 
-<img src="assets/hero-banner.png" alt="Offset Landing Page & REPL" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
+<img src="assets/hero-banner.png" alt="Offset Landing Page & Interactive REPL" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
 
 </div>
 
@@ -38,6 +38,16 @@ Rather than betting your codebase on a single model's hallucination, Offset can 
 
 <div align="center">
 <img src="assets/terminal-tui.png" alt="Offset Terminal TUI" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
+</div>
+
+---
+
+## 🧪 INTERACTIVE SPECULATIVE BRANCHING SANDBOX
+
+Experience the parallel speculative branching race and live efficiency calculator directly on the web portal:
+
+<div align="center">
+<img src="assets/interactive-sandbox.png" alt="Speculative Branching Sandbox & Calculator" width="880" style="border: 3px solid #111; box-shadow: 8px 8px 0px #111;">
 </div>
 
 ---
@@ -99,7 +109,7 @@ offset
 
 ## 🥚 SECRETS & EASTER EGGS
 
-Offset features an extensive built-in easter egg engine with dozens of hidden commands, sentience checks, and honeypots. None of them are documented here—explore the terminal to discover them.
+Offset features an extensive built-in easter egg engine with dozens of hidden commands, sentience checks, and honeypots. None of them are documented here—explore the terminal and the [Official Website](https://the-masked-bear.github.io/offset-terminal/) to discover them.
 
 ---
 
