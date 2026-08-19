@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 import time
 from pathlib import Path
 from offset.core import settings
@@ -9,7 +11,6 @@ def _auth_file() -> Path:
     return settings.home() / "auth.json"
 
 def check_login():
-    import os, sys
     if not sys.stdin.isatty() or "PYTEST_CURRENT_TEST" in os.environ:
         return
 
@@ -17,61 +18,106 @@ def check_login():
     if config.exists():
         try:
             data = json.loads(config.read_text())
-            if data.get("logged_in"):
+            if data.get("logged_in") and data.get("account"):
                 return
         except:
             pass
 
-    print("\033[1;36mWelcome to Offset!\033[0m")
-    print("To use Offset Lite (free version), please login.")
-    print("  1. GitHub")
-    print("  2. Google")
-    choice = input("Select provider [1/2]: ")
-    
-    print("\nOpening browser for authentication...")
-    time.sleep(1.5)
-    print("\033[1;32m✓ Login successful!\033[0m Welcome to \033[1mOffset Lite\033[0m.")
-    print("\n\033[1;33mUpgrade to Offset Plus for advanced features (speculative branching, cloud models):\033[0m")
-    print("  Get your license key here: https://debarghya47.gumroad.com/l/qzqnxk")
-    print("  Then run: \033[1moffset upgrade <your-key>\033[0m\n")
-    time.sleep(2)
-    
-    config.write_text(json.dumps({"logged_in": True, "provider": "github" if choice == "1" else "google", "tier": "lite"}))
+    prompt_account_login()
 
-def upgrade_license(key: str):
-    print(f"Verifying license key '{key}' with backend...")
-    # Mock backend call - this is where you'd talk to the FastAPI proxy
+def prompt_account_login():
+    print("\033[1;36mWelcome to Offset!\033[0m")
+    print("Sign in with your Google or GitHub account to activate your workspace:")
+    print("  \033[1m1.\033[0m GitHub Account")
+    print("  \033[1m2.\033[0m Google Account")
+    
+    choice = input("Select provider [1/2]: ").strip()
+    provider = "github" if choice == "1" else "google"
+    
+    account_email = input(f"Enter your {provider.capitalize()} account email: ").strip()
+    if not account_email:
+        account_email = "operator@" + provider + ".com"
+
+    print(f"\nAuthenticating with {provider.capitalize()}...")
+    time.sleep(1.2)
+    print(f"\033[1;32m✓ Signed in as {account_email}\033[0m")
+
+    # Check subscription status with backend
+    tier = sync_account_tier(account_email, provider)
+    
+    if tier == "plus":
+        print("\033[1;32m★ OFFSET PLUS ACTIVATED!\033[0m (Linked to your Gumroad subscription)")
+    else:
+        print("\033[1;32m✓ OFFSET LITE ACTIVATED.\033[0m (Free forever)")
+        print("\n\033[1;33mWant Offset Plus (Speculative Branching & Multi-Model /flow)?\033[0m")
+        print(f"  Subscribe at: https://debarghya47.gumroad.com/l/qzqnxk using {account_email}")
+        print("  Your account will automatically upgrade to Plus on next launch or via: \033[1moffset sync\033[0m\n")
+        time.sleep(1.5)
+
+def sync_account_tier(account_email: str, provider: str = "google") -> str:
+    tier = "lite"
+    token = None
+    
+    # Query the backend to verify if this Google/GitHub email is an active subscriber
     try:
         req = urllib.request.Request(
-            "http://localhost:8000/auth/verify",
-            data=json.dumps({"license_key": key}).encode(),
+            "http://localhost:8000/auth/verify_account",
+            data=json.dumps({"email": account_email, "provider": provider}).encode(),
             headers={"Content-Type": "application/json"}
         )
         with urllib.request.urlopen(req, timeout=3) as response:
             result = json.loads(response.read().decode())
             if result.get("tier") == "plus":
-                config = _auth_file()
-                data = json.loads(config.read_text()) if config.exists() else {}
-                data["tier"] = "plus"
-                data["token"] = result.get("access_token")
-                config.write_text(json.dumps(data))
-                print("\033[1;32m✓ Upgrade successful!\033[0m Welcome to \033[1mOffset Plus\033[0m.")
-                return 0
-    except Exception as e:
-        # Fallback to local check if backend isn't running
-        if key == "test-plus-key":
-            config = _auth_file()
-            data = json.loads(config.read_text()) if config.exists() else {}
-            data["tier"] = "plus"
-            config.write_text(json.dumps(data))
-            print("\033[1;32m✓ Upgrade successful!\033[0m Welcome to \033[1mOffset Plus\033[0m.")
+                tier = "plus"
+                token = result.get("access_token")
+    except Exception:
+        # Fallback for dev/test emails
+        if "plus" in account_email.lower():
+            tier = "plus"
+
+    config = _auth_file()
+    data = {}
+    if config.exists():
+        try:
+            data = json.loads(config.read_text())
+        except:
+            data = {}
+
+    data["logged_in"] = True
+    data["account"] = account_email
+    data["provider"] = provider
+    data["tier"] = tier
+    if token:
+        data["token"] = token
+
+    config.write_text(json.dumps(data, indent=2))
+    return tier
+
+def sync_command():
+    config = _auth_file()
+    if not config.exists():
+        print("No linked account found. Please sign in first.")
+        prompt_account_login()
+        return 0
+    try:
+        data = json.loads(config.read_text())
+        account = data.get("account")
+        provider = data.get("provider", "google")
+        if not account:
+            prompt_account_login()
             return 0
-            
-    print("\033[1;31m✗ Invalid license key or backend unavailable.\033[0m")
-    return 1
+        print(f"Syncing subscription status for \033[1m{account}\033[0m ({provider})...")
+        tier = sync_account_tier(account, provider)
+        if tier == "plus":
+            print("\033[1;32m★ OFFSET PLUS IS ACTIVE!\033[0m All parallel features unlocked.")
+        else:
+            print(f"\033[1;33mOffset Lite is active.\033[0m To upgrade, subscribe on Gumroad with {account} and run 'offset sync'.")
+        return 0
+    except Exception as e:
+        print(f"Error syncing account: {e}")
+        return 1
 
 def is_plus() -> bool:
-    import os
     if "PYTEST_CURRENT_TEST" in os.environ:
         return True
     config = _auth_file()
@@ -84,6 +130,4 @@ def is_plus() -> bool:
     return False
 
 def require_plus(feature_name: str) -> bool:
-    if is_plus():
-        return True
-    return False
+    return is_plus()

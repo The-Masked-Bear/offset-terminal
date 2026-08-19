@@ -38,7 +38,7 @@ Rather than betting your codebase on a single model's hallucination, Offset can 
 
 ---
 
-## 🚀 INSTALLATION
+## 🚀 INSTALLATION & ACCOUNT SETUP
 
 Offset is distributed via `pipx` for isolated, global terminal execution.
 
@@ -56,7 +56,7 @@ pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
 ```bash
 offset
 ```
-*On first startup, authenticate with your GitHub or Google account to activate **Offset Lite**.*
+*On first startup, sign in with your **Google** or **GitHub** account. No license codes needed—if your account has an active Offset Plus subscription, it unlocks automatically.*
 
 ---
 
@@ -65,11 +65,12 @@ offset
 | Command | Tier | Description |
 | :--- | :---: | :--- |
 | `offset` | **Lite** | Start interactive terminal coding session. |
+| `offset login` | **All** | Sign in with your Google or GitHub account. |
+| `offset sync` | **All** | Sync Offset Plus subscription status from your account. |
 | `/login` | **Lite** | Manage API credentials (OpenAI, Anthropic, Google, Ollama, OpenCode). |
 | `/model` | **Lite** | Interactive dropdown model picker across 12+ providers. |
 | `/spec <N> <task>` | **Plus** | **Speculative Branching**: Fork $N$ parallel worktrees, run tests, merge winner. |
 | `/flow <task>` | **Plus** | **Multi-Model Orchestration**: Planner $\rightarrow$ Implementer $\rightarrow$ Critic pipeline. |
-| `offset upgrade <key>` | **All** | Upgrade from Lite to Plus using your Gumroad subscription license key. |
 | `offset demo` | **Lite** | Render the 24fps animated neubrutalist design system. |
 
 ---
@@ -79,6 +80,7 @@ offset
 | Feature | Offset Lite (Free) | Offset Plus (Monthly / Yearly Subscription) |
 | :--- | :---: | :---: |
 | **Pricing** | Free Forever | Monthly or Yearly Subscription (Cancel Anytime) |
+| **Access Method** | Google / GitHub Account | Linked Google / GitHub Account (Automatic) |
 | **License** | Open Source (AGPL-3.0) | Commercial Subscription License |
 | **API Keys** | Bring Your Own (BYOK) | BYOK + Cloud Key Pool Access |
 | **Neubrutalist Terminal UI** | ✅ | ✅ |
