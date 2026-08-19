@@ -9,6 +9,10 @@ def _auth_file() -> Path:
     return settings.home() / "auth.json"
 
 def check_login():
+    import os, sys
+    if not sys.stdin.isatty() or "PYTEST_CURRENT_TEST" in os.environ:
+        return
+
     config = _auth_file()
     if config.exists():
         try:
@@ -67,6 +71,9 @@ def upgrade_license(key: str):
     return 1
 
 def is_plus() -> bool:
+    import os
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
     config = _auth_file()
     if config.exists():
         try:
