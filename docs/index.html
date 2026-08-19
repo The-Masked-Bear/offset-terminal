@@ -283,24 +283,6 @@
             transform: scale(1.05);
         }
 
-        /* Draggable Sticker Badge */
-        .draggable-sticker {
-            position: absolute;
-            background: var(--yellow);
-            border: var(--border);
-            padding: 6px 12px;
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 0.75rem;
-            box-shadow: var(--shadow);
-            cursor: grab;
-            user-select: none;
-            z-index: 50;
-            touch-action: none;
-        }
-        .draggable-sticker:active {
-            cursor: grabbing;
-            transform: scale(1.1);
-        }
 
         /* Layout Container */
         .container {
@@ -986,11 +968,6 @@
     <canvas id="particle-canvas"></canvas>
     <canvas id="matrix-canvas"></canvas>
 
-    <!-- Draggable Floating Neubrutalist Stickers -->
-    <div class="draggable-sticker" style="top: 140px; right: 80px; background: var(--mint);" id="sticker-1">★ AGPL-3.0</div>
-    <div class="draggable-sticker" style="top: 220px; right: 40px; background: var(--pink);" id="sticker-2">0 CORNERS</div>
-    <div class="draggable-sticker" style="top: 360px; right: 100px; background: var(--cyan);" id="sticker-3">PARALLEL</div>
-
     <!-- Top Marquee Ticker -->
     <div class="marquee-container" id="marquee-header" title="Click to change announcement!">
         <div class="marquee-track" id="marquee-text">
@@ -1418,30 +1395,6 @@
         }
         updateParticles();
 
-        // --- Draggable Neubrutalist Stickers ---
-        function makeDraggable(el) {
-            let isDragging = false, startX, startY, origX, origY;
-            el.addEventListener('pointerdown', (e) => {
-                isDragging = true;
-                el.setPointerCapture(e.pointerId);
-                startX = e.clientX;
-                startY = e.clientY;
-                origX = el.offsetLeft;
-                origY = el.offsetTop;
-                playBeep(480, 'triangle', 0.05);
-            });
-            el.addEventListener('pointermove', (e) => {
-                if (!isDragging) return;
-                el.style.left = (origX + e.clientX - startX) + 'px';
-                el.style.top = (origY + e.clientY - startY) + 'px';
-                el.style.right = 'auto';
-            });
-            el.addEventListener('pointerup', () => {
-                isDragging = false;
-                playBeep(320, 'triangle', 0.05);
-            });
-        }
-        document.querySelectorAll('.draggable-sticker').forEach(makeDraggable);
 
         // --- Theme Engine ---
         const themes = ['default', 'matrix', 'cyberpunk', 'invert', 'party'];
