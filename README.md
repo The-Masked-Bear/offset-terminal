@@ -55,9 +55,7 @@ offset upgrade <your-license-key>
 
 ---
 
-## 🛠️ CONTRIBUTOR
 
-Created by **Debarghya47** ([The-Masked-Bear](https://github.com/The-Masked-Bear)).
 
 Inspired by the design of [WifiSense-Pi](https://the-masked-bear.github.io/wifisense-pi/).
 
