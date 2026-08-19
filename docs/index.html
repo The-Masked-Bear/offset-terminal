@@ -1208,6 +1208,151 @@
                 font-size: 0.82rem;
             }
         }
+        /* Installation Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active {
+            display: flex;
+            animation: fadeIn 0.15s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .install-modal {
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            max-width: 660px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            background: var(--ink);
+            color: var(--yellow);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: var(--border-heavy);
+        }
+        .modal-title {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+        }
+        .modal-close-btn {
+            background: var(--red);
+            color: #fff;
+            border: 2px solid var(--ink);
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.95rem;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #000;
+        }
+        .modal-close-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+        .modal-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .modal-tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .modal-tab-btn {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+            padding: 8px 14px;
+            background: var(--bg);
+            border: var(--border);
+            cursor: pointer;
+            box-shadow: 3px 3px 0px var(--ink);
+            transition: all 0.1s;
+        }
+        .modal-tab-btn.active {
+            background: var(--mint);
+            transform: translateY(-2px);
+        }
+        .step-box {
+            background: var(--bg);
+            border: var(--border);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .step-label {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .step-num {
+            background: var(--yellow);
+            border: 2px solid var(--ink);
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+        .modal-code-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--ink);
+            color: var(--mint);
+            padding: 10px 14px;
+            border: 2px solid var(--ink);
+            gap: 10px;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+        .modal-code-row code {
+            font-family: 'Space Mono', monospace;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .modal-copy-btn {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 0.75rem;
+            background: var(--mint);
+            border: 2px solid var(--ink);
+            padding: 6px 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            color: var(--ink);
+        }
+        .modal-copy-btn:active {
+            transform: translate(2px, 2px);
+        }
     </style>
 </head>
 <body class="theme-default">
@@ -1255,7 +1400,7 @@
                     The from-scratch terminal coding agent built with <strong>Speculative Branching</strong>. Fork your git repository into multiple approaches simultaneously, let Claude, GPT, and Gemini race in isolated worktrees, and merge whatever passes tests.
                 </p>
                 <div class="hero-buttons">
-                    <a href="#install-section" class="btn btn-cyan" onclick="playSuccessSound()">GET OFFSET LITE</a>
+                    <a href="javascript:void(0)" class="btn btn-cyan" onclick="openInstallModal('linux')">GET OFFSET LITE</a>
                     <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" onclick="playSuccessSound()">SUBSCRIBE TO PLUS (MONTHLY / YEARLY)</a>
                     <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn" onclick="playBeep(400)">★ GITHUB</a>
                 </div>
@@ -1445,7 +1590,7 @@
                         <li class="disabled">Multi-Model Parallel Flow (/flow)</li>
                         <li class="disabled">Offset Cloud Managed Endpoints</li>
                     </ul>
-                    <a href="#install-section" class="btn btn-mint" style="text-align: center;" onclick="playSuccessSound()">INSTALL LITE</a>
+                    <a href="javascript:void(0)" class="btn btn-mint" style="text-align: center;" onclick="openInstallModal('linux')">INSTALL LITE</a>
                 </div>
 
                 <!-- Plus Tier -->
@@ -1513,6 +1658,45 @@
             CREATED BY <a href="https://github.com/The-Masked-Bear" target="_blank">THE MASKED BEAR</a>
         </div>
     </footer>
+    <!-- Installation Modal Dialog -->
+    <div class="modal-overlay" id="install-modal-overlay" onclick="handleModalBackdropClick(event)">
+        <div class="install-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title">⚡ INSTALL OFFSET LITE</div>
+                <button class="modal-close-btn" onclick="closeInstallModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-tabs">
+                    <button class="modal-tab-btn active" id="tab-btn-linux" onclick="setInstallTab('linux')">LINUX / macOS / WSL</button>
+                    <button class="modal-tab-btn" id="tab-btn-win" onclick="setInstallTab('win')">WINDOWS (POWERSHELL)</button>
+                </div>
+
+                <div class="step-box">
+                    <div class="step-label"><span class="step-num">1</span> INSTALL VIA PIPX (REQUIRES PYTHON 3.11+)</div>
+                    <div class="modal-code-row">
+                        <code id="modal-install-cmd">pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
+                        <button class="modal-copy-btn" onclick="copyModalCmd('pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git', this)">COPY</button>
+                    </div>
+                </div>
+
+                <div class="step-box">
+                    <div class="step-label"><span class="step-num">2</span> LAUNCH TERMINAL AGENT</div>
+                    <div class="modal-code-row">
+                        <code>offset</code>
+                        <button class="modal-copy-btn" onclick="copyModalCmd('offset', this)">COPY</button>
+                    </div>
+                </div>
+
+                <div class="step-box" style="background: var(--mint);">
+                    <div class="step-label"><span class="step-num" style="background: var(--surface);">3</span> ACTIVATE OFFSET LITE</div>
+                    <p style="font-size: 0.85rem; line-height: 1.4;">
+                        On first launch, select <strong>GitHub</strong> or <strong>Google</strong> authentication to activate Offset Lite for free. Bring your own API keys for OpenAI, Anthropic, Gemini, or local Ollama nodes.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Interactive JS Engine -->
     <script>
@@ -1553,6 +1737,61 @@
             setTimeout(() => playBeep(660, 'sine', 0.06), 60);
             setTimeout(() => playBeep(880, 'triangle', 0.12), 120);
         }
+        // --- Installation Modal Control ---
+        function openInstallModal(os = 'linux') {
+            playSuccessSound();
+            document.getElementById('install-modal-overlay').classList.add('active');
+            setInstallTab(os);
+        }
+
+        function closeInstallModal() {
+            playBeep(320, 'triangle', 0.05);
+            document.getElementById('install-modal-overlay').classList.remove('active');
+        }
+
+        function handleModalBackdropClick(e) {
+            if (e.target.id === 'install-modal-overlay') {
+                closeInstallModal();
+            }
+        }
+
+        function setInstallTab(os) {
+            const lBtn = document.getElementById('tab-btn-linux');
+            const wBtn = document.getElementById('tab-btn-win');
+            const cmd = document.getElementById('modal-install-cmd');
+
+            if (os === 'win') {
+                lBtn.classList.remove('active');
+                wBtn.classList.add('active');
+                cmd.innerText = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
+                playBeep(450, 'triangle', 0.04);
+            } else {
+                wBtn.classList.remove('active');
+                lBtn.classList.add('active');
+                cmd.innerText = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
+                playBeep(450, 'triangle', 0.04);
+            }
+        }
+
+        function copyModalCmd(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                playSuccessSound();
+                const orig = btn.innerText;
+                btn.innerText = 'COPIED!';
+                btn.style.background = 'var(--yellow)';
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.style.background = 'var(--mint)';
+                }, 2000);
+                showToast('✓ COPIED COMMAND TO CLIPBOARD');
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeInstallModal();
+            }
+        });
 
         function playEggSound() {
             if (!soundEnabled) return;
