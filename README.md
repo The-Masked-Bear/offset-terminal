@@ -93,6 +93,8 @@ offset
 
 👉 **[Subscribe to Offset Plus on Gumroad (Monthly & Yearly Plans)](https://debarghya47.gumroad.com/l/qzqnxk)**
 
+> **⚠️ Note Before Subscribing:** Sign in to Offset first (`offset login`) with your **Google** or **GitHub** account. When completing checkout on Gumroad, enter that **exact same email address** so your account is automatically upgraded to Offset Plus without needing manual license keys.
+
 ---
 
 ## 🥚 SECRETS & EASTER EGGS

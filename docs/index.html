@@ -1440,7 +1440,7 @@
                 </p>
                 <div class="hero-buttons">
                     <a href="javascript:void(0)" class="btn btn-cyan" onclick="openInstallModal('linux')">GET OFFSET LITE</a>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" onclick="playSuccessSound()">SUBSCRIBE TO PLUS (MONTHLY / YEARLY)</a>
+                    <a href="javascript:void(0)" class="btn btn-yellow" onclick="openCheckoutModal()">SUBSCRIBE TO PLUS (MONTHLY / YEARLY)</a>
                     <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn" onclick="playBeep(400)">★ GITHUB</a>
                 </div>
 
@@ -1644,6 +1644,7 @@
                     <h3 class="plan-title" style="margin-top: 12px;">OFFSET PLUS</h3>
                     <div class="plan-price" id="plan-billing-title">MONTHLY / YEARLY</div>
                     <div id="plan-billing-sub" style="font-size: 0.85rem; color: #888; margin-top: -16px; margin-bottom: 20px;">FLEXIBLE SUBSCRIPTION • CANCEL ANYTIME</div>
+                    <ul class="plan-features">
                         <li>Everything in Offset Lite</li>
                         <li style="color: var(--cyan); font-weight: bold;">/spec — Run N approaches in parallel git worktrees</li>
                         <li style="color: var(--pink); font-weight: bold;">/flow — Multi-model collaborative pipeline</li>
@@ -1651,7 +1652,13 @@
                         <li>Speculative Diff Evaluator & Auto-Merger</li>
                         <li>Priority Issue Support & Beta Releases</li>
                     </ul>
-                    <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" style="text-align: center;" onclick="playSuccessSound()">SUBSCRIBE ON GUMROAD</a>
+
+                    <div style="background: rgba(255, 222, 89, 0.15); border: 2px solid var(--yellow); padding: 12px; margin-bottom: 16px; font-size: 0.8rem; line-height: 1.4;">
+                        <strong style="color: var(--yellow);">⚠️ BEFORE PURCHASING:</strong><br>
+                        Sign in with your <strong>Google or GitHub</strong> account first. Then use the <strong>exact same email</strong> on Gumroad checkout for automatic activation!
+                    </div>
+
+                    <a href="javascript:void(0)" class="btn btn-yellow" style="text-align: center;" onclick="openCheckoutModal()">SUBSCRIBE ON GUMROAD</a>
                     <div style="margin-top: 14px; font-size: 0.8rem; color: #888; text-align: center;">
                         Sync linked account: <code>offset sync</code>
                     </div>
@@ -1735,6 +1742,39 @@
             </div>
         </div>
     </div>
+    <!-- Pre-Checkout Account Link Modal -->
+    <div class="modal-overlay" id="checkout-modal-overlay" onclick="handleCheckoutModalBackdrop(event)">
+        <div class="install-modal" onclick="event.stopPropagation()">
+            <div class="modal-header" style="background: var(--yellow); color: var(--ink);">
+                <div class="modal-title">⚡ SIGN IN BEFORE CHECKOUT</div>
+                <button class="modal-close-btn" onclick="closeCheckoutModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="step-box" style="background: var(--bg);">
+                    <div class="step-label"><span class="step-num">1</span> USE YOUR GOOGLE OR GITHUB EMAIL</div>
+                    <p style="font-size: 0.85rem; color: var(--muted); line-height: 1.4;">
+                        Offset Plus unlocks automatically by matching your sign-in account. Make sure you know which email you use for Offset:
+                    </p>
+                    <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <input type="email" id="checkout-email-input" placeholder="e.g. your-email@gmail.com" style="flex-grow: 1; padding: 10px; border: var(--border); font-family: 'Space Mono', monospace; font-size: 0.85rem;">
+                        <button class="btn btn-mint" style="padding: 8px 14px; font-size: 0.85rem;" onclick="saveCheckoutEmail()">SAVE EMAIL</button>
+                    </div>
+                </div>
+
+                <div class="step-box" style="background: var(--pink); color: var(--ink);">
+                    <div class="step-label"><span class="step-num" style="background: var(--surface);">2</span> ENTER THE EXACT SAME EMAIL ON GUMROAD</div>
+                    <p style="font-size: 0.85rem; line-height: 1.4; font-weight: bold;">
+                        When completing checkout on Gumroad, enter this exact same email. Our live webhook will link your subscription instantly with zero license codes needed!
+                    </p>
+                </div>
+
+                <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-yellow" style="text-align: center; width: 100%; font-size: 1.05rem; padding: 16px;" onclick="closeCheckoutModal()">
+                    PROCEED TO GUMROAD CHECKOUT →
+                </a>
+            </div>
+        </div>
+    </div>
+
 
 
     <!-- Interactive JS Engine -->
@@ -1793,6 +1833,40 @@
                 closeInstallModal();
             }
         }
+        // --- Pre-Checkout Modal Control ---
+        function openCheckoutModal() {
+            playSuccessSound();
+            document.getElementById('checkout-modal-overlay').classList.add('active');
+            const saved = localStorage.getItem('offset_checkout_email');
+            if (saved) {
+                const input = document.getElementById('checkout-email-input');
+                if (input) input.value = saved;
+            }
+        }
+
+        function closeCheckoutModal() {
+            playBeep(320, 'triangle', 0.05);
+            document.getElementById('checkout-modal-overlay').classList.remove('active');
+        }
+
+        function handleCheckoutModalBackdrop(e) {
+            if (e.target.id === 'checkout-modal-overlay') {
+                closeCheckoutModal();
+            }
+        }
+
+        function saveCheckoutEmail() {
+            const input = document.getElementById('checkout-email-input');
+            const email = input ? input.value.trim() : '';
+            if (email && email.includes('@')) {
+                localStorage.setItem('offset_checkout_email', email);
+                playSuccessSound();
+                showToast(`✓ SAVED EMAIL: ${email}. Use this on Gumroad!`);
+            } else {
+                playBeep(220, 'sawtooth', 0.2);
+                showToast('⚠️ Please enter a valid email address.');
+            }
+        }
 
         function setInstallTab(os) {
             const lBtn = document.getElementById('tab-btn-linux');
@@ -1829,6 +1903,7 @@
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeInstallModal();
+                closeCheckoutModal();
             }
         });
 
