@@ -7,8 +7,8 @@ from offset.core import settings
 import urllib.request
 import urllib.error
 
-# Configurable auth server URL (Override with export OFFSET_AUTH_SERVER="https://your-backend.onrender.com")
-AUTH_SERVER_URL = os.environ.get("OFFSET_AUTH_SERVER", "http://localhost:8000").rstrip("/")
+# Production auth server URL on Render
+AUTH_SERVER_URL = os.environ.get("OFFSET_AUTH_SERVER", "https://offset-backend.onrender.com").rstrip("/")
 
 def _auth_file() -> Path:
     return settings.home() / "auth.json"
