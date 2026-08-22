@@ -5,22 +5,21 @@
 ```
    ▄▄▄     ▄▄▄   
   ████▄▄▄▄▄████  
- ██████████████   OFFSET // THE TERMINAL CODING AGENT
- ██ ██████ ██    "WE WRITE CODE. YOU TAKE CREDIT."
+ ██████████████   OFFSET // TERMINAL CODING AGENT
+ ██ ██████ ██    SPECULATIVE BRANCHING
  █████ ██ █████  
  ██████████████  
   ████████████   
 ```
 
 [![Official Website](https://img.shields.io/badge/OFFICIAL_WEBSITE-VISIT_PORTAL-black?style=for-the-badge&logo=googlechrome&logoColor=white&colorA=111111&colorB=FFDE59)](https://the-masked-bear.github.io/offset-terminal/)
-[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-MONTHLY_OR_YEARLY-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
+[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-SUBSCRIBE-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
 
 <br>
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-yellow.svg?style=for-the-badge&colorA=111111&colorB=FFDE59)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-cyan.svg?style=for-the-badge&colorA=111111&colorB=8CFFFB)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v0.1.0-pink.svg?style=for-the-badge&colorA=111111&colorB=FF90E8)](https://github.com/The-Masked-Bear/offset-terminal/releases)
-[![UI: Neubrutalist](https://img.shields.io/badge/UI-Neubrutalist-mint.svg?style=for-the-badge&colorA=111111&colorB=B2FF9E)](https://the-masked-bear.github.io/offset-terminal/)
 
 <br><br>
 
@@ -30,88 +29,121 @@
 
 ---
 
-## ⚡ WHAT IS OFFSET?
+## THE PROBLEM
 
-**Offset** is a from-scratch terminal coding agent built for developers who care about speed, taste, and parallel problem solving. Built with a unified neubrutalist design DNA (sharp borders, zero blur, high-contrast monospace tokens), its core superpower is **Speculative Branching**:
+Every AI coding agent runs one model at a time. When it hallucinates, you wait. When it fails, you retry. When it loops, you start over. You're betting your entire codebase on a single model's best guess.
 
-Rather than betting your codebase on a single model's hallucination, Offset can fork your repository into $N$ isolated git worktrees, dispatch competing models (Claude Sonnet, GPT-4.1, Gemini 3 Pro) in parallel, execute local test suites, and merge the winning implementation automatically.
+## THE SOLUTION: SPECULATIVE BRANCHING
+
+**Offset** forks your git repository into **N isolated worktrees**, dispatches competing models (Claude, GPT, Gemini, DeepSeek, Ollama) to each one **simultaneously**, runs your local test suite in every worktree, and **auto-merges the branch that passes**. One command. Zero hallucination loops.
+
+```
+offset> /spec 3 fix the auth memory leak
+
+[SPEC] Forking into 3 isolated worktrees...
+  Branch A → Claude Sonnet 4
+  Branch B → GPT-4.1
+  Branch C → Gemini 3 Pro
+
+[TEST] Running test suite in all 3 worktrees...
+  Branch A: 14/14 passed ✓
+  Branch B: 11/14 FAILED ✗
+  Branch C: 14/14 passed ✓
+
+[MERGE] Branch A auto-merged into main. Branches B, C cleaned up.
+```
+
+No other coding agent does this.
 
 ---
 
-## 🚀 INSTALLATION & ACCOUNT SETUP
+## HOW OFFSET COMPARES
 
-Offset is distributed via `pipx` for isolated, global terminal execution.
+| Feature | Offset | Cursor | GitHub Copilot | Aider | Claude Code |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Speculative Branching** (race N models in parallel git worktrees) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Multi-Model /flow** (Planner → Implementer → Critic pipeline) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **12+ models from one agent** (Claude, GPT, Gemini, Antigravity, Ollama) | ✅ | Partial | ❌ | ✅ | ❌ |
+| **Local-first, no Electron** | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Runs on ARM64 / Raspberry Pi** | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Open Source (AGPL-3.0)** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Built-in Easter Egg Engine** | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-### Linux / macOS / WSL
+---
+
+## INSTALLATION
+
 ```bash
+# Install globally via pipx (Python 3.11+ required)
 pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
-```
 
-### Windows (PowerShell)
-```powershell
-pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
-```
-
-### Launch
-```bash
+# Launch
 offset
 ```
-*On first startup, sign in with your **Google** or **GitHub** account. No license codes needed—if your account has an active Offset Plus subscription, it unlocks automatically.*
+
+*On first startup, sign in with your **Google** or **GitHub** account. No license codes needed — if your account has an active Offset Plus subscription, it unlocks automatically.*
 
 ---
 
-## 🎮 COMMAND MATRIX
+## COMMAND MATRIX
 
-| Command | Tier | Description |
+| Command | Tier | What It Does |
 | :--- | :---: | :--- |
-| `offset` | **Lite** | Start interactive terminal coding session. |
-| `offset login` | **All** | Sign in with your Google or GitHub account. |
-| `offset sync` | **All** | Sync Offset Plus subscription status from your account. |
-| `/login` | **Lite** | Manage API credentials (OpenAI, Anthropic, Google, Ollama, OpenCode). |
-| `/model` | **Lite** | Interactive dropdown model picker across 12+ providers. |
-| `/spec <N> <task>` | **Plus** | **Speculative Branching**: Fork $N$ parallel worktrees, run tests, merge winner. |
-| `/flow <task>` | **Plus** | **Multi-Model Orchestration**: Planner $\rightarrow$ Implementer $\rightarrow$ Critic pipeline. |
-| `offset demo` | **Lite** | Render the 24fps animated neubrutalist design system. |
+| `offset` | **Lite** | Start interactive terminal coding session |
+| `/spec <N> <task>` | **Plus** | **Speculative Branching**: Fork N parallel worktrees, race models, merge winner |
+| `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic orchestration |
+| `/model` | **Lite** | Interactive model picker across 12+ providers |
+| `/login` | **Lite** | Manage API credentials (OpenAI, Anthropic, Google, Ollama) |
+| `offset login` | **All** | Sign in with Google or GitHub account |
+| `offset sync` | **All** | Sync subscription status |
 
 ---
 
-## 💎 TIERS: LITE vs PLUS
+## LITE vs PLUS
 
-| Feature | Offset Lite (Free) | Offset Plus (Monthly / Yearly Subscription) |
+| Feature | Offset Lite (Free) | Offset Plus (Subscription) |
 | :--- | :---: | :---: |
-| **Pricing** | Free Forever | Monthly or Yearly Subscription (Cancel Anytime) |
-| **Access Method** | Google / GitHub Account | Linked Google / GitHub Account (Automatic) |
-| **License** | Open Source (AGPL-3.0) | Commercial Subscription License |
-| **API Keys** | Bring Your Own (BYOK) | BYOK + Cloud Key Pool Access |
-| **Neubrutalist Terminal UI** | ✅ | ✅ |
-| **Interactive REPL & Subagents** | ✅ | ✅ |
-| **Built-in Easter Egg Engine** | ✅ | ✅ |
+| **Pricing** | Free Forever | Monthly or Yearly (Cancel Anytime) |
+| **Bring Your Own API Keys** | ✅ | ✅ |
+| **Terminal Interface & REPL** | ✅ | ✅ |
+| **12+ Model Support** | ✅ | ✅ |
+| **Easter Egg Engine** | ✅ | ✅ |
 | **Speculative Branching (`/spec`)** | ❌ | ✅ |
-| **Multi-Model Orchestration (`/flow`)** | ❌ | ✅ |
+| **Multi-Model Pipeline (`/flow`)** | ❌ | ✅ |
 | **Auto-Worktree Diff & Merge** | ❌ | ✅ |
-| **Priority Updates & Releases** | ❌ | ✅ |
+| **Cloud API Key Pool** | ❌ | ✅ |
 
-👉 **[Subscribe to Offset Plus on Gumroad (Monthly & Yearly Plans)](https://debarghya47.gumroad.com/l/qzqnxk)**
+👉 **[Subscribe to Offset Plus on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)**
 
-> **⚠️ Note Before Subscribing:** Sign in to Offset first (`offset login`) with your **Google** or **GitHub** account. When completing checkout on Gumroad, enter that **exact same email address** so your account is automatically upgraded to Offset Plus without needing manual license keys.
-
----
-
-## 🥚 SECRETS & EASTER EGGS
-
-Offset features an extensive built-in easter egg engine with dozens of hidden commands, sentience checks, and honeypots. None of them are documented here—explore the terminal to discover them.
+> **⚠️ Before subscribing:** Sign in to Offset first (`offset login`) with your **Google** or **GitHub** account. Use that **exact same email** on Gumroad checkout so your account upgrades automatically.
 
 ---
 
-## 📜 LICENSE
+## SUPPORTED PROVIDERS
 
-This project is open source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.  
+| Provider | Models | Auth |
+| :--- | :--- | :--- |
+| **Anthropic** | Claude Opus 4, Sonnet 4, Haiku 3.5 | API Key or OAuth |
+| **OpenAI** | GPT-4.1, GPT-4o, o3, o4-mini | API Key |
+| **Google** | Gemini 3 Pro, 3 Flash | API Key |
+| **Google Antigravity** | Gemini 3.1 Pro, 3 Flash, Flash Lite | OAuth Account Link |
+| **Claude Pro** | Claude Opus 4, Sonnet 4 | OAuth via claude.ai |
+| **ChatGPT** | GPT-4o, o3 | OAuth via chatgpt.com |
+| **Ollama** | Any local model | Local (no key needed) |
+| **DeepSeek** | DeepSeek V3 | API Key |
+| **OpenCode** | Zen models | API Key |
+
+---
+
+## LICENSE
+
+Open source under **GNU Affero General Public License v3.0 (AGPL-3.0)**.  
 `Copyright (C) 2026 The-Masked-Bear`
 
-See the [LICENSE](LICENSE) file for complete details.
+See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 👤 AUTHOR & CREDITS
+## AUTHOR
 
-- Created by **[The Masked Bear](https://github.com/The-Masked-Bear)**.
+Created by **[The Masked Bear](https://github.com/The-Masked-Bear)**.

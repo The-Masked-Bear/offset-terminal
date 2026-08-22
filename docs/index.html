@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OFFSET // The Neubrutalist Terminal Coding Agent</title>
-    <meta name="description" content="Offset is an open-source neubrutalist terminal coding agent featuring Speculative Branching. Fork your git repository into parallel worktrees, pit models against each other, and auto-merge the winner.">
-    <meta name="keywords" content="coding agent, AI, terminal, tui, speculative branching, git worktree, python, prompt_toolkit, neubrutalist">
+    <title>OFFSET // Terminal Coding Agent with Speculative Branching</title>
+    <meta name="description" content="Offset is an open-source terminal coding agent that forks your git repo into parallel worktrees, races multiple AI models simultaneously, and auto-merges the winner. The only coding agent with Speculative Branching.">
+    <meta name="keywords" content="coding agent, AI, terminal, speculative branching, git worktree, parallel AI, multi-model, python, Claude, GPT, Gemini">
     <meta name="author" content="The Masked Bear">
 
     <!-- Open Graph / Facebook / Discord -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://the-masked-bear.github.io/offset-terminal/">
-    <meta property="og:title" content="OFFSET // The Neubrutalist Terminal Coding Agent">
-    <meta property="og:description" content="Speculative Branching terminal agent. Forks git repos into parallel worktrees, pits models against each other, and auto-merges the winner.">
+    <meta property="og:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
+    <meta property="og:description" content="The only coding agent that forks your repo into parallel git worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.">
     <meta property="og:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
 
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://the-masked-bear.github.io/offset-terminal/">
-    <meta name="twitter:title" content="OFFSET // The Neubrutalist Terminal Coding Agent">
-    <meta name="twitter:description" content="Speculative Branching terminal agent. Forks git repos into parallel worktrees, pits models against each other, and auto-merges the winner.">
+    <meta name="twitter:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
+    <meta name="twitter:description" content="The only coding agent that forks your repo into parallel git worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.">
     <meta name="twitter:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1403,7 +1403,7 @@
     <!-- Top Marquee Ticker -->
     <div class="marquee-container" id="marquee-header" title="Click to change announcement!">
         <div class="marquee-track" id="marquee-text">
-            ★ OFFSET 0.1.0 ★ SPECULATIVE BRANCHING ★ MULTI-MODEL ORCHESTRATION ★ NEOBRUTALIST ARCHITECTURE ★ AGPL-3.0 LICENSED ★ THE TERMINAL IS YOURS ★ THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR ★ NO CORNERS WERE ROUNDED IN THE MAKING OF THIS CLI ★ 30 LIVES GRANTED ★
+            ★ OFFSET 0.1.0 ★ SPECULATIVE BRANCHING: RACE N MODELS IN PARALLEL GIT WORKTREES ★ AUTO-MERGE THE WINNER ★ MULTI-MODEL ORCHESTRATION ★ CLAUDE + GPT + GEMINI + OLLAMA ★ AGPL-3.0 OPEN SOURCE ★ THE TERMINAL IS YOURS ★ THIS INCIDENT WILL BE REPORTED TO THE-MASKED-BEAR ★
         </div>
     </div>
 
@@ -1413,7 +1413,6 @@
             <a href="#" class="logo" id="main-logo" title="Click to spin & play sound!">OFFSET</a>
             <span class="badge badge-mint" onclick="triggerWordSound(500)">v0.1.0</span>
             <span class="badge badge-cyan" onclick="triggerWordSound(600)">AGPL-3.0</span>
-            <span class="badge badge-pink" onclick="triggerWordSound(700)">PARALLEL</span>
             <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="badge badge-yellow" style="text-decoration: none; color: var(--ink);">⭐ STAR REPO</a>
         </div>
         <div class="nav-controls">
@@ -1429,19 +1428,19 @@
         <!-- Hero Section -->
         <section class="hero">
             <div class="hero-text">
-                <span class="badge badge-pink" style="margin-bottom: 16px;" onclick="triggerWordSound(650)">PARALLEL PROBLEM SOLVING</span>
+                <span class="badge badge-pink" style="margin-bottom: 16px;" onclick="triggerWordSound(650)">THE ONLY CODING AGENT WITH SPECULATIVE BRANCHING</span>
                 <h1>
-                    <span class="interactive-word" onclick="clickHeroWord(this, 260)">WE</span>
-                    <span class="interactive-word" onclick="clickHeroWord(this, 330)">WRITE</span>
-                    <span class="interactive-word" onclick="clickHeroWord(this, 392)">CODE.</span><br>
-                    <span class="highlight-box" onclick="clickHeroWord(this, 523)">YOU TAKE CREDIT.</span>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 260)">RACE</span>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 330)">AI MODELS</span>
+                    <span class="interactive-word" onclick="clickHeroWord(this, 392)">IN PARALLEL.</span><br>
+                    <span class="highlight-box" onclick="clickHeroWord(this, 523)">KEEP THE WINNER.</span>
                 </h1>
                 <p class="hero-desc">
-                    The from-scratch terminal coding agent built with <strong>Speculative Branching</strong>. Fork your git repository into multiple approaches simultaneously, let Claude, GPT, and Gemini race in isolated worktrees, and merge whatever passes tests.
+                    Fork your git repo into N isolated worktrees. Dispatch Claude, GPT, Gemini, or Ollama to each one simultaneously. Run your test suite. Auto-merge the branch that passes. No more single-model hallucination loops.
                 </p>
                 <div class="hero-buttons">
-                    <a href="javascript:void(0)" class="btn btn-cyan" onclick="openInstallModal('linux')">GET OFFSET LITE</a>
-                    <a href="javascript:void(0)" class="btn btn-yellow" onclick="openCheckoutModal()">SUBSCRIBE TO PLUS ($)</a>
+                    <a href="javascript:void(0)" class="btn btn-cyan" onclick="openInstallModal('linux')">INSTALL FREE</a>
+                    <a href="javascript:void(0)" class="btn btn-yellow" onclick="openCheckoutModal()">GET PLUS</a>
                     <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn" onclick="playBeep(400)">★ GITHUB</a>
                 </div>
 
@@ -1465,7 +1464,7 @@
                     <button class="tool-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="executeCmd('clear')">CLEAR</button>
                 </div>
                 <div class="terminal-output" id="term-output">
-                    <div style="color: var(--yellow); font-weight: bold;">OFFSET REPL v0.1.0 [Neubrutalist x86_64/arm64]</div>
+                    <div style="color: var(--yellow); font-weight: bold;">OFFSET v0.1.0 [x86_64/arm64]</div>
                     <div style="color: #888;">Type commands below, use UP/DOWN arrows, or click the quick action chips.</div>
                     <div style="color: var(--cyan);">> Ready for instructions.</div>
                 </div>
@@ -1530,8 +1529,8 @@
 
         <!-- 3D Flippable Feature Cards -->
         <div class="section-header">
-            <h2>UNAPOLOGETIC ENGINEERING</h2>
-            <p>Click any card to flip and inspect technical details.</p>
+            <h2>WHAT MAKES OFFSET DIFFERENT</h2>
+            <p>Features no other coding agent offers. Click any card to see technical details.</p>
         </div>
 
         <div class="features-grid">
@@ -1540,14 +1539,14 @@
                     <div class="feat-card-front">
                         <div>
                             <div class="feat-num">01</div>
-                            <span class="badge badge-pink">PARALLEL</span>
+                            <span class="badge badge-pink">EXCLUSIVE</span>
                             <h3>SPECULATIVE BRANCHING</h3>
                         </div>
-                        <p style="color: var(--muted);">Fork N approaches at once in isolated git worktrees. Click to inspect &gt;</p>
+                        <p style="color: var(--muted);">Fork N approaches at once in isolated git worktrees. Race models. Auto-merge the winner. Click to inspect ></p>
                     </div>
                     <div class="feat-card-back">
-                        <h3>GIT WORKTREES</h3>
-                        <p>Zero cross-contamination. Each model writes to a separate worktree. Offset merges the first branch that passes local tests.</p>
+                        <h3>HOW IT WORKS</h3>
+                        <p>/spec 3 "fix the auth bug" → creates 3 git worktrees → dispatches Claude, GPT, and Gemini in parallel → runs your test suite in each → merges the first branch that passes. Zero cross-contamination.</p>
                         <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
                     </div>
                 </div>
@@ -1558,14 +1557,14 @@
                     <div class="feat-card-front">
                         <div>
                             <div class="feat-num">02</div>
-                            <span class="badge badge-cyan">ORCHESTRATION</span>
+                            <span class="badge badge-cyan">EXCLUSIVE</span>
                             <h3>MULTI-MODEL /flow</h3>
                         </div>
-                        <p style="color: var(--muted);">Pipeline Claude, GPT, and Gemini in dependency order. Click to inspect &gt;</p>
+                        <p style="color: var(--muted);">Pipeline different AI models as Planner → Implementer → Critic in one command. Click to inspect ></p>
                     </div>
                     <div class="feat-card-back">
                         <h3>ROLE SCHEDULER</h3>
-                        <p>Assigns roles dynamically: Claude Opus as Planner, Sonnet 4 as Implementer, and OpenAI o3 as Critic.</p>
+                        <p>/flow "build a Stripe webhook" → Claude Opus plans the architecture → Sonnet 4 writes the code → OpenAI o3 reviews diffs and runs verification. Zero human intervention.</p>
                         <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
                     </div>
                 </div>
@@ -1576,14 +1575,14 @@
                     <div class="feat-card-front">
                         <div>
                             <div class="feat-num">03</div>
-                            <span class="badge badge-mint">NEUBRUTALIST</span>
-                            <h3>ZERO BLUR UI</h3>
+                            <span class="badge badge-yellow">12+ MODELS</span>
+                            <h3>ANY PROVIDER, ONE AGENT</h3>
                         </div>
-                        <p style="color: var(--muted);">Hard shadows, Archivo Black, and instant prompt_toolkit keybindings. Click to inspect &gt;</p>
+                        <p style="color: var(--muted);">Claude, GPT, Gemini, Google Antigravity, DeepSeek, Ollama local models — all from one terminal. Click to inspect ></p>
                     </div>
                     <div class="feat-card-back">
-                        <h3>TASTE FIRST</h3>
-                        <p>No rounded corners. Hard 45-degree shadows. High-contrast monospace design built for long coding sessions.</p>
+                        <h3>PREFIX-AWARE ROUTING</h3>
+                        <p>Bring your own API keys or use OAuth. /model picks from 12+ models. Google Antigravity, Claude Pro, ChatGPT, and local Ollama nodes all work. Switch mid-session with one command.</p>
                         <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
                     </div>
                 </div>
@@ -1594,19 +1593,18 @@
                     <div class="feat-card-front">
                         <div>
                             <div class="feat-num">04</div>
-                            <span class="badge badge-yellow">MODELS</span>
-                            <h3>GOOGLE ANTIGRAVITY</h3>
+                            <span class="badge badge-mint">LIGHTWEIGHT</span>
+                            <h3>PURE PYTHON, NO ELECTRON</h3>
                         </div>
-                        <p style="color: var(--muted);">Full integration with Google Antigravity, Claude Pro, ChatGPT, & Ollama. Click to inspect &gt;</p>
+                        <p style="color: var(--muted);">Python 3.11 + prompt_toolkit. Runs natively on x86_64 and ARM64 (Raspberry Pi). Click to inspect ></p>
                     </div>
                     <div class="feat-card-back">
-                        <h3>ANY PROVIDER</h3>
-                        <p>Prefix-aware routing for Google Antigravity AI models, Anthropic OAuth tokens, and local offline nodes.</p>
+                        <h3>ZERO BLOAT</h3>
+                        <p>No Electron wrapper, no webview, no Node.js runtime. One pip install, one dependency. Starts in under a second on a Raspberry Pi. AGPL-3.0 open source.</p>
                         <span class="badge badge-mint" style="align-self: flex-start;">CLICK TO FLIP</span>
                     </div>
                 </div>
             </div>
-        </div>
 
         <!-- Pricing Tiers Comparison -->
         <section class="pricing-section" id="pricing-section">
@@ -1623,7 +1621,7 @@
                     <div class="plan-price">$0 <span style="font-size: 1rem; color: var(--muted);">/ FOREVER</span></div>
                     <ul class="plan-features">
                         <li>Bring-Your-Own-API-Keys (OpenAI, Anthropic, Gemini, Ollama)</li>
-                        <li>Full Neubrutalist Terminal Interface</li>
+                        <li>Full Terminal Interface with Interactive REPL</li>
                         <li>Built-in Easter Eggs & Honeypots</li>
                         <li>Local Subagent Execution</li>
                         <li class="disabled">Speculative Branching (/spec)</li>
@@ -1694,13 +1692,13 @@
                 <div style="font-size: 0.85rem; color: #aaa;">Share with developers who want parallel AI coding in git worktrees</div>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="https://twitter.com/intent/tweet?text=Offset%20is%20a%20neubrutalist%20terminal%20coding%20agent%20with%20Speculative%20Branching.%20Forks%20git%20repos%20into%20parallel%20worktrees%20and%20auto-merges%20the%20winner%3A&url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal" target="_blank" class="tool-btn" style="background: #1DA1F2; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
+                <a href="https://twitter.com/intent/tweet?text=Offset%20%E2%80%93%20the%20only%20coding%20agent%20that%20races%20Claude%20vs%20GPT%20vs%20Gemini%20in%20parallel%20git%20worktrees%20and%20auto-merges%20the%20winner.%20Open%20source.&url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal" target="_blank" class="tool-btn" style="background: #1DA1F2; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
                     🐦 SHARE ON X
                 </a>
-                <a href="https://reddit.com/submit?url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&title=Offset%20%E2%80%93%20Neubrutalist%20terminal%20coding%20agent%20with%20speculative%20git%20branching" target="_blank" class="tool-btn" style="background: #FF4500; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
+                <a href="https://reddit.com/submit?url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&title=Offset%20%E2%80%93%20The%20only%20coding%20agent%20that%20races%20AI%20models%20in%20parallel%20git%20worktrees%20and%20auto-merges%20the%20winner" target="_blank" class="tool-btn" style="background: #FF4500; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
                     🤖 REDDIT
                 </a>
-                <a href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&t=Show+HN%3A+Offset+%E2%80%93+Neubrutalist+terminal+coding+agent+with+speculative+git+branching" target="_blank" class="tool-btn" style="background: #FF6600; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
+                <a href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&t=Show+HN%3A+Offset+%E2%80%93+Race+AI+models+in+parallel+git+worktrees+and+auto-merge+the+winner" target="_blank" class="tool-btn" style="background: #FF6600; color: #fff; text-decoration: none; display: inline-flex; align-items: center;">
                     📰 HACKER NEWS
                 </a>
                 <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="tool-btn" style="background: var(--yellow); color: var(--ink); text-decoration: none; font-family: 'Archivo Black', sans-serif;">
@@ -2408,10 +2406,10 @@ This changes nothing about the code review.</pre>`, 'var(--pink)');
    ▄▄▄     ▄▄▄     operator@offset
   ████▄▄▄▄▄████    ---------------
  ██████████████    OS      : offset 0.1.0 (AGPL-3.0)
- ██ ██████ ██    Style   : neubrutalist
- █████ ██ █████    WM      : hard borders, zero blur
- ██████████████    Theme   : #FFDE59 on #111111
-  ████████████     Corners : 0px, non-negotiable</pre>`, 'var(--cyan)');
+ ██ ██████ ██    Engine  : speculative branching
+ █████ ██ █████    Models  : claude, gpt, gemini, ollama
+ ██████████████    Arch    : x86_64, arm64
+  ████████████     License : AGPL-3.0</pre>`, 'var(--cyan)');
             } else if (lower === 'hunter2' || lower === 'password') {
                 unlockEgg('hunter2', 'HUNTER2 HONEYPOT');
                 printTerm(`ACCESS DENIED.<br>KEY: *******<br>Everyone else in this room just sees *******.`, 'var(--red)');
