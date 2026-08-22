@@ -480,7 +480,7 @@
     <div class="hero-content">
       <h1>RACE AI MODELS IN PARALLEL.<br>KEEP THE WINNER.</h1>
       <div class="hero-actions">
-        <a href="#" onclick="document.getElementById('install-modal\).style.display='flex'; return false;" class="brutal-btn color-pink">INSTALL NOW</a>
+        <a href="#" onclick="document.getElementById('install-modal').style.display='flex'; return false;" class="brutal-btn color-pink">INSTALL NOW</a>
         <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-mint">GET PLUS</a>
       </div>
     </div>
@@ -629,7 +629,7 @@
           <li>Community Support</li>
           <li>Standard Themes</li>
         </ul>
-        <a href="#" onclick="document.getElementById('install-modal\).style.display='flex'; return false;" class="brutal-btn color-mint" style="text-align:center;width:100%;">DOWNLOAD FREE</a>
+        <a href="#" onclick="document.getElementById('install-modal').style.display='flex'; return false;" class="brutal-btn color-mint" style="text-align:center;width:100%;">DOWNLOAD FREE</a>
       </div>
 
       <div class="brutal-card price-card plus">
@@ -864,7 +864,6 @@
   <!-- TRAIL CANVAS -->
   <canvas id="trail-canvas" style="position:fixed; inset:0; z-index:99996; pointer-events:none;"></canvas>
   
-  <!-- GUMROAD SCRIPT -->
 
   <script>
     // --- MOUSE TRAIL CANVAS ---
@@ -937,13 +936,6 @@
             }
         });
     });
-
-    // --- INSTALL MODAL LOGIC ---
-    document.querySelectorAll('a[href="#install"]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('install-modal').style.display = 'flex';
-        });
     });
 
     // Ensure Get Plus buttons have gumroad class
