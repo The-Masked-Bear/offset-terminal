@@ -7,15 +7,11 @@
     <meta name="description" content="Offset is an open-source terminal coding agent that forks your git repo into parallel worktrees, races multiple AI models simultaneously, and auto-merges the winner. The only coding agent with Speculative Branching.">
     <meta name="keywords" content="coding agent, AI, terminal, speculative branching, git worktree, parallel AI, multi-model, python, Claude, GPT, Gemini">
     <meta name="author" content="The Masked Bear">
-
-    <!-- Open Graph / Facebook / Discord -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://the-masked-bear.github.io/offset-terminal/">
     <meta property="og:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
     <meta property="og:description" content="The only coding agent that forks your repo into parallel git worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.">
     <meta property="og:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
-
-    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://the-masked-bear.github.io/offset-terminal/">
     <meta name="twitter:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
@@ -23,944 +19,769 @@
     <meta name="twitter:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0a0b;
-            --surface: #141416;
-            --surface-2: #1c1c1f;
-            --border: #2a2a2e;
-            --text: #e4e4e7;
-            --muted: #71717a;
-            --blue: #3b82f6;
-            --green: #22c55e;
-            --amber: #f59e0b;
-            --red: #ef4444;
+            --ink: #111111;
+            --bg: #F4F4F0;
+            --surface: #FFFFFF;
+            --muted: #555555;
+            --yellow: #FFDE59;
+            --pink: #FF90E8;
+            --cyan: #8CFFFB;
+            --mint: #B2FF9E;
+            --red: #FF5A5F;
+            --border: 3px solid var(--ink);
+            --border-heavy: 4px solid var(--ink);
+            --shadow: 5px 5px 0px var(--ink);
+            --shadow-lg: 8px 8px 0px var(--ink);
+            --shadow-xl: 12px 12px 0px var(--ink);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-        }
-
-        html {
-            scroll-behavior: smooth;
+            font-family: 'Space Mono', monospace;
+            color: var(--ink);
         }
 
         body {
             background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', system-ui, sans-serif;
-            line-height: 1.6;
+            line-height: 1.5;
             overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
         }
 
-        code, .mono {
-            font-family: 'Space Mono', monospace;
-        }
-
-        h1, h2, h3 {
-            font-weight: 700;
-            line-height: 1.15;
-            letter-spacing: -0.02em;
-        }
-
-        a { color: var(--blue); text-decoration: none; }
-        h1, h2, h3, h4 {
-            line-height: 1.2;
-            color: var(--text);
-        }
-        code {
-            font-family: 'Space Mono', monospace;
-            background: var(--surface-2);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            color: var(--green);
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Archivo Black', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: -1px;
         }
 
         .container {
-            max-width: 1140px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 0 clamp(16px, 4vw, 32px);
-            width: 100%;
+            padding: 0 20px;
         }
 
-        /* ---------- Navbar ---------- */
-        .navbar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: rgba(10, 10, 11, 0.82);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
+        .section {
+            padding: 80px 0;
+            border-bottom: var(--border-heavy);
         }
-        .navbar .container {
+        .section:last-of-type {
+            border-bottom: none;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            border: var(--border-heavy);
+            background: var(--surface);
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-decoration: none;
+            text-transform: uppercase;
+            border-radius: 0;
+        }
+
+        .btn:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .btn:active {
+            transform: translate(5px, 5px);
+            box-shadow: 0 0 0 var(--ink);
+        }
+
+        .btn-yellow { background: var(--yellow); }
+        .btn-cyan { background: var(--cyan); }
+        .btn-pink { background: var(--pink); }
+        .btn-mint { background: var(--mint); }
+        .btn-ink { background: var(--ink); color: var(--yellow); border-color: var(--surface); }
+        .btn-ink:active { box-shadow: 0 0 0 var(--surface); }
+
+        /* Navbar */
+        .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 56px;
-            gap: 12px;
+            padding: 20px 20px;
+            border-bottom: var(--border-heavy);
+            background: var(--surface);
         }
-        .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 28px;
-        }
-        .nav-logo {
-            font-family: 'Space Mono', monospace;
-            font-weight: 700;
-            font-size: 1.1rem;
-            color: var(--text);
+
+        .logo {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.8rem;
+            background: var(--yellow);
+            padding: 4px 12px;
+            border: var(--border-heavy);
+            box-shadow: var(--shadow);
+            transform: rotate(-2deg);
+            display: inline-block;
             text-decoration: none;
-            letter-spacing: 3px;
-            transition: opacity 0.2s;
         }
-        .nav-logo:hover { opacity: 0.7; text-decoration: none; }
+
         .nav-links {
             display: flex;
             gap: 24px;
-            list-style: none;
-        }
-        .nav-links a {
-            color: var(--muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            text-decoration: none;
-        }
-        .nav-links a:hover { color: var(--text); }
-        .nav-right {
-            display: flex;
             align-items: center;
-            gap: 10px;
         }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 0.8125rem;
-            font-weight: 600;
-            border-radius: 6px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background 0.15s, opacity 0.15s, transform 0.1s;
-            border: none;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-        .btn:hover { text-decoration: none; }
-        .btn-ghost {
-            background: transparent;
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-        .btn-ghost:hover { background: var(--surface-2); }
-        .btn-blue {
-            background: var(--blue);
-            color: #fff;
-        }
-        .btn-blue:hover { opacity: 0.9; }
-        .btn-green {
-            background: var(--green);
-            color: #0a0a0b;
-        }
-        .btn-green:hover { opacity: 0.9; }
-        .btn-amber {
-            background: var(--amber);
-            color: #0a0a0b;
-        }
-        .btn-amber:hover { opacity: 0.9; }
 
-        /* ---------- Hero ---------- */
-        .hero {
-            padding: 80px 0 60px;
-        }
-        .hero .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: clamp(32px, 5vw, 64px);
-            align-items: start;
-        }
-        .hero-badge {
-            display: inline-block;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--amber);
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            border-radius: 4px;
-            padding: 4px 10px;
-            margin-bottom: 20px;
-            letter-spacing: 0.03em;
+        .nav-links a {
+            font-weight: 700;
+            text-decoration: none;
             text-transform: uppercase;
         }
-        .hero h1 {
-            font-size: clamp(2rem, 3.6vw, 3.2rem);
-            color: #fff;
-            margin-bottom: 20px;
+        
+        .nav-links a:hover {
+            text-decoration: underline;
         }
-        .hero-desc {
-            font-size: 1.05rem;
-            color: var(--muted);
-            margin-bottom: 32px;
-            max-width: 520px;
-            line-height: 1.7;
-        }
-        .hero-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 24px;
-        }
-        .hero-buttons .btn { padding: 10px 22px; font-size: 0.875rem; }
-        .install-box {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-        .install-box code {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.82rem;
-            color: var(--green);
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-        .install-box code .dollar {
-            color: var(--muted);
-            margin-right: 6px;
-            user-select: none;
-        }
-        .copy-btn {
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--surface-2);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 5px 12px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.15s;
-        }
-        .copy-btn:hover { background: var(--border); }
 
-        /* ---------- Terminal ---------- */
-        .terminal-wrapper {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            height: 440px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
+        .badge-star {
+            background: var(--pink);
+            padding: 4px 10px;
+            border: var(--border);
+            font-size: 0.9rem;
+            font-weight: 700;
+            box-shadow: 3px 3px 0px var(--ink);
+            text-decoration: none;
         }
-        .terminal-bar {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 10px 16px;
-            display: flex;
-            justify-content: space-between;
+
+        /* Hero */
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
             align-items: center;
+            background: var(--cyan);
+            padding: 80px 20px;
+            border-bottom: var(--border-heavy);
         }
-        .dots {
+
+        .hero-content h1 {
+            font-size: 4rem;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            text-shadow: 3px 3px 0px var(--surface);
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: var(--pink);
+            border: var(--border);
+            padding: 6px 12px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            font-family: 'Space Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .hero-actions {
             display: flex;
-            gap: 6px;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 32px;
         }
-        .dot-circle {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
+
+        .install-box {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-lg);
+            padding: 8px 8px 8px 16px;
+            gap: 16px;
         }
-        .terminal-title {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--muted);
+
+        .install-box code {
+            font-size: 1rem;
+            font-weight: 700;
         }
-        .terminal-output {
-            flex-grow: 1;
-            padding: 16px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            min-height: 0;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            font-size: 0.82rem;
+
+        .install-box .btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            box-shadow: 3px 3px 0px var(--ink);
+        }
+
+        /* Terminal Simulator */
+        .terminal-card {
+            background: var(--ink);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            padding: 20px;
+            height: 500px;
+            border-radius: 0;
+            position: relative;
+        }
+        
+        .terminal-card::before {
+            content: "OFFSET-REPL";
+            position: absolute;
+            top: -16px;
+            left: 20px;
+            background: var(--yellow);
+            border: var(--border);
+            padding: 2px 10px;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .term-output {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            padding-right: 8px;
+        }
+
+        .term-output::-webkit-scrollbar {
+            width: 10px;
+        }
+        .term-output::-webkit-scrollbar-track {
+            background: var(--ink);
+            border-left: var(--border);
+        }
+        .term-output::-webkit-scrollbar-thumb {
+            background: var(--muted);
+            border: 2px solid var(--ink);
+        }
+
+        .term-output div {
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            color: var(--surface);
             word-break: break-word;
             white-space: pre-wrap;
         }
-        .quick-chips {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            padding: 8px 16px;
-            border-top: 1px solid var(--border);
-        }
-        .chip {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            background: var(--surface-2);
-            color: var(--muted);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            cursor: pointer;
-            transition: color 0.15s, border-color 0.15s;
-        }
-        .chip:hover {
-            color: var(--text);
-            border-color: var(--muted);
-        }
-        .terminal-prompt-row {
+
+        .term-input-line {
             display: flex;
             align-items: center;
-            padding: 10px 16px;
-            border-top: 1px solid var(--border);
-            background: var(--surface);
+            border-top: 2px dashed var(--muted);
+            padding-top: 12px;
         }
-        .term-prompt {
-            color: var(--amber);
-            font-family: 'Space Mono', monospace;
+
+        .term-input-line span {
+            color: var(--mint);
+            margin-right: 12px;
             font-weight: 700;
-            font-size: 0.82rem;
-            margin-right: 8px;
-            user-select: none;
         }
-        #term-input {
-            font-family: 'Space Mono', monospace;
-            flex-grow: 1;
+
+        .term-input {
+            flex: 1;
             background: transparent;
             border: none;
+            color: var(--surface);
+            font-size: 1rem;
             outline: none;
-            color: #fff;
             font-family: 'Space Mono', monospace;
-            font-size: 0.82rem;
         }
 
-        /* ---------- Section generic ---------- */
-        .section {
-            padding: 80px 0;
+        /* Features */
+        .features-section {
+            background: var(--bg);
         }
+
         .section-header {
-            text-align: center;
             margin-bottom: 48px;
         }
+
         .section-header h2 {
-            font-size: clamp(1.6rem, 3vw, 2.4rem);
-            color: #fff;
-            margin-bottom: 10px;
-        }
-        .section-header p {
-            font-size: 1rem;
-            color: var(--muted);
-            max-width: 520px;
-            margin: 0 auto;
+            font-size: 3rem;
+            margin-bottom: 16px;
+            display: inline-block;
+            background: var(--yellow);
+            padding: 4px 16px;
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-lg);
         }
 
-        /* ---------- Features ---------- */
+        .section-header p {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-        .feat-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 28px 24px;
-            transition: border-color 0.2s;
-        }
-        .feat-card:hover { border-color: var(--muted); }
-        .feat-card-badge {
-            display: inline-block;
-            font-size: 0.7rem;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-bottom: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .badge-blue { background: rgba(59,130,246,0.12); color: var(--blue); border: 1px solid rgba(59,130,246,0.25); }
-        .badge-green { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
-        .badge-amber { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
-        .feat-card h3 {
-            font-size: 1.15rem;
-            color: #fff;
-            margin-bottom: 10px;
-        }
-        .feat-card p {
-            font-size: 0.88rem;
-            color: var(--muted);
-            line-height: 1.65;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
         }
 
-        /* ---------- Sandbox ---------- */
+        .feat-card {
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-lg);
+            padding: 24px;
+            transition: transform 0.1s, box-shadow 0.1s;
+            position: relative;
+        }
+
+        .feat-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .feat-badge {
+            position: absolute;
+            top: -16px;
+            right: 16px;
+            background: var(--cyan);
+            border: var(--border);
+            padding: 4px 12px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            box-shadow: 3px 3px 0px var(--ink);
+        }
+
+        .feat-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            margin-top: 12px;
+        }
+
+        /* Sandbox */
+        .sandbox-section {
+            background: var(--pink);
+        }
+
         .sandbox-card {
             background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 36px;
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 32px;
         }
+
         .sim-controls {
             display: flex;
-            gap: 16px;
             align-items: center;
+            gap: 24px;
+            margin-bottom: 32px;
             flex-wrap: wrap;
-            margin-bottom: 24px;
         }
+
         .sim-slider-label {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text);
+            font-weight: 700;
+            font-size: 1.2rem;
+            background: var(--yellow);
+            padding: 8px 16px;
+            border: var(--border);
+            box-shadow: 4px 4px 0px var(--ink);
         }
+
         input[type=range] {
             -webkit-appearance: none;
-            appearance: none;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            height: 6px;
-            outline: none;
-            cursor: pointer;
-            width: 160px;
+            width: 200px;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 12px;
+            background: var(--surface);
+            border: var(--border);
+            border-radius: 0;
+            box-shadow: 2px 2px 0px var(--ink);
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            background: var(--blue);
-            border: none;
-            border-radius: 50%;
+            height: 30px;
+            width: 20px;
+            background: var(--cyan);
+            border: var(--border);
+            margin-top: -11px;
             cursor: pointer;
+            border-radius: 0;
+            box-shadow: 3px 3px 0px var(--ink);
         }
-        input[type=range]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            background: var(--blue);
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        .run-btn {
-            margin-left: auto;
-        }
+
         .branch-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 14px;
-        }
-        .branch-col {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 18px 16px;
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 140px;
-            transition: border-color 0.3s, background 0.3s;
-        }
-        .branch-col.winner {
-            border-color: var(--green);
-            background: rgba(34, 197, 94, 0.06);
-        }
-        .branch-title {
-            font-size: 0.82rem;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .branch-log {
-            font-size: 0.8rem;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-        .status-badge {
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            white-space: nowrap;
-        }
-        .status-idle { background: rgba(113,113,122,0.15); color: var(--muted); }
-        .status-running { background: rgba(59,130,246,0.15); color: var(--blue); }
-        .status-winner { background: rgba(34,197,94,0.15); color: var(--green); }
-        .status-discarded { background: rgba(239,68,68,0.15); color: var(--red); }
-
-        /* ---------- Pricing ---------- */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            max-width: 820px;
-            margin: 0 auto;
-        }
-        .plan-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 36px 28px;
-            display: flex;
-            flex-direction: column;
-        }
-        .plan-card.plan-plus {
-            border-color: var(--blue);
-            position: relative;
-        }
-        .plan-tag {
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-        .plan-title {
-            font-size: 1.5rem;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        .plan-price {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 24px;
-        }
-        .plan-features {
-            list-style: none;
-            margin-bottom: 28px;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .plan-features li {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            font-size: 0.875rem;
-            color: var(--text);
-        }
-        .plan-features li::before {
-            content: "✓";
-            color: var(--green);
-            font-weight: 700;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-        .plan-features li.disabled {
-            color: var(--muted);
-            opacity: 0.5;
-        }
-        .plan-features li.disabled::before {
-            content: "—";
-            color: var(--muted);
-        }
-        .plan-features li.highlight {
-            color: var(--blue);
-            font-weight: 600;
-        }
-        .plan-warning {
-            background: rgba(245, 158, 11, 0.08);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 16px;
-            font-size: 0.8rem;
-            color: var(--amber);
-            line-height: 1.5;
-        }
-        .plan-card .btn {
-            width: 100%;
-            padding: 11px;
-            font-size: 0.875rem;
-        }
-
-        /* ---------- Easter Egg Vault ---------- */
-        .vault-section {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 32px;
-            max-width: 720px;
-            margin: 0 auto;
-        }
-        .vault-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .vault-header h2 {
-            font-size: 1.2rem;
-            color: #fff;
-        }
-        .vault-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-        }
-        .egg-badge {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px 8px;
-            text-align: center;
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--muted);
-            transition: all 0.25s;
-            cursor: default;
-        }
-        .egg-badge.unlocked {
-            background: rgba(59, 130, 246, 0.1);
-            border-color: var(--blue);
-            color: var(--blue);
-        }
-
-        /* ---------- Share Strip ---------- */
-        .share-strip {
-            border-top: 1px solid var(--border);
-            padding: 40px 0;
-        }
-        .share-strip .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        .share-strip h3 {
-            font-size: 1rem;
-            color: #fff;
-        }
-        .share-strip p {
-            font-size: 0.82rem;
-            color: var(--muted);
-        }
-        .share-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .share-btn {
-            font-size: 0.78rem;
-            font-weight: 600;
-            padding: 7px 14px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text);
-            cursor: pointer;
-            text-decoration: none;
-            transition: border-color 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .share-btn:hover { border-color: var(--muted); text-decoration: none; }
-
-        /* ---------- Footer ---------- */
-        footer {
-            border-top: 1px solid var(--border);
-            padding: 32px 0;
-            text-align: center;
-        }
-        footer p {
-            font-size: 0.82rem;
-            color: var(--muted);
-        }
-        footer a {
-            color: var(--muted);
-            transition: color 0.2s;
-        }
-        footer a:hover { color: var(--text); }
-
-        /* ---------- Modals ---------- */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-overlay.active {
-            display: flex;
-        }
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            max-width: 560px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: modalIn 0.15s ease-out;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-header {
-            padding: 18px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-        }
-        .modal-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #fff;
-        }
-        .modal-close-btn {
-            background: transparent;
-            border: none;
-            color: var(--muted);
-            font-size: 1.3rem;
-            cursor: pointer;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            transition: background 0.15s, color 0.15s;
-        }
-        .modal-close-btn:hover {
-            background: var(--surface-2);
-            color: var(--text);
-        }
-        .modal-body {
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
             gap: 20px;
+            overflow-x: auto;
+            padding-bottom: 16px;
         }
-        .modal-tabs {
-            display: flex;
-            gap: 6px;
-        }
-        .modal-tab-btn {
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 0.8rem;
-            font-weight: 600;
-            padding: 7px 14px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            cursor: pointer;
-            color: var(--muted);
-            transition: all 0.15s;
-        }
-        .modal-tab-btn.active {
-            background: var(--blue);
-            color: #fff;
-            border-color: var(--blue);
-        }
-        .step-box {
+
+        .branch-col {
+            min-width: 280px;
+            flex: 1;
             background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            border: var(--border);
+            box-shadow: var(--shadow);
             padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            transition: background 0.3s, transform 0.1s;
         }
+
+        .branch-col.winner {
+            background: var(--mint);
+        }
+
+        .branch-title {
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border: 2px solid var(--ink);
+            background: var(--surface);
+        }
+        .status-running { background: var(--yellow); }
+        .status-winner { background: var(--mint); }
+        .status-discarded { background: var(--red); color: var(--surface); }
+
+        .branch-log {
+            font-size: 0.85rem;
+            background: var(--surface);
+            padding: 12px;
+            border: 2px solid var(--ink);
+            flex: 1;
+        }
+
+        /* Pricing */
+        .pricing-section {
+            background: var(--bg);
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 40px;
+        }
+
+        .plan-card {
+            background: var(--surface);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .plan-plus {
+            background: var(--ink);
+            color: var(--surface);
+        }
+        .plan-plus * {
+            color: var(--surface);
+        }
+        .plan-plus .btn {
+            color: var(--ink);
+        }
+
+        .plan-tag {
+            position: absolute;
+            top: -16px;
+            left: 24px;
+            background: var(--mint);
+            border: var(--border);
+            padding: 4px 16px;
+            font-weight: 700;
+            box-shadow: 4px 4px 0px var(--ink);
+            color: var(--ink);
+        }
+        .plan-plus .plan-tag {
+            background: var(--cyan);
+            color: var(--ink);
+        }
+
+        .plan-title {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .plan-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 2px dashed var(--muted);
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 40px;
+            flex: 1;
+        }
+
+        .plan-features li {
+            margin-bottom: 12px;
+            font-weight: 700;
+            position: relative;
+            padding-left: 24px;
+        }
+        .plan-features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--ink);
+        }
+        .plan-plus .plan-features li::before {
+            color: var(--yellow);
+        }
+
+        .plan-features li.disabled {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+        .plan-features li.disabled::before {
+            content: "✕";
+        }
+
+        .plan-features li.highlight {
+            background: var(--yellow);
+            color: var(--ink);
+            padding: 2px 24px;
+            margin-left: -24px;
+            border: 2px solid var(--ink);
+            box-shadow: 2px 2px 0px var(--ink);
+        }
+        .plan-plus .plan-features li.highlight {
+            background: var(--cyan);
+            color: var(--ink);
+        }
+        .plan-plus .plan-features li.highlight::before {
+            left: -24px;
+            color: var(--ink);
+        }
+
+        .plan-warning {
+            font-size: 0.85rem;
+            background: var(--yellow);
+            color: var(--ink);
+            padding: 12px;
+            border: 2px solid var(--ink);
+            margin-bottom: 24px;
+        }
+        .plan-warning strong {
+            color: inherit;
+        }
+
+        /* Easter Egg Vault */
+        .vault-section {
+            background: var(--ink);
+            color: var(--surface);
+            padding: 40px 0;
+        }
+        .vault-section * { color: var(--surface); }
+        .vault-section h2, .vault-section .badge { color: var(--ink); }
+
+        .vault-grid {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+        .egg-badge {
+            background: var(--muted);
+            border: var(--border);
+            border-color: var(--surface);
+            padding: 8px 16px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            opacity: 0.5;
+        }
+        .egg-badge.unlocked {
+            opacity: 1;
+            background: var(--yellow);
+            color: var(--ink);
+            border-color: var(--ink);
+            box-shadow: 4px 4px 0px var(--surface);
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(17, 17, 17, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--bg);
+            border: var(--border-heavy);
+            box-shadow: var(--shadow-xl);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            background: var(--yellow);
+            padding: 16px 24px;
+            border-bottom: var(--border-heavy);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+        }
+
+        .modal-close-btn {
+            background: var(--red);
+            border: var(--border);
+            width: 32px;
+            height: 32px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px var(--ink);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .step-box {
+            background: var(--surface);
+            border: var(--border);
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
         .step-label {
-            font-size: 0.82rem;
-            font-weight: 600;
+            font-weight: 700;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
-            color: var(--text);
         }
+
         .step-num {
-            background: var(--blue);
-            color: #fff;
-            width: 22px;
-            height: 22px;
-            display: inline-flex;
+            background: var(--cyan);
+            border: 2px solid var(--ink);
+            width: 24px;
+            height: 24px;
+            display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
-            font-size: 0.72rem;
             font-weight: 700;
-            flex-shrink: 0;
         }
+
         .modal-code-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 14px;
-            gap: 10px;
+            gap: 12px;
+            background: var(--bg);
+            padding: 8px 12px;
+            border: 2px solid var(--ink);
         }
+
         .modal-code-row code {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--green);
-            white-space: nowrap;
-            overflow-x: auto;
+            flex: 1;
+            font-weight: 700;
+            word-break: break-all;
         }
+
         .modal-copy-btn {
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 0.72rem;
-            font-weight: 600;
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 4px 10px;
+            background: var(--yellow);
+            border: 2px solid var(--ink);
+            padding: 4px 12px;
+            font-weight: 700;
             cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.15s;
+            box-shadow: 2px 2px 0px var(--ink);
         }
-        .modal-copy-btn:hover { background: var(--border); }
-        .step-note {
-            font-size: 0.82rem;
-            color: var(--muted);
-            line-height: 1.5;
+        .modal-copy-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0 0 0 var(--ink);
         }
-        .step-note strong { color: var(--text); }
+
         .checkout-email-row {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 12px;
         }
         .checkout-email-row input {
-            flex-grow: 1;
-            padding: 9px 12px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text);
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 0.82rem;
+            flex: 1;
+            border: 2px solid var(--ink);
+            padding: 8px 12px;
+            font-weight: 700;
+            font-family: 'Space Mono', monospace;
             outline: none;
-            transition: border-color 0.15s;
         }
-        .checkout-email-row input:focus { border-color: var(--blue); }
+        .checkout-email-row input:focus {
+            background: var(--mint);
+        }
 
-        /* ---------- Toast ---------- */
         .toast-container {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 3000;
+            bottom: 20px;
+            right: 20px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            z-index: 2000;
             pointer-events: none;
         }
         .toast {
-            background: var(--surface-2);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 18px;
-            font-size: 0.82rem;
-            font-weight: 500;
-            animation: toastIn 0.25s ease-out;
+            background: var(--ink);
+            color: var(--surface);
+            border: var(--border-heavy);
+            border-color: var(--surface);
+            padding: 12px 24px;
+            font-weight: 700;
+            box-shadow: var(--shadow-lg);
             transition: opacity 0.3s;
-            pointer-events: auto;
-        }
-        @keyframes toastIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
         }
 
-        /* ---------- Mobile hamburger ---------- */
-        .nav-toggle {
-            display: none;
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-size: 1.4rem;
-            cursor: pointer;
-            padding: 4px;
+        /* Footer */
+        footer {
+            background: var(--surface);
+            border-top: var(--border-heavy);
+            padding: 24px 0;
+            text-align: center;
+            font-weight: 700;
         }
 
-        /* ---------- Responsive ---------- */
-        @media (max-width: 900px) {
-            .hero .container {
+        @media(max-width: 900px) {
+            .hero {
                 grid-template-columns: 1fr;
             }
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-            .pricing-grid {
-                grid-template-columns: 1fr;
-            }
-            .vault-grid {
-                grid-template-columns: repeat(4, 1fr);
+            .nav-links {
+                display: none;
             }
         }
-
-        @media (max-width: 640px) {
-            .nav-links { display: none; }
-            .nav-toggle { display: block; }
-            .nav-links.open {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                top: 56px;
-                left: 0;
-                right: 0;
-                background: var(--surface);
-                border-bottom: 1px solid var(--border);
-                padding: 16px 24px;
-                gap: 14px;
-                z-index: 99;
-            }
-            .hero { padding: 48px 0 40px; }
-            .hero h1 { font-size: 1.8rem; }
-            .hero-buttons { flex-direction: column; }
-            .hero-buttons .btn { width: 100%; }
-            .install-box { flex-direction: column; align-items: stretch; }
-            .install-box code { font-size: 0.72rem; }
-            .terminal-wrapper { min-height: 380px; }
-            .terminal-output { max-height: 220px; font-size: 0.75rem; padding: 12px; }
-            .section { padding: 52px 0; }
-            .section-header h2 { font-size: 1.5rem; }
-            .sandbox-card { padding: 20px 16px; }
-            .sim-controls { flex-direction: column; align-items: stretch; gap: 10px; }
-            .sim-controls .run-btn { margin-left: 0; }
-            .branch-grid { grid-template-columns: 1fr; }
-            .vault-grid { grid-template-columns: repeat(2, 1fr); }
-            .share-strip .container { flex-direction: column; text-align: center; }
-            .toast-container { left: 12px; right: 12px; bottom: 12px; }
+        @media(max-width: 600px) {
+            h1 { font-size: 2.2rem !important; }
+            h2 { font-size: 1.8rem !important; }
+            .hero { padding: 40px 16px; gap: 20px; }
+            .section { padding: 40px 16px; }
+            .terminal-wrapper { min-height: 400px; }
+            .sandbox-runner { flex-direction: column; align-items: stretch; }
+            .sandbox-runner input[type=range] { width: 100%; }
+            .sandbox-runner .btn { width: 100%; text-align: center; }
         }
     </style>
 </head>
@@ -968,78 +789,48 @@
 
     <!-- Navbar -->
     <nav class="navbar">
-        <div class="container">
-            <div class="nav-left">
-                <a href="#" class="nav-logo">OFFSET</a>
-                <ul class="nav-links" id="nav-links">
-                    <li><a href="#features">Features</a></li>
-                    <li><a href="#sandbox">Sandbox</a></li>
-                    <li><a href="#pricing">Pricing</a></li>
-                    <li><a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank">GitHub ↗</a></li>
-                </ul>
-            </div>
-            <div class="nav-right">
-                <button class="nav-toggle" id="nav-toggle" aria-label="Menu">☰</button>
-                <button class="btn btn-ghost" onclick="openInstallModal()">Install</button>
-                <button class="btn btn-blue" onclick="openCheckoutModal()">Get Plus</button>
-            </div>
+        <a href="#" class="logo">OFFSET</a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#sandbox">Sandbox</a>
+            <a href="#pricing">Pricing</a>
+            <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="badge-star">★ STAR REPO</a>
         </div>
     </nav>
 
-    <!-- Hero Section -->
+    <!-- Hero -->
     <section class="hero">
-        <div class="container">
-            <div class="hero-text">
-                <span class="hero-badge">The only coding agent with Speculative Branching</span>
-                <h1>Race AI Models in Parallel.<br>Keep the Winner.</h1>
-                <p class="hero-desc">
-                    Fork your git repo into N isolated worktrees. Dispatch Claude, GPT, Gemini, or Ollama to each one simultaneously. Run your test suite. Auto-merge the branch that passes.
-                </p>
-                <div class="hero-buttons">
-                    <button class="btn btn-green" onclick="openInstallModal()">Install Free</button>
-                    <button class="btn btn-blue" onclick="openCheckoutModal()">Get Plus</button>
-                    <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="btn btn-ghost">★ GitHub</a>
-                </div>
-                <div class="install-box">
-                    <code><span class="dollar">$</span> pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
-                    <button class="copy-btn" id="copy-install-btn">COPY</button>
-                </div>
+        <div class="hero-content">
+            <div class="hero-badge">The only coding agent with Speculative Branching</div>
+            <h1>Race AI Models In Parallel. Keep The Winner.</h1>
+            <p style="font-weight: 700; font-size: 1.2rem; margin-bottom: 24px;">
+                Offset forks your git repo into parallel worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.
+            </p>
+            <div class="hero-actions">
+                <button class="btn btn-yellow" onclick="openInstallModal()">Install Free</button>
+                <a href="#pricing" class="btn btn-surface">View Pro</a>
             </div>
-
-            <!-- Terminal REPL Simulator -->
-            <div class="terminal-wrapper">
-                <div class="terminal-bar">
-                    <div class="dots">
-                        <div class="dot-circle" style="background: var(--red);"></div>
-                        <div class="dot-circle" style="background: var(--amber);"></div>
-                        <div class="dot-circle" style="background: var(--green);"></div>
-                    </div>
-                    <div class="terminal-title">offset repl</div>
-                    <button class="copy-btn" onclick="executeCmd('clear')" style="font-size: 0.68rem;">CLEAR</button>
+            <div class="install-box">
+                <code>pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
+                <button class="btn btn-yellow" id="copy-install-btn" style="padding: 6px 12px; font-size: 0.8rem;">COPY</button>
+            </div>
+        </div>
+        <div class="hero-terminal">
+            <div class="terminal-card">
+                <div class="term-output" id="term-output">
+                    <div style="color: var(--mint);">offset v0.1.0 // Ready.</div>
+                    <div style="color: var(--muted);">Type 'help' to see available commands, or '/spec 3' to start a race.</div>
                 </div>
-                <div class="terminal-output" id="term-output">
-                    <div style="color: var(--amber); font-weight: bold;">OFFSET v0.1.0 [x86_64/arm64]</div>
-                    <div style="color: var(--muted);">Type commands below, use ↑/↓ arrows, or click the quick action chips.</div>
-                    <div style="color: var(--green);">&gt; Ready for instructions.</div>
-                </div>
-                <div class="quick-chips">
-                    <span class="chip" onclick="executeCmd('spec 3 fix auth memory leak')">/spec 3</span>
-                    <span class="chip" onclick="executeCmd('flow scaffold stripe api')">/flow</span>
-                    <span class="chip" onclick="executeCmd('model')">/model</span>
-                    <span class="chip" onclick="executeCmd('login')">/login</span>
-                    <span class="chip" onclick="executeCmd('help')">help</span>
-                    <span class="chip" onclick="executeCmd('clear')">clear</span>
-                </div>
-                <div class="terminal-prompt-row">
-                    <span class="term-prompt">offset &gt;</span>
-                    <input type="text" id="term-input" placeholder="type a command..." autocomplete="off" spellcheck="false">
+                <div class="term-input-line">
+                    <span>offset &gt;</span>
+                    <input type="text" class="term-input" id="term-input" autocomplete="off" spellcheck="false" autofocus>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="section" id="features">
+    <!-- Features -->
+    <section class="section features-section" id="features">
         <div class="container">
             <div class="section-header">
                 <h2>What Makes Offset Different</h2>
@@ -1047,22 +838,22 @@
             </div>
             <div class="features-grid">
                 <div class="feat-card">
-                    <span class="feat-card-badge badge-blue">Exclusive</span>
+                    <div class="feat-badge" style="background: var(--pink);">Exclusive</div>
                     <h3>Speculative Branching</h3>
                     <p><code>/spec 3 'fix the bug'</code> → creates 3 git worktrees → dispatches Claude, GPT, Gemini simultaneously → runs tests → merges winner. Zero cross-contamination.</p>
                 </div>
                 <div class="feat-card">
-                    <span class="feat-card-badge badge-blue">Exclusive</span>
+                    <div class="feat-badge" style="background: var(--cyan);">Exclusive</div>
                     <h3>Multi-Model /flow</h3>
                     <p>Pipeline AI models as Planner → Implementer → Critic. Claude Opus plans → Sonnet writes → o3 reviews. One command, zero manual handoff.</p>
                 </div>
                 <div class="feat-card">
-                    <span class="feat-card-badge badge-amber">12+ Models</span>
+                    <div class="feat-badge" style="background: var(--yellow);">12+ Models</div>
                     <h3>Any Provider, One Agent</h3>
                     <p>Claude, GPT-4.1, Gemini 3 Pro, Google Antigravity, DeepSeek, ChatGPT, Claude Pro, Ollama local. Switch with <code>/model</code>.</p>
                 </div>
                 <div class="feat-card">
-                    <span class="feat-card-badge badge-green">Lightweight</span>
+                    <div class="feat-badge" style="background: var(--mint);">Lightweight</div>
                     <h3>Pure Python, No Electron</h3>
                     <p>Python 3.11 + prompt_toolkit. Runs on x86_64 and ARM64. Starts in under a second. One dependency. AGPL-3.0.</p>
                 </div>
@@ -1070,28 +861,28 @@
         </div>
     </section>
 
-    <!-- Speculative Branching Sandbox -->
-    <section class="section" id="sandbox">
+    <!-- Sandbox -->
+    <section class="section sandbox-section" id="sandbox">
         <div class="container">
             <div class="section-header">
-                <h2>Try Speculative Branching</h2>
-                <p>Drag the slider to set branch count, then run the simulation.</p>
+                <h2 style="background: var(--surface);">Try Speculative Branching</h2>
+                <p style="color: var(--ink);">Drag the slider to set branch count, then run the simulation.</p>
             </div>
             <div class="sandbox-card">
                 <div class="sim-controls">
-                    <span class="sim-slider-label">Branches: <strong id="branch-count-val">3</strong></span>
+                    <div class="sim-slider-label">Branches: <span id="branch-count-val">3</span></div>
                     <input type="range" id="branch-slider" min="2" max="5" value="3">
-                    <button class="btn btn-blue run-btn" id="run-sim-btn">▶ Run /spec Simulation</button>
+                    <button class="btn btn-cyan" id="run-sim-btn">▶ Run /spec Simulation</button>
                 </div>
                 <div class="branch-grid" id="dynamic-branch-grid">
-                    <!-- Generated dynamically via JS -->
+                    <!-- Dynamic -->
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Pricing Section -->
-    <section class="section" id="pricing">
+    <!-- Pricing -->
+    <section class="section pricing-section" id="pricing">
         <div class="container">
             <div class="section-header">
                 <h2>Choose Your Plan</h2>
@@ -1099,7 +890,7 @@
             <div class="pricing-grid">
                 <!-- Lite -->
                 <div class="plan-card">
-                    <div class="plan-tag" style="color: var(--green);">Free · AGPL-3.0</div>
+                    <div class="plan-tag">Free · AGPL-3.0</div>
                     <h3 class="plan-title">Offset Lite</h3>
                     <div class="plan-price">$0 / forever</div>
                     <ul class="plan-features">
@@ -1111,11 +902,11 @@
                         <li class="disabled">Multi-Model /flow pipeline</li>
                         <li class="disabled">Cloud key pool</li>
                     </ul>
-                    <button class="btn btn-green" onclick="openInstallModal()">Install Free</button>
+                    <button class="btn btn-mint" onclick="openInstallModal()">Install Free</button>
                 </div>
                 <!-- Plus -->
                 <div class="plan-card plan-plus">
-                    <div class="plan-tag" style="color: var(--blue);">Plus</div>
+                    <div class="plan-tag">Plus</div>
                     <h3 class="plan-title">Offset Plus</h3>
                     <div class="plan-price">Subscription</div>
                     <ul class="plan-features">
@@ -1129,58 +920,40 @@
                     <div class="plan-warning">
                         <strong>⚠ Before purchasing:</strong> Sign in with your Google or GitHub account first. Then use the <strong>exact same email</strong> on Gumroad checkout for automatic activation.
                     </div>
-                    <button class="btn btn-blue" onclick="openCheckoutModal()">Subscribe on Gumroad</button>
+                    <button class="btn btn-cyan" onclick="openCheckoutModal()">Subscribe on Gumroad</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Easter Egg Vault -->
-    <section class="section" id="vault-section">
+    <!-- Vault -->
+    <section class="section vault-section" id="vault-section">
         <div class="container">
-            <div class="vault-section">
-                <div class="vault-header">
-                    <h2>Easter Egg Vault (<span id="vault-count">0</span>/8)</h2>
-                    <button class="btn btn-ghost" onclick="hintEgg()" style="font-size: 0.78rem;">Need a Hint?</button>
-                </div>
-                <div class="vault-grid">
-                    <div class="egg-badge" id="badge-bear">🔒 #1</div>
-                    <div class="egg-badge" id="badge-sudo">🔒 #2</div>
-                    <div class="egg-badge" id="badge-matrix">🔒 #3</div>
-                    <div class="egg-badge" id="badge-hunter2">🔒 #4</div>
-                    <div class="egg-badge" id="badge-neofetch">🔒 #5</div>
-                    <div class="egg-badge" id="badge-gravity">🔒 #6</div>
-                    <div class="egg-badge" id="badge-konami">🔒 #7</div>
-                    <div class="egg-badge" id="badge-coffee">🔒 #8</div>
-                </div>
+            <div class="section-header">
+                <h2 style="background: var(--pink);">Easter Egg Vault</h2>
+                <p>Find hidden secrets in the terminal REPL above. <span id="vault-count" style="font-weight: 700; background: var(--surface); color: var(--ink); padding: 2px 8px; box-shadow: 2px 2px 0px var(--pink);">0</span> / 8 Found</p>
+            </div>
+            <button class="btn btn-yellow" onclick="hintEgg()" style="color: var(--ink);">Request a Hint</button>
+            <div class="vault-grid">
+                <div class="egg-badge" id="badge-bear">???</div>
+                <div class="egg-badge" id="badge-sudo">???</div>
+                <div class="egg-badge" id="badge-matrix">???</div>
+                <div class="egg-badge" id="badge-hunter2">???</div>
+                <div class="egg-badge" id="badge-neofetch">???</div>
+                <div class="egg-badge" id="badge-gravity">???</div>
+                <div class="egg-badge" id="badge-konami">???</div>
+                <div class="egg-badge" id="badge-coffee">???</div>
             </div>
         </div>
     </section>
 
-    <!-- Share Strip -->
-    <div class="share-strip">
-        <div class="container">
-            <div>
-                <h3>Share Offset</h3>
-                <p>Help spread the word about parallel AI coding.</p>
-            </div>
-            <div class="share-buttons">
-                <a href="https://twitter.com/intent/tweet?text=Offset%20%E2%80%93%20the%20only%20coding%20agent%20that%20races%20Claude%20vs%20GPT%20vs%20Gemini%20in%20parallel%20git%20worktrees%20and%20auto-merges%20the%20winner.%20Open%20source.&url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal" target="_blank" class="share-btn">𝕏 Post</a>
-                <a href="https://reddit.com/submit?url=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&title=Offset%20%E2%80%93%20The%20only%20coding%20agent%20that%20races%20AI%20models%20in%20parallel%20git%20worktrees%20and%20auto-merges%20the%20winner" target="_blank" class="share-btn">Reddit</a>
-                <a href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fgithub.com%2FThe-Masked-Bear%2Foffset-terminal&t=Show+HN%3A+Offset+%E2%80%93+Race+AI+models+in+parallel+git+worktrees+and+auto-merge+the+winner" target="_blank" class="share-btn">Hacker News</a>
-                <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="share-btn">★ Star on GitHub</a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
     <footer>
         <div class="container">
-            <p>OFFSET · <a href="https://github.com/The-Masked-Bear/offset-terminal/blob/main/LICENSE" target="_blank">AGPL-3.0</a> · Created by <a href="https://github.com/The-Masked-Bear" target="_blank">The Masked Bear</a></p>
+            OFFSET · <a href="https://github.com/The-Masked-Bear/offset-terminal/blob/main/LICENSE" target="_blank" style="color: inherit;">AGPL-3.0</a> · Created by <a href="https://github.com/The-Masked-Bear" target="_blank" style="color: inherit;">The Masked Bear</a>
         </div>
     </footer>
 
-    <!-- Toast container -->
+    <!-- Toasts -->
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Install Modal -->
@@ -1191,11 +964,6 @@
                 <button class="modal-close-btn" onclick="closeInstallModal()">✕</button>
             </div>
             <div class="modal-body">
-                <div class="modal-tabs">
-                    <button class="modal-tab-btn active" id="tab-btn-linux" onclick="setInstallTab('linux')">Linux / macOS / WSL</button>
-                    <button class="modal-tab-btn" id="tab-btn-win" onclick="setInstallTab('win')">Windows (PowerShell)</button>
-                </div>
-
                 <div class="step-box">
                     <div class="step-label"><span class="step-num">1</span> Install via pipx (requires Python 3.11+)</div>
                     <div class="modal-code-row">
@@ -1203,7 +971,6 @@
                         <button class="modal-copy-btn" onclick="copyModalCmd('pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git', this)">COPY</button>
                     </div>
                 </div>
-
                 <div class="step-box">
                     <div class="step-label"><span class="step-num">2</span> Launch the terminal agent</div>
                     <div class="modal-code-row">
@@ -1211,11 +978,10 @@
                         <button class="modal-copy-btn" onclick="copyModalCmd('offset', this)">COPY</button>
                     </div>
                 </div>
-
-                <div class="step-box" style="border-color: rgba(59,130,246,0.3);">
-                    <div class="step-label"><span class="step-num">3</span> Link Google or GitHub account</div>
+                <div class="step-box" style="background: var(--yellow);">
+                    <div class="step-label"><span class="step-num" style="background: var(--surface);">3</span> Link Account</div>
                     <p class="step-note">
-                        On first launch, sign in with your <strong>Google</strong> or <strong>GitHub</strong> account to activate Offset Lite. If you subscribe on Gumroad using that email, <strong>Offset Plus</strong> activates automatically with zero license codes needed.
+                        On first launch, sign in with your <strong>Google</strong> or <strong>GitHub</strong> account to activate Offset Lite. If you subscribe on Gumroad using that email, <strong>Offset Plus</strong> activates automatically.
                     </p>
                 </div>
             </div>
@@ -1231,24 +997,22 @@
             </div>
             <div class="modal-body">
                 <div class="step-box">
-                    <div class="step-label"><span class="step-num">1</span> Use your Google or GitHub email</div>
+                    <div class="step-label"><span class="step-num">1</span> Use your Google/GitHub email</div>
                     <p class="step-note">
-                        Offset Plus unlocks automatically by matching your sign-in account. Make sure you know which email you use for Offset:
+                        Offset Plus unlocks automatically by matching your sign-in account.
                     </p>
                     <div class="checkout-email-row">
                         <input type="email" id="checkout-email-input" placeholder="e.g. your-email@gmail.com">
-                        <button class="btn btn-blue" style="padding: 8px 14px; font-size: 0.8rem;" onclick="saveCheckoutEmail()">Save Email</button>
+                        <button class="btn btn-yellow" style="padding: 8px 14px; font-size: 0.9rem;" onclick="saveCheckoutEmail()">Save Email</button>
                     </div>
                 </div>
-
-                <div class="step-box" style="border-color: rgba(245,158,11,0.3);">
-                    <div class="step-label"><span class="step-num">2</span> Enter the exact same email on Gumroad</div>
+                <div class="step-box" style="background: var(--pink);">
+                    <div class="step-label"><span class="step-num" style="background: var(--surface);">2</span> Same email on Gumroad</div>
                     <p class="step-note">
-                        When completing checkout on Gumroad, enter this exact same email. Our live webhook will link your subscription instantly with zero license codes needed.
+                        When completing checkout on Gumroad, enter this exact same email. Our live webhook will link your subscription instantly.
                     </p>
                 </div>
-
-                <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-blue" style="width: 100%; padding: 14px; font-size: 0.9rem;" onclick="closeCheckoutModal()">
+                <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-cyan" style="width: 100%; text-align: center; padding: 16px; font-size: 1rem;" onclick="closeCheckoutModal()">
                     Proceed to Gumroad Checkout →
                 </a>
             </div>
@@ -1256,7 +1020,7 @@
     </div>
 
     <script>
-        // --- Toast Notification System ---
+        // --- Toasts ---
         function showToast(msg) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -1269,33 +1033,11 @@
             }, 3500);
         }
 
-        // --- Mobile nav toggle ---
-        document.getElementById('nav-toggle').addEventListener('click', () => {
-            document.getElementById('nav-links').classList.toggle('open');
-        });
+        // --- Modals ---
+        function openInstallModal() { document.getElementById('install-modal-overlay').classList.add('active'); }
+        function closeInstallModal() { document.getElementById('install-modal-overlay').classList.remove('active'); }
+        function handleModalBackdropClick(e) { if (e.target.id === 'install-modal-overlay') closeInstallModal(); }
 
-        // Close mobile nav on link click
-        document.querySelectorAll('#nav-links a').forEach(a => {
-            a.addEventListener('click', () => {
-                document.getElementById('nav-links').classList.remove('open');
-            });
-        });
-
-        // --- Installation Modal ---
-        function openInstallModal(os) {
-            document.getElementById('install-modal-overlay').classList.add('active');
-            setInstallTab(os || 'linux');
-        }
-
-        function closeInstallModal() {
-            document.getElementById('install-modal-overlay').classList.remove('active');
-        }
-
-        function handleModalBackdropClick(e) {
-            if (e.target.id === 'install-modal-overlay') closeInstallModal();
-        }
-
-        // --- Checkout Modal ---
         function openCheckoutModal() {
             document.getElementById('checkout-modal-overlay').classList.add('active');
             const saved = localStorage.getItem('offset_checkout_email');
@@ -1304,39 +1046,17 @@
                 if (input) input.value = saved;
             }
         }
-
-        function closeCheckoutModal() {
-            document.getElementById('checkout-modal-overlay').classList.remove('active');
-        }
-
-        function handleCheckoutModalBackdrop(e) {
-            if (e.target.id === 'checkout-modal-overlay') closeCheckoutModal();
-        }
+        function closeCheckoutModal() { document.getElementById('checkout-modal-overlay').classList.remove('active'); }
+        function handleCheckoutModalBackdrop(e) { if (e.target.id === 'checkout-modal-overlay') closeCheckoutModal(); }
 
         function saveCheckoutEmail() {
             const input = document.getElementById('checkout-email-input');
             const email = input ? input.value.trim() : '';
             if (email && email.includes('@')) {
                 localStorage.setItem('offset_checkout_email', email);
-                showToast('✓ Saved email: ' + email + '. Use this on Gumroad!');
+                showToast('✓ Saved email: ' + email);
             } else {
-                showToast('⚠ Please enter a valid email address.');
-            }
-        }
-
-        function setInstallTab(os) {
-            const lBtn = document.getElementById('tab-btn-linux');
-            const wBtn = document.getElementById('tab-btn-win');
-            const cmd = document.getElementById('modal-install-cmd');
-
-            if (os === 'win') {
-                lBtn.classList.remove('active');
-                wBtn.classList.add('active');
-                cmd.textContent = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
-            } else {
-                wBtn.classList.remove('active');
-                lBtn.classList.add('active');
-                cmd.textContent = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
+                showToast('⚠ Please enter a valid email.');
             }
         }
 
@@ -1356,7 +1076,6 @@
             }
         });
 
-        // --- Copy Install Command (Hero) ---
         document.getElementById('copy-install-btn').addEventListener('click', () => {
             const cmd = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
             navigator.clipboard.writeText(cmd).then(() => {
@@ -1367,74 +1086,53 @@
             });
         });
 
-        // --- Easter Egg State ---
+        // --- Eggs ---
         const discoveredEggs = new Set();
         const TOTAL_EGGS = 8;
-
         const eggIcons = {
-            bear: '🐻 BEAR',
-            sudo: '🔒 SUDO',
-            matrix: '🐇 MATRIX',
-            hunter2: '🔑 HUNTER2',
-            neofetch: '💻 NEOFETCH',
-            gravity: '💥 GRAVITY',
-            konami: '🕹️ KONAMI',
-            coffee: '☕ COFFEE'
+            bear: '🐻 BEAR', sudo: '🔒 SUDO', matrix: '🐇 MATRIX', hunter2: '🔑 HUNTER2',
+            neofetch: '💻 NEOFETCH', gravity: '💥 GRAVITY', konami: '🕹️ KONAMI', coffee: '☕ COFFEE'
         };
 
         function unlockEgg(name, displayName) {
             if (!discoveredEggs.has(name)) {
                 discoveredEggs.add(name);
                 showToast('🎉 Unlocked: ' + displayName);
-
                 const badge = document.getElementById('badge-' + name);
                 if (badge) {
                     badge.classList.add('unlocked');
                     badge.textContent = eggIcons[name] || displayName;
                 }
-
                 document.getElementById('vault-count').textContent = discoveredEggs.size;
-
                 if (discoveredEggs.size === TOTAL_EGGS) {
-                    setTimeout(() => {
-                        showToast('🏆 All 8 eggs found! Full root privileges granted.');
-                    }, 500);
+                    setTimeout(() => showToast('🏆 All 8 eggs found! Full root privileges granted.'), 500);
                 }
             }
         }
 
         function hintEgg() {
             const hints = [
-                "Try interrogating the terminal about nature...",
-                "What happens when you demand root privileges?",
-                "Wake up, operator...",
-                "Is your password secure against honeypots?",
-                "Classic arcade cheat codes might work on this page...",
-                "Developers need caffeinated beverages...",
-                "Have you tried fetching system info?",
-                "What goes up must come down..."
+                "Try interrogating the terminal about nature...", "What happens when you demand root privileges?",
+                "Wake up, operator...", "Is your password secure against honeypots?",
+                "Classic arcade cheat codes might work on this page...", "Developers need caffeinated beverages...",
+                "Have you tried fetching system info?", "What goes up must come down..."
             ];
             showToast('💡 ' + hints[Math.floor(Math.random() * hints.length)]);
         }
 
-        // --- Speculative Branching Sandbox ---
+        // --- Sandbox ---
         const branchSlider = document.getElementById('branch-slider');
         const branchCountVal = document.getElementById('branch-count-val');
         const dynamicBranchGrid = document.getElementById('dynamic-branch-grid');
-
         const modelPool = [
-            { name: 'Claude Sonnet 4', role: 'Implementer' },
-            { name: 'GPT-4.1', role: 'Planner' },
-            { name: 'Gemini 3 Pro', role: 'Critic' },
-            { name: 'DeepSeek V3', role: 'Cheap' },
-            { name: 'Claude Opus 4', role: 'Architect' }
+            { name: 'Claude Sonnet 4' }, { name: 'GPT-4.1' }, { name: 'Gemini 3 Pro' },
+            { name: 'DeepSeek V3' }, { name: 'Claude Opus 4' }
         ];
 
         function renderBranchGrid() {
             const count = parseInt(branchSlider.value);
             branchCountVal.textContent = count;
             dynamicBranchGrid.innerHTML = '';
-
             for (let i = 0; i < count; i++) {
                 const col = document.createElement('div');
                 col.className = 'branch-col';
@@ -1449,7 +1147,6 @@
                 dynamicBranchGrid.appendChild(col);
             }
         }
-
         branchSlider.addEventListener('input', renderBranchGrid);
         renderBranchGrid();
 
@@ -1457,7 +1154,6 @@
             const btn = document.getElementById('run-sim-btn');
             btn.disabled = true;
             btn.textContent = '⏳ Speculating...';
-
             const count = parseInt(branchSlider.value);
             const winnerIndex = Math.floor(Math.random() * count);
 
@@ -1493,16 +1189,15 @@
             }, 1000);
         });
 
-        // --- Terminal Simulator ---
+        // --- Terminal ---
         const termOutput = document.getElementById('term-output');
         const termInput = document.getElementById('term-input');
-        let bearCount = 0;
-        let sudoCount = 0;
+        let bearCount = 0, sudoCount = 0;
         const cmdHistory = [];
         let historyIndex = -1;
 
         function printTerm(text, color) {
-            color = color || 'var(--green)';
+            color = color || 'var(--mint)';
             const line = document.createElement('div');
             line.style.color = color;
             line.innerHTML = text;
@@ -1513,13 +1208,27 @@
         function executeCmd(rawCmd) {
             const cmd = rawCmd.trim();
             if (!cmd) return;
-
             cmdHistory.push(cmd);
             historyIndex = cmdHistory.length;
-
-            printTerm('<span style="color: var(--amber);">offset &gt;</span> ' + cmd, '#ffffff');
+            printTerm('<span style="color: var(--yellow);">offset &gt;</span> ' + cmd, '#ffffff');
 
             const lower = cmd.toLowerCase();
+
+            if (lower === 'gravity') {
+                unlockEgg('gravity', 'GRAVITY ENABLED');
+                printTerm('💥 GRAVITY ENABLED! Everything is falling...', 'var(--yellow)');
+                document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
+                    el.style.transition = 'transform 0.8s ease-in';
+                    el.style.transform = 'translateY(120vh) rotate(45deg)';
+                });
+                setTimeout(() => {
+                    document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
+                        el.style.transition = 'transform 0.6s ease-out';
+                        el.style.transform = '';
+                    });
+                }, 2000);
+                return;
+            }
 
             if (lower === 'help') {
                 printTerm('<strong>AVAILABLE COMMANDS:</strong><br>' +
@@ -1531,71 +1240,46 @@
                     '  neofetch           - System architecture & ASCII bear<br>' +
                     '  hunter2            - Security credentials check<br>' +
                     '  coffee             - RFC 2324 teapot protocol<br>' +
-                    '  clear              - Wipe terminal output', 'var(--blue)');
+                    '  clear              - Wipe terminal output', 'var(--cyan)');
             } else if (lower.startsWith('/spec') || lower.startsWith('spec')) {
-                printTerm('[SPEC] Forking repository into 3 isolated worktrees...', 'var(--amber)');
+                printTerm('[SPEC] Forking repository into 3 isolated worktrees...', 'var(--yellow)');
                 printTerm('[BRANCH A] Initialized with Claude Sonnet 4', 'var(--muted)');
                 printTerm('[BRANCH B] Initialized with GPT-4.1', 'var(--muted)');
                 printTerm('[BRANCH C] Initialized with Gemini 3 Pro', 'var(--muted)');
                 setTimeout(() => {
-                    printTerm('[SPEC] Running deterministic test suites across all 3...', 'var(--blue)');
+                    printTerm('[SPEC] Running deterministic test suites across all 3...', 'var(--cyan)');
                     setTimeout(() => {
-                        printTerm('[RESULT] Branch A passed 14/14 tests. Branch B failed. Branch C passed 14/14 tests.', 'var(--green)');
-                        printTerm('[MERGE] Merged Branch A into main repository cleanly. ✨', 'var(--amber)');
+                        printTerm('[RESULT] Branch A passed 14/14 tests. Branch B failed. Branch C passed 14/14 tests.', 'var(--mint)');
+                        printTerm('[MERGE] Merged Branch A into main repository cleanly. ✨', 'var(--yellow)');
                     }, 800);
                 }, 600);
             } else if (lower.startsWith('/flow') || lower.startsWith('flow')) {
-                printTerm('[FLOW] Assembling multi-model pipeline:', 'var(--blue)');
+                printTerm('[FLOW] Assembling multi-model pipeline:', 'var(--cyan)');
                 printTerm('  → Step 1 (Architect): Claude Opus 4 generating interface specification', 'var(--muted)');
                 printTerm('  → Step 2 (Implementer): Claude Sonnet 4 writing atomic tool modules', 'var(--muted)');
                 printTerm('  → Step 3 (Critic): OpenAI o3 reviewing diffs and verification', 'var(--muted)');
                 setTimeout(() => {
-                    printTerm('[FLOW] Pipeline complete. 0 human interventions needed.', 'var(--green)');
+                    printTerm('[FLOW] Pipeline complete. 0 human interventions needed.', 'var(--mint)');
                 }, 1000);
             } else if (lower === 'bear') {
                 bearCount++;
                 unlockEgg('bear', 'ARE YOU A BEAR?');
-                if (bearCount === 1) {
-                    printTerm('ARE YOU A BEAR?<br>No.', 'var(--amber)');
-                } else if (bearCount === 2) {
-                    printTerm('ARE YOU A BEAR?<br>Still no.', 'var(--amber)');
-                } else if (bearCount === 3) {
-                    printTerm('ARE YOU A BEAR?<br>...Define bear.', 'var(--amber)');
-                } else {
-                    printTerm('<pre style="color: var(--blue); line-height: 1.1;">' +
-                        '   ▄▄▄     ▄▄▄   \n' +
-                        '  ████▄▄▄▄▄████  \n' +
-                        ' ██████████████ \n' +
-                        ' ██ ██████ ██ \n' +
-                        ' █████ ██ █████ \n' +
-                        ' ██████████████ \n' +
-                        '  ████████████  \n' +
-                        'FINE. YES.\n' +
-                        'This changes nothing about the code review.</pre>', 'var(--blue)');
-                }
+                if (bearCount === 1) printTerm('ARE YOU A BEAR?<br>No.', 'var(--yellow)');
+                else if (bearCount === 2) printTerm('ARE YOU A BEAR?<br>Still no.', 'var(--yellow)');
+                else if (bearCount === 3) printTerm('ARE YOU A BEAR?<br>...Define bear.', 'var(--yellow)');
+                else printTerm('<pre style="color: var(--cyan); line-height: 1.1;">   ▄▄▄     ▄▄▄   \n  ████▄▄▄▄▄████  \n ██████████████ \n ██ ██████ ██ \n █████ ██ █████ \n ██████████████ \n  ████████████  \nFINE. YES.\nThis changes nothing about the code review.</pre>', 'var(--cyan)');
             } else if (lower === 'sudo') {
                 sudoCount++;
                 unlockEgg('sudo', 'PERMISSION DENIED');
-                if (sudoCount <= 1) {
-                    printTerm('PERMISSION DENIED.<br>guest is not in the sudoers file.<br>This incident will be reported to The-Masked-Bear.', 'var(--red)');
-                } else if (sudoCount === 2) {
-                    printTerm('STILL DENIED.<br>The incident was reported. He read it. He said no.', 'var(--red)');
-                } else {
-                    printTerm('ROOT GRANTED.<br>Just kidding. You have root over this dialog box and nothing else.', 'var(--amber)');
-                }
+                if (sudoCount <= 1) printTerm('PERMISSION DENIED.<br>guest is not in the sudoers file.<br>This incident will be reported to The-Masked-Bear.', 'var(--red)');
+                else if (sudoCount === 2) printTerm('STILL DENIED.<br>The incident was reported. He read it. He said no.', 'var(--red)');
+                else printTerm('ROOT GRANTED.<br>Just kidding. You have root over this dialog box and nothing else.', 'var(--yellow)');
             } else if (lower === 'matrix') {
                 unlockEgg('matrix', 'WAKE UP, OPERATOR');
-                printTerm('WAKE UP, OPERATOR. Follow the white rabbit.', 'var(--green)');
+                printTerm('WAKE UP, OPERATOR. Follow the white rabbit.', 'var(--mint)');
             } else if (lower === 'neofetch' || lower === 'fetch') {
                 unlockEgg('neofetch', 'NEOFETCH SYSTEM INFO');
-                printTerm('<pre style="color: var(--blue); line-height: 1.2;">' +
-                    '   ▄▄▄     ▄▄▄     operator@offset\n' +
-                    '  ████▄▄▄▄▄████    ---------------\n' +
-                    ' ██████████████    OS      : offset 0.1.0\n' +
-                    ' ██ ██████ ██    Engine  : speculative branching\n' +
-                    ' █████ ██ █████    Models  : claude/gpt/gemini/ollama\n' +
-                    ' ██████████████    Arch    : x86_64/arm64\n' +
-                    '  ████████████     License : AGPL-3.0</pre>', 'var(--blue)');
+                printTerm('<pre style="color: var(--cyan); line-height: 1.2;">   ▄▄▄     ▄▄▄     operator@offset\n  ████▄▄▄▄▄████    ---------------\n ██████████████    OS      : offset 0.1.0\n ██ ██████ ██    Engine  : speculative branching\n █████ ██ █████    Models  : claude/gpt/gemini/ollama\n ██████████████    Arch    : x86_64/arm64\n  ████████████     License : AGPL-3.0</pre>', 'var(--cyan)');
             } else if (lower === 'hunter2' || lower === 'password') {
                 unlockEgg('hunter2', 'HUNTER2 HONEYPOT');
                 printTerm('ACCESS DENIED.<br>KEY: *******<br>Everyone else in this room just sees *******.', 'var(--red)');
@@ -1605,7 +1289,7 @@
             } else if (lower === 'clear') {
                 termOutput.innerHTML = '';
             } else if (lower === '/model' || lower === 'model') {
-                printTerm('[MODEL] Available models:', 'var(--blue)');
+                printTerm('[MODEL] Available models:', 'var(--cyan)');
                 printTerm('  1. claude-sonnet-4    (Anthropic)', 'var(--muted)');
                 printTerm('  2. claude-opus-4      (Anthropic)', 'var(--muted)');
                 printTerm('  3. gpt-4.1            (OpenAI)', 'var(--muted)');
@@ -1614,13 +1298,13 @@
                 printTerm('  6. antigravity        (Google)', 'var(--muted)');
                 printTerm('  7. deepseek-v3        (DeepSeek)', 'var(--muted)');
                 printTerm('  8. ollama/llama3      (Local)', 'var(--muted)');
-                printTerm('Use /model &lt;name&gt; to switch.', 'var(--green)');
+                printTerm('Use /model &lt;name&gt; to switch.', 'var(--mint)');
             } else if (lower === '/login' || lower === 'login') {
-                printTerm('[AUTH] Opening browser for OAuth sign-in...', 'var(--blue)');
+                printTerm('[AUTH] Opening browser for OAuth sign-in...', 'var(--cyan)');
                 setTimeout(() => {
                     printTerm('[AUTH] Waiting for callback on http://localhost:9876 ...', 'var(--muted)');
                     setTimeout(() => {
-                        printTerm('[AUTH] ✓ Authenticated as operator@offset.dev', 'var(--green)');
+                        printTerm('[AUTH] ✓ Authenticated as operator@offset.dev', 'var(--mint)');
                     }, 600);
                 }, 400);
             } else {
@@ -1651,17 +1335,13 @@
             }
         });
 
-        // --- Konami Code Listener ---
+        // Konami
         const konamiSequence = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
         let konamiIndex = 0;
-
         window.addEventListener('keydown', (e) => {
-            // Don't track konami when typing in input
             if (document.activeElement === termInput) return;
-
             const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
             const expected = konamiSequence[konamiIndex].length === 1 ? konamiSequence[konamiIndex].toLowerCase() : konamiSequence[konamiIndex];
-
             if (key === expected) {
                 konamiIndex++;
                 if (konamiIndex === konamiSequence.length) {
@@ -1673,34 +1353,6 @@
                 konamiIndex = 0;
             }
         });
-
-        // --- Gravity Easter Egg (via terminal command) ---
-        // Gravity is now only discoverable through terminal; no nav button
-        // We keep the egg unlockable but tie it to typing "gravity" in the REPL
-        // Extend terminal commands to include gravity
-        const _origExecuteCmd = executeCmd;
-        executeCmd = function(rawCmd) {
-            const lower = rawCmd.trim().toLowerCase();
-            if (lower === 'gravity') {
-                cmdHistory.push(rawCmd.trim());
-                historyIndex = cmdHistory.length;
-                printTerm('<span style="color: var(--amber);">offset &gt;</span> ' + rawCmd.trim(), '#ffffff');
-                unlockEgg('gravity', 'GRAVITY ENABLED');
-                printTerm('💥 GRAVITY ENABLED! Everything is falling...', 'var(--amber)');
-                document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
-                    el.style.transition = 'transform 0.8s ease-in';
-                    el.style.transform = 'translateY(120vh) rotate(45deg)';
-                });
-                setTimeout(() => {
-                    document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
-                        el.style.transition = 'transform 0.6s ease-out';
-                        el.style.transform = '';
-                    });
-                }, 2000);
-                return;
-            }
-            _origExecuteCmd(rawCmd);
-        };
     </script>
 </body>
 </html>
