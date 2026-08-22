@@ -480,8 +480,8 @@
     <div class="hero-content">
       <h1>RACE AI MODELS IN PARALLEL.<br>KEEP THE WINNER.</h1>
       <div class="hero-actions">
-        <a href="#" class="brutal-btn color-pink">INSTALL NOW</a>
-        <a href="#pricing" class="brutal-btn color-mint">GET PLUS</a>
+        <a href="#" onclick="document.getElementById('install-modal\).style.display='flex'; return false;" class="brutal-btn color-pink">INSTALL NOW</a>
+        <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-mint">GET PLUS</a>
       </div>
     </div>
     
@@ -573,7 +573,7 @@
           <li>Community Support</li>
           <li>Standard Themes</li>
         </ul>
-        <a href="#" class="brutal-btn color-mint" style="text-align:center;width:100%;">DOWNLOAD FREE</a>
+        <a href="#" onclick="document.getElementById('install-modal\).style.display='flex'; return false;" class="brutal-btn color-mint" style="text-align:center;width:100%;">DOWNLOAD FREE</a>
       </div>
 
       <div class="brutal-card price-card plus">
@@ -588,7 +588,7 @@
           <li>OAuth Integrations</li>
           <li>Advanced Workflows (/flow)</li>
         </ul>
-        <a href="#" class="brutal-btn color-yellow" style="text-align:center;width:100%;">GET PLUS</a>
+        <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-yellow" style="text-align:center;width:100%;">GET PLUS</a>
       </div>
 
     </div>
@@ -780,5 +780,99 @@
 
   </script>
 
+
+  <!-- TRAIL CANVAS -->
+  <canvas id="trail-canvas" style="position:fixed; inset:0; z-index:99996; pointer-events:none;"></canvas>
+  
+  <!-- GUMROAD SCRIPT -->
+  <script src="https://gumroad.com/js/gumroad.js"></script>
+
+  <script>
+    // --- MOUSE TRAIL CANVAS ---
+    const canvas = document.getElementById('trail-canvas');
+    const ctx = canvas.getContext('2d');
+    const trail = [];
+    const trailColors = ['#FF90E8', '#FFDE59', '#8CFFFB', '#B2FF9E', '#FF5A5F'];
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    document.addEventListener('mousemove', e => {
+        trail.push({
+            x: e.clientX,
+            y: e.clientY,
+            life: 1,
+            color: trailColors[Math.floor(Math.random() * trailColors.length)],
+            size: Math.random() * 6 + 3
+        });
+        if (trail.length > 50) trail.shift();
+    });
+
+    function drawTrail() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = trail.length - 1; i >= 0; i--) {
+            const p = trail[i];
+            p.life -= 0.03;
+            if (p.life <= 0) { trail.splice(i, 1); continue; }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+        }
+        requestAnimationFrame(drawTrail);
+    }
+    drawTrail();
+
+    // --- 3D CARD TILT ---
+    document.querySelectorAll('.feature-card, .price-card, .giant-text-block').forEach(card => {
+        card.addEventListener('mousemove', e => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -5;
+            const rotateY = ((x - centerX) / centerX) * 5;
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate(4px, 4px)`;
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translate(0, 0)';
+        });
+    });
+
+    // --- FAQ ACCORDION ---
+    document.querySelectorAll('.faq-question').forEach(item => {
+        item.addEventListener('click', () => {
+            const answer = item.nextElementSibling;
+            const icon = item.querySelector('.faq-icon');
+            if(answer.style.display === 'none') {
+                answer.style.display = 'block';
+                icon.innerText = '-';
+            } else {
+                answer.style.display = 'none';
+                icon.innerText = '+';
+            }
+        });
+    });
+
+    // --- INSTALL MODAL LOGIC ---
+    document.querySelectorAll('a[href="#install"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('install-modal').style.display = 'flex';
+        });
+    });
+
+    // Ensure Get Plus buttons have gumroad class
+    document.querySelectorAll('a[href="#pricing"].color-yellow').forEach(btn => {
+        btn.href = "https://debarghya47.gumroad.com/l/qzqnxk";
+        btn.setAttribute('data-gumroad-overlay-checkout', 'true');
+    });
+
+  </script>
 </body>
 </html>
