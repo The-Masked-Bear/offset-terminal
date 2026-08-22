@@ -1373,7 +1373,7 @@
         }
         .btn:hover, .copy-btn:hover {
             animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
-            box-shadow: 0 0 15px var(--blue);
+            box-shadow: 0 0 15px var(--cyan);
             text-shadow: 0 0 5px rgba(255,255,255,0.5);
         }
         .feat-card, .plan-card {
@@ -1382,7 +1382,7 @@
             will-change: transform;
         }
         .feat-card:hover, .plan-card:hover {
-            box-shadow: 0 10px 30px -10px var(--blue);
+            box-shadow: 0 10px 30px -10px var(--cyan);
             z-index: 10;
         }
         .interactive-glitch {
@@ -1390,8 +1390,8 @@
             transition: color 0.1s;
         }
         .interactive-glitch:hover {
-            color: var(--amber) !important;
-            text-shadow: 2px 0 var(--red), -2px 0 var(--blue);
+            color: var(--yellow) !important;
+            text-shadow: 2px 0 var(--red), -2px 0 var(--cyan);
             cursor: crosshair;
         }
         /* Custom Cursor Trail */
@@ -1399,7 +1399,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 20px; height: 20px;
-            border: 2px solid var(--blue);
+            border: 2px solid var(--cyan);
             border-radius: 50%;
             pointer-events: none;
             z-index: 9999;
@@ -1412,7 +1412,7 @@
         /* Click Particles */
         .click-particle {
             position: fixed;
-            color: var(--green);
+            color: var(--mint);
             font-family: 'Space Mono', monospace;
             font-weight: bold;
             pointer-events: none;
@@ -1430,29 +1430,32 @@
         // --- 1. Audio Engine ---
         let audioCtx = null;
         let soundEnabled = true;
+        let audioUnlocked = false;
 
-        function initAudio() {
+        function unlockAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            return audioCtx;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => { audioUnlocked = true; }).catch(() => {});
+            } else {
+                audioUnlocked = true;
+            }
         }
 
         function playBeep(freq = 440, type = 'square', duration = 0.05, vol = 0.03) {
-            if (!soundEnabled) return;
+            if (!soundEnabled || !audioUnlocked || !audioCtx) return;
             try {
-                const ctx = initAudio();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
                 osc.type = type;
-                osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                gain.gain.setValueAtTime(vol, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(ctx.destination);
+                gain.connect(audioCtx.destination);
                 osc.start();
-                osc.stop(ctx.currentTime + duration);
+                osc.stop(audioCtx.currentTime + duration);
             } catch(e) {}
         }
 
@@ -1511,7 +1514,7 @@
             p.style.transform = `translate(${tx}px, ${ty}px)`;
             
             // Random color
-            const colors = ['var(--blue)', 'var(--green)', 'var(--amber)', 'var(--red)'];
+            const colors = ['var(--cyan)', 'var(--mint)', 'var(--yellow)', 'var(--red)'];
             p.style.color = colors[Math.floor(Math.random() * colors.length)];
             
             document.body.appendChild(p);
@@ -1568,8 +1571,8 @@
         });
 
         // Initialize audio context on first user interaction
-        document.body.addEventListener('click', initAudio, { once: true });
-        document.body.addEventListener('keydown', initAudio, { once: true });
+        document.body.addEventListener('click', unlockAudio, { once: true });
+        document.body.addEventListener('keydown', unlockAudio, { once: true });
     </script>
 </body>
 </html>
