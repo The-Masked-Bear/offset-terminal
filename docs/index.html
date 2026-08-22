@@ -1,1765 +1,770 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OFFSET // Terminal Coding Agent with Speculative Branching</title>
-    <meta name="description" content="Offset is an open-source terminal coding agent that forks your git repo into parallel worktrees, races multiple AI models simultaneously, and auto-merges the winner. The only coding agent with Speculative Branching.">
-    <meta name="keywords" content="coding agent, AI, terminal, speculative branching, git worktree, parallel AI, multi-model, python, Claude, GPT, Gemini">
-    <meta name="author" content="The Masked Bear">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://the-masked-bear.github.io/offset-terminal/">
-    <meta property="og:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
-    <meta property="og:description" content="The only coding agent that forks your repo into parallel git worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.">
-    <meta property="og:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://the-masked-bear.github.io/offset-terminal/">
-    <meta name="twitter:title" content="OFFSET // Terminal Coding Agent with Speculative Branching">
-    <meta name="twitter:description" content="The only coding agent that forks your repo into parallel git worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.">
-    <meta name="twitter:image" content="https://the-masked-bear.github.io/offset-terminal/assets/hero-banner.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #111111;
-            --bg: #F4F4F0;
-            --surface: #FFFFFF;
-            --muted: #555555;
-            --yellow: #FFDE59;
-            --pink: #FF90E8;
-            --cyan: #8CFFFB;
-            --mint: #B2FF9E;
-            --red: #FF5A5F;
-            --border: 3px solid var(--ink);
-            --border-heavy: 4px solid var(--ink);
-            --shadow: 5px 5px 0px var(--ink);
-            --shadow-lg: 8px 8px 0px var(--ink);
-            --shadow-xl: 12px 12px 0px var(--ink);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Space Mono', monospace;
-            color: var(--ink);
-        }
-
-        body {
-            background-color: var(--bg);
-            line-height: 1.5;
-            overflow-x: hidden;
-        }
-
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Archivo Black', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: -1px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .section {
-            padding: 80px 0;
-            border-bottom: var(--border-heavy);
-        }
-        .section:last-of-type {
-            border-bottom: none;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 1rem;
-            cursor: pointer;
-            border: var(--border-heavy);
-            background: var(--surface);
-            box-shadow: var(--shadow-lg);
-            transition: transform 0.1s, box-shadow 0.1s;
-            text-decoration: none;
-            text-transform: uppercase;
-            border-radius: 0;
-        }
-
-        .btn:hover {
-            transform: translate(-3px, -3px);
-            box-shadow: var(--shadow-xl);
-        }
-
-        .btn:active {
-            transform: translate(5px, 5px);
-            box-shadow: 0 0 0 var(--ink);
-        }
-
-        .btn-yellow { background: var(--yellow); }
-        .btn-cyan { background: var(--cyan); }
-        .btn-pink { background: var(--pink); }
-        .btn-mint { background: var(--mint); }
-        .btn-ink { background: var(--ink); color: var(--yellow); border-color: var(--surface); }
-        .btn-ink:active { box-shadow: 0 0 0 var(--surface); }
-
-        /* Navbar */
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 20px;
-            border-bottom: var(--border-heavy);
-            background: var(--surface);
-        }
-
-        .logo {
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 1.8rem;
-            background: var(--yellow);
-            padding: 4px 12px;
-            border: var(--border-heavy);
-            box-shadow: var(--shadow);
-            transform: rotate(-2deg);
-            display: inline-block;
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 24px;
-            align-items: center;
-        }
-
-        .nav-links a {
-            font-weight: 700;
-            text-decoration: none;
-            text-transform: uppercase;
-        }
-        
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-
-        .badge-star {
-            background: var(--pink);
-            padding: 4px 10px;
-            border: var(--border);
-            font-size: 0.9rem;
-            font-weight: 700;
-            box-shadow: 3px 3px 0px var(--ink);
-            text-decoration: none;
-        }
-
-        /* Hero */
-        .hero {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            align-items: center;
-            background: var(--cyan);
-            padding: 80px 20px;
-            border-bottom: var(--border-heavy);
-        }
-
-        .hero-content h1 {
-            font-size: 4rem;
-            line-height: 1.1;
-            margin-bottom: 24px;
-            text-shadow: 3px 3px 0px var(--surface);
-        }
-
-        .hero-badge {
-            display: inline-block;
-            background: var(--pink);
-            border: var(--border);
-            padding: 6px 12px;
-            font-weight: 700;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow);
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-        }
-
-        .hero-actions {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-bottom: 32px;
-        }
-
-        .install-box {
-            display: inline-flex;
-            align-items: center;
-            background: var(--surface);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-lg);
-            padding: 8px 8px 8px 16px;
-            gap: 16px;
-        }
-
-        .install-box code {
-            font-size: 1rem;
-            font-weight: 700;
-        }
-
-        .install-box .btn {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-            box-shadow: 3px 3px 0px var(--ink);
-        }
-
-        /* Terminal Simulator */
-        .terminal-card {
-            background: var(--ink);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-xl);
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            height: 500px;
-            border-radius: 0;
-            position: relative;
-        }
-        
-        .terminal-card::before {
-            content: "OFFSET-REPL";
-            position: absolute;
-            top: -16px;
-            left: 20px;
-            background: var(--yellow);
-            border: var(--border);
-            padding: 2px 10px;
-            font-weight: 700;
-            font-size: 0.8rem;
-        }
-
-        .term-output {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 12px;
-            padding-right: 8px;
-        }
-
-        .term-output::-webkit-scrollbar {
-            width: 10px;
-        }
-        .term-output::-webkit-scrollbar-track {
-            background: var(--ink);
-            border-left: var(--border);
-        }
-        .term-output::-webkit-scrollbar-thumb {
-            background: var(--muted);
-            border: 2px solid var(--ink);
-        }
-
-        .term-output div {
-            font-size: 0.95rem;
-            margin-bottom: 6px;
-            line-height: 1.4;
-            color: var(--surface);
-            word-break: break-word;
-            white-space: pre-wrap;
-        }
-
-        .term-input-line {
-            display: flex;
-            align-items: center;
-            border-top: 2px dashed var(--muted);
-            padding-top: 12px;
-        }
-
-        .term-input-line span {
-            color: var(--mint);
-            margin-right: 12px;
-            font-weight: 700;
-        }
-
-        .term-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--surface);
-            font-size: 1rem;
-            outline: none;
-            font-family: 'Space Mono', monospace;
-        }
-
-        /* Features */
-        .features-section {
-            background: var(--bg);
-        }
-
-        .section-header {
-            margin-bottom: 48px;
-        }
-
-        .section-header h2 {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            display: inline-block;
-            background: var(--yellow);
-            padding: 4px 16px;
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .section-header p {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 32px;
-        }
-
-        .feat-card {
-            background: var(--surface);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-lg);
-            padding: 24px;
-            transition: transform 0.1s, box-shadow 0.1s;
-            position: relative;
-        }
-
-        .feat-card:hover {
-            transform: translate(-3px, -3px);
-            box-shadow: var(--shadow-xl);
-        }
-
-        .feat-badge {
-            position: absolute;
-            top: -16px;
-            right: 16px;
-            background: var(--cyan);
-            border: var(--border);
-            padding: 4px 12px;
-            font-weight: 700;
-            font-size: 0.8rem;
-            box-shadow: 3px 3px 0px var(--ink);
-        }
-
-        .feat-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-            margin-top: 12px;
-        }
-
-        /* Sandbox */
-        .sandbox-section {
-            background: var(--pink);
-        }
-
-        .sandbox-card {
-            background: var(--surface);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-xl);
-            padding: 32px;
-        }
-
-        .sim-controls {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            margin-bottom: 32px;
-            flex-wrap: wrap;
-        }
-
-        .sim-slider-label {
-            font-weight: 700;
-            font-size: 1.2rem;
-            background: var(--yellow);
-            padding: 8px 16px;
-            border: var(--border);
-            box-shadow: 4px 4px 0px var(--ink);
-        }
-
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 200px;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 12px;
-            background: var(--surface);
-            border: var(--border);
-            border-radius: 0;
-            box-shadow: 2px 2px 0px var(--ink);
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 30px;
-            width: 20px;
-            background: var(--cyan);
-            border: var(--border);
-            margin-top: -11px;
-            cursor: pointer;
-            border-radius: 0;
-            box-shadow: 3px 3px 0px var(--ink);
-        }
-
-        .branch-grid {
-            display: flex;
-            gap: 20px;
-            overflow-x: auto;
-            padding-bottom: 16px;
-        }
-
-        .branch-col {
-            min-width: 280px;
-            flex: 1;
-            background: var(--bg);
-            border: var(--border);
-            box-shadow: var(--shadow);
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            transition: background 0.3s, transform 0.1s;
-        }
-
-        .branch-col.winner {
-            background: var(--mint);
-        }
-
-        .branch-title {
-            font-weight: 700;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 1.1rem;
-        }
-
-        .status-badge {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border: 2px solid var(--ink);
-            background: var(--surface);
-        }
-        .status-running { background: var(--yellow); }
-        .status-winner { background: var(--mint); }
-        .status-discarded { background: var(--red); color: var(--surface); }
-
-        .branch-log {
-            font-size: 0.85rem;
-            background: var(--surface);
-            padding: 12px;
-            border: 2px solid var(--ink);
-            flex: 1;
-        }
-
-        /* Pricing */
-        .pricing-section {
-            background: var(--bg);
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 40px;
-        }
-
-        .plan-card {
-            background: var(--surface);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-xl);
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        .plan-plus {
-            background: var(--ink);
-            color: var(--surface);
-        }
-        .plan-plus * {
-            color: var(--surface);
-        }
-        .plan-plus .btn {
-            color: var(--ink);
-        }
-
-        .plan-tag {
-            position: absolute;
-            top: -16px;
-            left: 24px;
-            background: var(--mint);
-            border: var(--border);
-            padding: 4px 16px;
-            font-weight: 700;
-            box-shadow: 4px 4px 0px var(--ink);
-            color: var(--ink);
-        }
-        .plan-plus .plan-tag {
-            background: var(--cyan);
-            color: var(--ink);
-        }
-
-        .plan-title {
-            font-size: 2.5rem;
-            margin-bottom: 8px;
-        }
-
-        .plan-price {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 24px;
-            padding-bottom: 24px;
-            border-bottom: 2px dashed var(--muted);
-        }
-
-        .plan-features {
-            list-style: none;
-            margin-bottom: 40px;
-            flex: 1;
-        }
-
-        .plan-features li {
-            margin-bottom: 12px;
-            font-weight: 700;
-            position: relative;
-            padding-left: 24px;
-        }
-        .plan-features li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: var(--ink);
-        }
-        .plan-plus .plan-features li::before {
-            color: var(--yellow);
-        }
-
-        .plan-features li.disabled {
-            text-decoration: line-through;
-            opacity: 0.5;
-        }
-        .plan-features li.disabled::before {
-            content: "✕";
-        }
-
-        .plan-features li.highlight {
-            background: var(--yellow);
-            color: var(--ink);
-            padding: 2px 24px;
-            margin-left: -24px;
-            border: 2px solid var(--ink);
-            box-shadow: 2px 2px 0px var(--ink);
-        }
-        .plan-plus .plan-features li.highlight {
-            background: var(--cyan);
-            color: var(--ink);
-        }
-        .plan-plus .plan-features li.highlight::before {
-            left: -24px;
-            color: var(--ink);
-        }
-
-        .plan-warning {
-            font-size: 0.85rem;
-            background: var(--yellow);
-            color: var(--ink);
-            padding: 12px;
-            border: 2px solid var(--ink);
-            margin-bottom: 24px;
-        }
-        .plan-warning strong {
-            color: inherit;
-        }
-
-        /* Easter Egg Vault */
-        .vault-section {
-            background: var(--ink);
-            color: var(--surface);
-            padding: 40px 0;
-        }
-        .vault-section * { color: var(--surface); }
-        .vault-section h2, .vault-section .badge { color: var(--ink); }
-
-        .vault-grid {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 24px;
-        }
-        .egg-badge {
-            background: var(--muted);
-            border: var(--border);
-            border-color: var(--surface);
-            padding: 8px 16px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            opacity: 0.5;
-        }
-        .egg-badge.unlocked {
-            opacity: 1;
-            background: var(--yellow);
-            color: var(--ink);
-            border-color: var(--ink);
-            box-shadow: 4px 4px 0px var(--surface);
-        }
-
-        /* Modals */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(17, 17, 17, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal {
-            background: var(--bg);
-            border: var(--border-heavy);
-            box-shadow: var(--shadow-xl);
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            background: var(--yellow);
-            padding: 16px 24px;
-            border-bottom: var(--border-heavy);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-family: 'Archivo Black', sans-serif;
-            font-size: 1.5rem;
-            text-transform: uppercase;
-        }
-
-        .modal-close-btn {
-            background: var(--red);
-            border: var(--border);
-            width: 32px;
-            height: 32px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 2px 2px 0px var(--ink);
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        .step-box {
-            background: var(--surface);
-            border: var(--border);
-            padding: 16px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow);
-        }
-
-        .step-label {
-            font-weight: 700;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .step-num {
-            background: var(--cyan);
-            border: 2px solid var(--ink);
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-        }
-
-        .modal-code-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: var(--bg);
-            padding: 8px 12px;
-            border: 2px solid var(--ink);
-        }
-
-        .modal-code-row code {
-            flex: 1;
-            font-weight: 700;
-            word-break: break-all;
-        }
-
-        .modal-copy-btn {
-            background: var(--yellow);
-            border: 2px solid var(--ink);
-            padding: 4px 12px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 2px 2px 0px var(--ink);
-        }
-        .modal-copy-btn:active {
-            transform: translate(2px, 2px);
-            box-shadow: 0 0 0 var(--ink);
-        }
-
-        .checkout-email-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 12px;
-        }
-        .checkout-email-row input {
-            flex: 1;
-            border: 2px solid var(--ink);
-            padding: 8px 12px;
-            font-weight: 700;
-            font-family: 'Space Mono', monospace;
-            outline: none;
-        }
-        .checkout-email-row input:focus {
-            background: var(--mint);
-        }
-
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            z-index: 2000;
-            pointer-events: none;
-        }
-        .toast {
-            background: var(--ink);
-            color: var(--surface);
-            border: var(--border-heavy);
-            border-color: var(--surface);
-            padding: 12px 24px;
-            font-weight: 700;
-            box-shadow: var(--shadow-lg);
-            transition: opacity 0.3s;
-        }
-
-        /* Footer */
-        footer {
-            background: var(--surface);
-            border-top: var(--border-heavy);
-            padding: 24px 0;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        @media(max-width: 900px) {
-            .hero {
-                grid-template-columns: 1fr;
-            }
-            .nav-links {
-                display: none;
-            }
-        }
-        @media(max-width: 600px) {
-            h1 { font-size: 2.2rem !important; }
-            h2 { font-size: 1.8rem !important; }
-            .hero { padding: 40px 16px; gap: 20px; }
-            .section { padding: 40px 16px; }
-            .terminal-wrapper { min-height: 400px; }
-            .sandbox-runner { flex-direction: column; align-items: stretch; }
-            .sandbox-runner input[type=range] { width: 100%; }
-            .sandbox-runner .btn { width: 100%; text-align: center; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OFFSET - Terminal Coding Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #111111;
+    --white: #FFFFFF;
+    --yellow: #FFDE59;
+    --pink: #FF90E8;
+    --blue: #8CFFFB;
+    --mint: #B2FF9E;
+    --red: #FF5A5F;
+    --bg: #F4F4F0;
+    --surface: #FFFFFF;
+    --text-primary: #111111;
+    --text-secondary: #555555;
+    --grid-color: rgba(0,0,0,0.06);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    cursor: none !important;
+  }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+    transition: background-size 0.5s ease;
+    overflow-x: hidden;
+  }
+
+  body:hover {
+    background-size: 22px 22px;
+  }
+
+  h1, h2, h3, .logo, .badge {
+    font-family: 'Archivo Black', sans-serif;
+    text-transform: uppercase;
+    font-weight: 900;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 14px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+    border-left: 3px solid var(--black);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--yellow);
+    border: 3px solid var(--black);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--pink);
+  }
+
+  /* Custom Cursor */
+  #cursor-dot {
+    position: fixed;
+    top: 0; left: 0;
+    width: 10px; height: 10px;
+    background-color: var(--red);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: difference;
+  }
+  #cursor-ring {
+    position: fixed;
+    top: 0; left: 0;
+    width: 40px; height: 40px;
+    border: 2px solid var(--red);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: left 0.1s ease-out, top 0.1s ease-out;
+    mix-blend-mode: difference;
+  }
+
+  /* Components */
+  .brutal-btn {
+    display: inline-block;
+    background: var(--white);
+    color: var(--black);
+    border: 3px solid var(--black);
+    box-shadow: 6px 6px 0px var(--black);
+    text-decoration: none;
+    padding: 12px 24px;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    transform: none;
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+    text-transform: uppercase;
+  }
+  .brutal-btn:hover {
+    transform: translate(6px, 6px);
+    box-shadow: 0px 0px 0px var(--black);
+  }
+  .brutal-btn.color-yellow { background: var(--yellow); }
+  .brutal-btn.color-pink { background: var(--pink); }
+  .brutal-btn.color-blue { background: var(--blue); }
+  .brutal-btn.color-mint { background: var(--mint); }
+  .brutal-btn.color-red { background: var(--red); color: var(--white); }
+
+  .brutal-card {
+    background: var(--surface);
+    border: 3px solid var(--black);
+    box-shadow: 8px 8px 0px var(--black);
+    padding: 24px;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .brutal-card:hover {
+    transform: translate(4px, 4px);
+    box-shadow: 4px 4px 0px var(--black);
+  }
+
+  /* Nav */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    border-bottom: 4px solid var(--black);
+    background: var(--bg);
+    position: relative;
+    z-index: 10;
+  }
+  .logo {
+    font-size: 2.5rem;
+    color: var(--black);
+    text-decoration: none;
+    letter-spacing: 2px;
+  }
+  .logo:hover {
+    animation: glitch 0.3s infinite;
+  }
+  nav {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+  }
+  nav a.nav-link {
+    font-family: 'Archivo Black', sans-serif;
+    color: var(--black);
+    text-decoration: none;
+    font-size: 1.1rem;
+    position: relative;
+  }
+  nav a.nav-link::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 4px;
+    background: var(--black);
+    bottom: -6px;
+    left: 0;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
+  }
+  nav a.nav-link:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  /* Marquee */
+  .brutal-marquee-container {
+    border-bottom: 8px solid var(--black);
+    background: var(--mint);
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 15px 0;
+  }
+  .brutal-marquee {
+    display: inline-block;
+    color: var(--black);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 1.5rem;
+    animation: marquee 20s linear infinite;
+  }
+  .brutal-marquee span {
+    margin: 0 20px;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 80px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .hero-content h1 {
+    font-size: 4.5rem;
+    line-height: 1.1;
+    margin-bottom: 30px;
+    letter-spacing: -1px;
+    text-shadow: 4px 4px 0px var(--pink);
+  }
+  .hero-actions {
+    display: flex;
+    gap: 20px;
+  }
+
+  /* Terminal */
+  .terminal-box {
+    background: var(--black);
+    color: var(--mint);
+    border: 4px solid var(--black);
+    box-shadow: 12px 12px 0px rgba(0,0,0,0.2);
+    border-radius: 0;
+    overflow: hidden;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  .terminal-header {
+    background: var(--surface);
+    color: var(--black);
+    padding: 10px 15px;
+    font-family: 'Archivo Black', sans-serif;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--black);
+  }
+  .terminal-body {
+    padding: 20px;
+    flex-grow: 1;
+    overflow-y: auto;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .terminal-line {
+    margin-bottom: 8px;
+  }
+  .terminal-prompt {
+    color: var(--pink);
+    margin-right: 10px;
+  }
+  .terminal-input-line {
+    display: flex;
+    margin-top: 10px;
+  }
+  .terminal-input {
+    background: transparent;
+    border: none;
+    color: var(--white);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.95rem;
+    flex-grow: 1;
+    outline: none;
+  }
+
+  /* Features */
+  .features {
+    padding: 80px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 40px;
+  }
+  .feature-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--black);
+    padding-bottom: 10px;
+  }
+  .feature-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 20px;
+  }
+
+  /* Sandbox */
+  .sandbox {
+    padding: 80px 40px;
+    background: var(--blue);
+    border-top: 5px solid var(--black);
+    border-bottom: 5px solid var(--black);
+  }
+  .sandbox-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: var(--bg);
+  }
+  .sandbox-header {
+    margin-bottom: 30px;
+  }
+  .sandbox-header h2 {
+    font-size: 3rem;
+  }
+  .sandbox-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  .slider-container {
+    flex-grow: 1;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 24px;
+    width: 24px;
+    background: var(--pink);
+    border: 3px solid var(--black);
+    box-shadow: 3px 3px 0px var(--black);
+    margin-top: -8px;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    background: var(--white);
+    border: 2px solid var(--black);
+  }
+  .sandbox-runners {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    min-height: 150px;
+  }
+  .runner-box {
+    background: var(--surface);
+    border: 3px solid var(--black);
+    box-shadow: 4px 4px 0px var(--black);
+    padding: 15px;
+    width: 120px;
+    text-align: center;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+  }
+  .runner-box.active {
+    background: var(--yellow);
+    animation: wiggle 0.5s ease-in-out infinite;
+  }
+  .runner-box.winner {
+    background: var(--mint);
+    transform: scale(1.1);
+    box-shadow: 8px 8px 0px var(--black);
+  }
+
+  /* Pricing */
+  .pricing {
+    padding: 80px 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .pricing h2 {
+    font-size: 3.5rem;
+    text-align: center;
+    margin-bottom: 60px;
+    text-shadow: 3px 3px 0px var(--yellow);
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  .price-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .price-card.plus {
+    background: var(--pink);
+  }
+  .price-header {
+    border-bottom: 3px solid var(--black);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+  }
+  .price-header h3 {
+    font-size: 2rem;
+  }
+  .price-amount {
+    font-size: 3rem;
+    font-family: 'Archivo Black', sans-serif;
+  }
+  .price-features {
+    flex-grow: 1;
+    list-style: none;
+    margin-bottom: 30px;
+  }
+  .price-features li {
+    margin-bottom: 12px;
+    position: relative;
+    padding-left: 25px;
+  }
+  .price-features li::before {
+    content: '►';
+    position: absolute;
+    left: 0;
+    color: var(--black);
+  }
+
+  /* Keyframes */
+  @keyframes glitch {
+    0% { text-shadow: 2px 2px var(--pink), -2px -2px var(--blue); }
+    25% { text-shadow: -2px 2px var(--mint), 2px -2px var(--red); }
+    50% { text-shadow: 2px -2px var(--yellow), -2px 2px var(--pink); }
+    75% { text-shadow: -2px -2px var(--blue), 2px 2px var(--mint); }
+    100% { text-shadow: 2px 2px var(--red), -2px -2px var(--yellow); }
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(3deg); }
+    75% { transform: rotate(-3deg); }
+  }
+
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+    .pricing-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 </head>
 <body>
 
-    <!-- Navbar -->
-    <nav class="navbar">
-        <a href="#" class="logo">OFFSET</a>
-        <div class="nav-links">
-            <a href="#features">Features</a>
-            <a href="#sandbox">Sandbox</a>
-            <a href="#pricing">Pricing</a>
-            <a href="https://github.com/The-Masked-Bear/offset-terminal" target="_blank" class="badge-star">★ STAR REPO</a>
-        </div>
+  <!-- Custom Cursor -->
+  <div id="cursor-dot"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- Nav -->
+  <header>
+    <a href="#" class="logo">OFFSET</a>
+    <nav>
+      <a href="#features" class="nav-link">FEATURES</a>
+      <a href="#sandbox" class="nav-link">SANDBOX</a>
+      <a href="#pricing" class="nav-link">PRICING</a>
+      <a href="https://github.com/offset" class="nav-link">GITHUB</a>
+      <a href="#pricing" class="brutal-btn color-yellow">GET PLUS</a>
     </nav>
+  </header>
 
-    <!-- Hero -->
-    <section class="hero">
-        <div class="hero-content">
-            <div class="hero-badge">The only coding agent with Speculative Branching</div>
-            <h1>Race AI Models In Parallel. Keep The Winner.</h1>
-            <p style="font-weight: 700; font-size: 1.2rem; margin-bottom: 24px;">
-                Offset forks your git repo into parallel worktrees, races Claude vs GPT vs Gemini simultaneously, and auto-merges whatever passes tests.
-            </p>
-            <div class="hero-actions">
-                <button class="btn btn-yellow" onclick="openInstallModal()">Install Free</button>
-                <a href="#pricing" class="btn btn-surface">View Pro</a>
-            </div>
-            <div class="install-box">
-                <code>pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
-                <button class="btn btn-yellow" id="copy-install-btn" style="padding: 6px 12px; font-size: 0.8rem;">COPY</button>
-            </div>
-        </div>
-        <div class="hero-terminal">
-            <div class="terminal-card">
-                <div class="term-output" id="term-output">
-                    <div style="color: var(--mint);">offset v0.1.0 // Ready.</div>
-                    <div style="color: var(--muted);">Type 'help' to see available commands, or '/spec 3' to start a race.</div>
-                </div>
-                <div class="term-input-line">
-                    <span>offset &gt;</span>
-                    <input type="text" class="term-input" id="term-input" autocomplete="off" spellcheck="false" autofocus>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features -->
-    <section class="section features-section" id="features">
-        <div class="container">
-            <div class="section-header">
-                <h2>What Makes Offset Different</h2>
-                <p>Features no other coding agent offers.</p>
-            </div>
-            <div class="features-grid">
-                <div class="feat-card">
-                    <div class="feat-badge" style="background: var(--pink);">Exclusive</div>
-                    <h3>Speculative Branching</h3>
-                    <p><code>/spec 3 'fix the bug'</code> → creates 3 git worktrees → dispatches Claude, GPT, Gemini simultaneously → runs tests → merges winner. Zero cross-contamination.</p>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-badge" style="background: var(--cyan);">Exclusive</div>
-                    <h3>Multi-Model /flow</h3>
-                    <p>Pipeline AI models as Planner → Implementer → Critic. Claude Opus plans → Sonnet writes → o3 reviews. One command, zero manual handoff.</p>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-badge" style="background: var(--yellow);">12+ Models</div>
-                    <h3>Any Provider, One Agent</h3>
-                    <p>Claude, GPT-4.1, Gemini 3 Pro, Google Antigravity, DeepSeek, ChatGPT, Claude Pro, Ollama local. Switch with <code>/model</code>.</p>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-badge" style="background: var(--mint);">Lightweight</div>
-                    <h3>Pure Python, No Electron</h3>
-                    <p>Python 3.11 + prompt_toolkit. Runs on x86_64 and ARM64. Starts in under a second. One dependency. AGPL-3.0.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Sandbox -->
-    <section class="section sandbox-section" id="sandbox">
-        <div class="container">
-            <div class="section-header">
-                <h2 style="background: var(--surface);">Try Speculative Branching</h2>
-                <p style="color: var(--ink);">Drag the slider to set branch count, then run the simulation.</p>
-            </div>
-            <div class="sandbox-card">
-                <div class="sim-controls">
-                    <div class="sim-slider-label">Branches: <span id="branch-count-val">3</span></div>
-                    <input type="range" id="branch-slider" min="2" max="5" value="3">
-                    <button class="btn btn-cyan" id="run-sim-btn">▶ Run /spec Simulation</button>
-                </div>
-                <div class="branch-grid" id="dynamic-branch-grid">
-                    <!-- Dynamic -->
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Pricing -->
-    <section class="section pricing-section" id="pricing">
-        <div class="container">
-            <div class="section-header">
-                <h2>Choose Your Plan</h2>
-            </div>
-            <div class="pricing-grid">
-                <!-- Lite -->
-                <div class="plan-card">
-                    <div class="plan-tag">Free · AGPL-3.0</div>
-                    <h3 class="plan-title">Offset Lite</h3>
-                    <div class="plan-price">$0 / forever</div>
-                    <ul class="plan-features">
-                        <li>Bring-Your-Own API Keys (OpenAI, Anthropic, Gemini, Ollama)</li>
-                        <li>Full terminal REPL with 12+ model support</li>
-                        <li>Local subagent execution</li>
-                        <li>Built-in Easter eggs</li>
-                        <li class="disabled">Speculative Branching (/spec)</li>
-                        <li class="disabled">Multi-Model /flow pipeline</li>
-                        <li class="disabled">Cloud key pool</li>
-                    </ul>
-                    <button class="btn btn-mint" onclick="openInstallModal()">Install Free</button>
-                </div>
-                <!-- Plus -->
-                <div class="plan-card plan-plus">
-                    <div class="plan-tag">Plus</div>
-                    <h3 class="plan-title">Offset Plus</h3>
-                    <div class="plan-price">Subscription</div>
-                    <ul class="plan-features">
-                        <li>Everything in Offset Lite</li>
-                        <li class="highlight">/spec — Race N models in parallel git worktrees</li>
-                        <li class="highlight">/flow — Multi-model collaborative pipeline</li>
-                        <li>Cloud API key pool access</li>
-                        <li>Speculative diff evaluator &amp; auto-merger</li>
-                        <li>Priority support &amp; beta releases</li>
-                    </ul>
-                    <div class="plan-warning">
-                        <strong>⚠ Before purchasing:</strong> Sign in with your Google or GitHub account first. Then use the <strong>exact same email</strong> on Gumroad checkout for automatic activation.
-                    </div>
-                    <button class="btn btn-cyan" onclick="openCheckoutModal()">Subscribe on Gumroad</button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Vault -->
-    <section class="section vault-section" id="vault-section">
-        <div class="container">
-            <div class="section-header">
-                <h2 style="background: var(--pink);">Easter Egg Vault</h2>
-                <p>Find hidden secrets in the terminal REPL above. <span id="vault-count" style="font-weight: 700; background: var(--surface); color: var(--ink); padding: 2px 8px; box-shadow: 2px 2px 0px var(--pink);">0</span> / 8 Found</p>
-            </div>
-            <button class="btn btn-yellow" onclick="hintEgg()" style="color: var(--ink);">Request a Hint</button>
-            <div class="vault-grid">
-                <div class="egg-badge" id="badge-bear">???</div>
-                <div class="egg-badge" id="badge-sudo">???</div>
-                <div class="egg-badge" id="badge-matrix">???</div>
-                <div class="egg-badge" id="badge-hunter2">???</div>
-                <div class="egg-badge" id="badge-neofetch">???</div>
-                <div class="egg-badge" id="badge-gravity">???</div>
-                <div class="egg-badge" id="badge-konami">???</div>
-                <div class="egg-badge" id="badge-coffee">???</div>
-            </div>
-        </div>
-    </section>
-
-    <footer>
-        <div class="container">
-            OFFSET · <a href="https://github.com/The-Masked-Bear/offset-terminal/blob/main/LICENSE" target="_blank" style="color: inherit;">AGPL-3.0</a> · Created by <a href="https://github.com/The-Masked-Bear" target="_blank" style="color: inherit;">The Masked Bear</a>
-        </div>
-    </footer>
-
-    <!-- Toasts -->
-    <div class="toast-container" id="toast-container"></div>
-
-    <!-- Install Modal -->
-    <div class="modal-overlay" id="install-modal-overlay" onclick="handleModalBackdropClick(event)">
-        <div class="modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <div class="modal-title">Install Offset</div>
-                <button class="modal-close-btn" onclick="closeInstallModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="step-box">
-                    <div class="step-label"><span class="step-num">1</span> Install via pipx (requires Python 3.11+)</div>
-                    <div class="modal-code-row">
-                        <code id="modal-install-cmd">pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
-                        <button class="modal-copy-btn" onclick="copyModalCmd('pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git', this)">COPY</button>
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-label"><span class="step-num">2</span> Launch the terminal agent</div>
-                    <div class="modal-code-row">
-                        <code>offset</code>
-                        <button class="modal-copy-btn" onclick="copyModalCmd('offset', this)">COPY</button>
-                    </div>
-                </div>
-                <div class="step-box" style="background: var(--yellow);">
-                    <div class="step-label"><span class="step-num" style="background: var(--surface);">3</span> Link Account</div>
-                    <p class="step-note">
-                        On first launch, sign in with your <strong>Google</strong> or <strong>GitHub</strong> account to activate Offset Lite. If you subscribe on Gumroad using that email, <strong>Offset Plus</strong> activates automatically.
-                    </p>
-                </div>
-            </div>
-        </div>
+  <!-- Marquee -->
+  <div class="brutal-marquee-container">
+    <div class="brutal-marquee" id="marquee-content">
+      <!-- Content populated by JS for smooth infinite scroll -->
     </div>
+  </div>
 
-    <!-- Checkout Modal -->
-    <div class="modal-overlay" id="checkout-modal-overlay" onclick="handleCheckoutModalBackdrop(event)">
-        <div class="modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <div class="modal-title">Sign In Before Checkout</div>
-                <button class="modal-close-btn" onclick="closeCheckoutModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="step-box">
-                    <div class="step-label"><span class="step-num">1</span> Use your Google/GitHub email</div>
-                    <p class="step-note">
-                        Offset Plus unlocks automatically by matching your sign-in account.
-                    </p>
-                    <div class="checkout-email-row">
-                        <input type="email" id="checkout-email-input" placeholder="e.g. your-email@gmail.com">
-                        <button class="btn btn-yellow" style="padding: 8px 14px; font-size: 0.9rem;" onclick="saveCheckoutEmail()">Save Email</button>
-                    </div>
-                </div>
-                <div class="step-box" style="background: var(--pink);">
-                    <div class="step-label"><span class="step-num" style="background: var(--surface);">2</span> Same email on Gumroad</div>
-                    <p class="step-note">
-                        When completing checkout on Gumroad, enter this exact same email. Our live webhook will link your subscription instantly.
-                    </p>
-                </div>
-                <a href="https://debarghya47.gumroad.com/l/qzqnxk" target="_blank" class="btn btn-cyan" style="width: 100%; text-align: center; padding: 16px; font-size: 1rem;" onclick="closeCheckoutModal()">
-                    Proceed to Gumroad Checkout →
-                </a>
-            </div>
-        </div>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1>RACE AI MODELS IN PARALLEL.<br>KEEP THE WINNER.</h1>
+      <div class="hero-actions">
+        <a href="#" class="brutal-btn color-pink">INSTALL NOW</a>
+        <a href="#pricing" class="brutal-btn color-mint">GET PLUS</a>
+      </div>
     </div>
+    
+    <div class="terminal-box">
+      <div class="terminal-header">
+        <span>offset-terminal</span>
+        <span>~</span>
+      </div>
+      <div class="terminal-body" id="term-body">
+        <div class="terminal-line">Welcome to offset REPL v1.0.0.</div>
+        <div class="terminal-line">Type /help for commands.</div>
+        <div class="terminal-input-line">
+          <span class="terminal-prompt">❯</span>
+          <input type="text" class="terminal-input" id="term-input" autocomplete="off" spellcheck="false" autofocus>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <script>
-        // --- Toasts ---
-        function showToast(msg) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = msg;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
+  <!-- Features Grid -->
+  <section id="features" class="features">
+    <div class="features-grid">
+      <div class="brutal-card feature-card color-yellow" style="background: var(--yellow)">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+          <path d="M6 3v18M18 3v18M3 12h18"/>
+        </svg>
+        <h3>SPECULATIVE BRANCHING</h3>
+        <p>Spawn multiple reasoning paths simultaneously. Evaluate outputs. Merge the best result instantly.</p>
+      </div>
+      <div class="brutal-card feature-card color-mint" style="background: var(--mint)">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+        <h3>/FLOW WORKFLOWS</h3>
+        <p>Define multi-step pipelines. Let the agent orchestrate its own tools and verification steps.</p>
+      </div>
+      <div class="brutal-card feature-card color-pink" style="background: var(--pink)">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+          <rect x="2" y="2" width="20" height="20"/>
+          <path d="M8 2v20M16 2v20M2 8h20M2 16h20"/>
+        </svg>
+        <h3>12+ MODELS</h3>
+        <p>Anthropic, OpenAI, Google, Groq, local inference. Switch instantly or run them head-to-head.</p>
+      </div>
+      <div class="brutal-card feature-card color-blue" style="background: var(--blue)">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+          <path d="M12 2L2 22h20L12 2z"/>
+        </svg>
+        <h3>PURE PYTHON</h3>
+        <p>No JS runtime. No heavy browser engines. Just clean, raw Python and a brutally fast terminal UI.</p>
+      </div>
+    </div>
+  </section>
 
-        // --- Modals ---
-        function openInstallModal() { document.getElementById('install-modal-overlay').classList.add('active'); }
-        function closeInstallModal() { document.getElementById('install-modal-overlay').classList.remove('active'); }
-        function handleModalBackdropClick(e) { if (e.target.id === 'install-modal-overlay') closeInstallModal(); }
+  <!-- Sandbox -->
+  <section id="sandbox" class="sandbox">
+    <div class="brutal-card sandbox-container">
+      <div class="sandbox-header">
+        <h2>BRANCHING SANDBOX</h2>
+        <p>Adjust concurrent model runners and race them.</p>
+      </div>
+      <div class="sandbox-controls">
+        <label for="runner-count" style="font-weight:900;">MODELS (1-8):</label>
+        <div class="slider-container">
+          <input type="range" id="runner-count" min="1" max="8" value="4">
+        </div>
+        <span id="runner-display" style="font-size: 1.5rem; font-family: 'Archivo Black', sans-serif;">4</span>
+        <button id="btn-race" class="brutal-btn color-pink">RACE START</button>
+      </div>
+      <div class="sandbox-runners" id="runners-container">
+        <!-- Runner boxes injected by JS -->
+      </div>
+    </div>
+  </section>
 
-        function openCheckoutModal() {
-            document.getElementById('checkout-modal-overlay').classList.add('active');
-            const saved = localStorage.getItem('offset_checkout_email');
-            if (saved) {
-                const input = document.getElementById('checkout-email-input');
-                if (input) input.value = saved;
-            }
-        }
-        function closeCheckoutModal() { document.getElementById('checkout-modal-overlay').classList.remove('active'); }
-        function handleCheckoutModalBackdrop(e) { if (e.target.id === 'checkout-modal-overlay') closeCheckoutModal(); }
+  <!-- Pricing -->
+  <section id="pricing" class="pricing">
+    <h2>CHOOSE YOUR TIER</h2>
+    <div class="pricing-grid">
+      
+      <div class="brutal-card price-card">
+        <div class="price-header">
+          <h3>LITE</h3>
+          <div class="price-amount">$0<span style="font-size:1rem;font-family:'Space Mono',monospace">/mo</span></div>
+        </div>
+        <ul class="price-features">
+          <li>Local Models Only</li>
+          <li>Basic REPL Interface</li>
+          <li>Community Support</li>
+          <li>Standard Themes</li>
+        </ul>
+        <a href="#" class="brutal-btn color-mint" style="text-align:center;width:100%;">DOWNLOAD FREE</a>
+      </div>
 
-        function saveCheckoutEmail() {
-            const input = document.getElementById('checkout-email-input');
-            const email = input ? input.value.trim() : '';
-            if (email && email.includes('@')) {
-                localStorage.setItem('offset_checkout_email', email);
-                showToast('✓ Saved email: ' + email);
-            } else {
-                showToast('⚠ Please enter a valid email.');
-            }
-        }
+      <div class="brutal-card price-card plus">
+        <div class="price-header">
+          <h3>PLUS</h3>
+          <div class="price-amount">$15<span style="font-size:1rem;font-family:'Space Mono',monospace">/mo</span></div>
+        </div>
+        <ul class="price-features">
+          <li>Multi-Model Orchestration</li>
+          <li>Speculative Branching</li>
+          <li>Priority Cloud Inference</li>
+          <li>OAuth Integrations</li>
+          <li>Advanced Workflows (/flow)</li>
+        </ul>
+        <a href="#" class="brutal-btn color-yellow" style="text-align:center;width:100%;">GET PLUS</a>
+      </div>
 
-        function copyModalCmd(text, btn) {
-            navigator.clipboard.writeText(text).then(() => {
-                const orig = btn.textContent;
-                btn.textContent = 'COPIED!';
-                setTimeout(() => { btn.textContent = orig; }, 2000);
-                showToast('✓ Copied to clipboard.');
-            });
-        }
+    </div>
+  </section>
 
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeInstallModal();
-                closeCheckoutModal();
-            }
-        });
+  <script>
+    // --- Custom Cursor ---
+    const dot = document.getElementById('cursor-dot');
+    const ring = document.getElementById('cursor-ring');
 
-        document.getElementById('copy-install-btn').addEventListener('click', () => {
-            const cmd = 'pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git';
-            navigator.clipboard.writeText(cmd).then(() => {
-                const btn = document.getElementById('copy-install-btn');
-                btn.textContent = 'COPIED!';
-                setTimeout(() => { btn.textContent = 'COPY'; }, 2000);
-                showToast('✓ Copied to clipboard.');
-            });
-        });
+    document.addEventListener('mousemove', (e) => {
+      dot.style.left = e.clientX + 'px';
+      dot.style.top = e.clientY + 'px';
+      
+      // Delay for the ring
+      setTimeout(() => {
+        ring.style.left = e.clientX + 'px';
+        ring.style.top = e.clientY + 'px';
+      }, 50);
+    });
 
-        // --- Eggs ---
-        const discoveredEggs = new Set();
-        const TOTAL_EGGS = 8;
-        const eggIcons = {
-            bear: '🐻 BEAR', sudo: '🔒 SUDO', matrix: '🐇 MATRIX', hunter2: '🔑 HUNTER2',
-            neofetch: '💻 NEOFETCH', gravity: '💥 GRAVITY', konami: '🕹️ KONAMI', coffee: '☕ COFFEE'
-        };
+    // Make interactive elements affect cursor scale if desired, keeping it brutal
+    const interactables = document.querySelectorAll('a, button, input, .feature-card, .price-card, .logo');
+    interactables.forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        ring.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        ring.style.borderWidth = '4px';
+      });
+      el.addEventListener('mouseleave', () => {
+        ring.style.transform = 'translate(-50%, -50%) scale(1)';
+        ring.style.borderWidth = '2px';
+      });
+    });
 
-        function unlockEgg(name, displayName) {
-            if (!discoveredEggs.has(name)) {
-                discoveredEggs.add(name);
-                showToast('🎉 Unlocked: ' + displayName);
-                const badge = document.getElementById('badge-' + name);
-                if (badge) {
-                    badge.classList.add('unlocked');
-                    badge.textContent = eggIcons[name] || displayName;
-                }
-                document.getElementById('vault-count').textContent = discoveredEggs.size;
-                if (discoveredEggs.size === TOTAL_EGGS) {
-                    setTimeout(() => showToast('🏆 All 8 eggs found! Full root privileges granted.'), 500);
-                }
-            }
-        }
+    // --- Marquee Population ---
+    const marqueeStr = "RACE MODELS ★ KEEP THE WINNER ★ PURE PYTHON ★ NO ELECTRON ★ MULTI-MODEL ORCHESTRATION ★ ";
+    const marqueeEl = document.getElementById('marquee-content');
+    // Repeat enough times to cover standard widths + scroll
+    marqueeEl.innerHTML = `<span>${marqueeStr}</span><span>${marqueeStr}</span><span>${marqueeStr}</span><span>${marqueeStr}</span>`;
 
-        function hintEgg() {
-            const hints = [
-                "Try interrogating the terminal about nature...", "What happens when you demand root privileges?",
-                "Wake up, operator...", "Is your password secure against honeypots?",
-                "Classic arcade cheat codes might work on this page...", "Developers need caffeinated beverages...",
-                "Have you tried fetching system info?", "What goes up must come down..."
-            ];
-            showToast('💡 ' + hints[Math.floor(Math.random() * hints.length)]);
-        }
+    // --- Terminal Simulator ---
+    const termInput = document.getElementById('term-input');
+    const termBody = document.getElementById('term-body');
 
-        // --- Sandbox ---
-        const branchSlider = document.getElementById('branch-slider');
-        const branchCountVal = document.getElementById('branch-count-val');
-        const dynamicBranchGrid = document.getElementById('dynamic-branch-grid');
-        const modelPool = [
-            { name: 'Claude Sonnet 4' }, { name: 'GPT-4.1' }, { name: 'Gemini 3 Pro' },
-            { name: 'DeepSeek V3' }, { name: 'Claude Opus 4' }
-        ];
+    function appendTerminalLine(text, isPrompt = false, color = 'var(--mint)') {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      if(isPrompt) {
+        line.innerHTML = `<span class="terminal-prompt">❯</span><span style="color:var(--white)">${text}</span>`;
+      } else {
+        line.style.color = color;
+        line.innerText = text;
+      }
+      
+      // Insert before the input line
+      const inputLine = document.querySelector('.terminal-input-line');
+      termBody.insertBefore(line, inputLine);
+      termBody.scrollTop = termBody.scrollHeight;
+    }
 
-        function renderBranchGrid() {
-            const count = parseInt(branchSlider.value);
-            branchCountVal.textContent = count;
-            dynamicBranchGrid.innerHTML = '';
-            for (let i = 0; i < count; i++) {
-                const col = document.createElement('div');
-                col.className = 'branch-col';
-                col.id = 'dyn-branch-' + i;
-                const m = modelPool[i % modelPool.length];
-                col.innerHTML =
-                    '<div class="branch-title">' +
-                        '<span>Branch ' + String.fromCharCode(65 + i) + ' (' + m.name + ')</span>' +
-                        '<span class="status-badge status-idle">IDLE</span>' +
-                    '</div>' +
-                    '<div class="branch-log">Awaiting task dispatch...</div>';
-                dynamicBranchGrid.appendChild(col);
-            }
-        }
-        branchSlider.addEventListener('input', renderBranchGrid);
-        renderBranchGrid();
-
-        document.getElementById('run-sim-btn').addEventListener('click', () => {
-            const btn = document.getElementById('run-sim-btn');
-            btn.disabled = true;
-            btn.textContent = '⏳ Speculating...';
-            const count = parseInt(branchSlider.value);
-            const winnerIndex = Math.floor(Math.random() * count);
-
-            for (let i = 0; i < count; i++) {
-                const b = document.getElementById('dyn-branch-' + i);
-                if (!b) continue;
-                b.classList.remove('winner');
-                const badge = b.querySelector('.status-badge');
-                badge.textContent = 'RUNNING';
-                badge.className = 'status-badge status-running';
-                b.querySelector('.branch-log').textContent = 'Generating AST refactor & running worktree tests...';
-            }
-
-            setTimeout(() => {
-                for (let i = 0; i < count; i++) {
-                    const b = document.getElementById('dyn-branch-' + i);
-                    if (!b) continue;
-                    const badge = b.querySelector('.status-badge');
-                    if (i === winnerIndex) {
-                        b.classList.add('winner');
-                        badge.textContent = 'WINNER (MERGED)';
-                        badge.className = 'status-badge status-winner';
-                        b.querySelector('.branch-log').textContent = '14/14 tests passed! Auto-merged to main branch.';
-                    } else {
-                        badge.textContent = 'DISCARDED';
-                        badge.className = 'status-badge status-discarded';
-                        b.querySelector('.branch-log').textContent = 'Test failure / suboptimal complexity. Cleaned up.';
-                    }
-                }
-                btn.disabled = false;
-                btn.textContent = '▶ Run /spec Simulation';
-                showToast('🏆 Branch ' + String.fromCharCode(65 + winnerIndex) + ' won & auto-merged!');
-            }, 1000);
-        });
-
-        // --- Terminal ---
-        const termOutput = document.getElementById('term-output');
-        const termInput = document.getElementById('term-input');
-        let bearCount = 0, sudoCount = 0;
-        const cmdHistory = [];
-        let historyIndex = -1;
-
-        function printTerm(text, color) {
-            color = color || 'var(--mint)';
-            const line = document.createElement('div');
-            line.style.color = color;
-            line.innerHTML = text;
-            termOutput.appendChild(line);
-            termOutput.scrollTop = termOutput.scrollHeight;
-        }
-
-        function executeCmd(rawCmd) {
-            const cmd = rawCmd.trim();
-            if (!cmd) return;
-            cmdHistory.push(cmd);
-            historyIndex = cmdHistory.length;
-            printTerm('<span style="color: var(--yellow);">offset &gt;</span> ' + cmd, '#ffffff');
-
-            const lower = cmd.toLowerCase();
-
-            if (lower === 'gravity') {
-                unlockEgg('gravity', 'GRAVITY ENABLED');
-                printTerm('💥 GRAVITY ENABLED! Everything is falling...', 'var(--yellow)');
-                document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
-                    el.style.transition = 'transform 0.8s ease-in';
-                    el.style.transform = 'translateY(120vh) rotate(45deg)';
-                });
-                setTimeout(() => {
-                    document.querySelectorAll('.feat-card, .sandbox-card, .plan-card').forEach(el => {
-                        el.style.transition = 'transform 0.6s ease-out';
-                        el.style.transform = '';
-                    });
-                }, 2000);
-                return;
-            }
-
-            if (lower === 'help') {
-                printTerm('<strong>AVAILABLE COMMANDS:</strong><br>' +
-                    '  /spec &lt;N&gt; &lt;task&gt;  - Run N speculative branches in isolated worktrees<br>' +
-                    '  /flow &lt;task&gt;     - Multi-model orchestrated pipeline<br>' +
-                    '  bear               - Sentience interrogation<br>' +
-                    '  sudo               - Escalation request<br>' +
-                    '  matrix             - Toggle reality decoding<br>' +
-                    '  neofetch           - System architecture & ASCII bear<br>' +
-                    '  hunter2            - Security credentials check<br>' +
-                    '  coffee             - RFC 2324 teapot protocol<br>' +
-                    '  clear              - Wipe terminal output', 'var(--cyan)');
-            } else if (lower.startsWith('/spec') || lower.startsWith('spec')) {
-                printTerm('[SPEC] Forking repository into 3 isolated worktrees...', 'var(--yellow)');
-                printTerm('[BRANCH A] Initialized with Claude Sonnet 4', 'var(--muted)');
-                printTerm('[BRANCH B] Initialized with GPT-4.1', 'var(--muted)');
-                printTerm('[BRANCH C] Initialized with Gemini 3 Pro', 'var(--muted)');
-                setTimeout(() => {
-                    printTerm('[SPEC] Running deterministic test suites across all 3...', 'var(--cyan)');
-                    setTimeout(() => {
-                        printTerm('[RESULT] Branch A passed 14/14 tests. Branch B failed. Branch C passed 14/14 tests.', 'var(--mint)');
-                        printTerm('[MERGE] Merged Branch A into main repository cleanly. ✨', 'var(--yellow)');
-                    }, 800);
-                }, 600);
-            } else if (lower.startsWith('/flow') || lower.startsWith('flow')) {
-                printTerm('[FLOW] Assembling multi-model pipeline:', 'var(--cyan)');
-                printTerm('  → Step 1 (Architect): Claude Opus 4 generating interface specification', 'var(--muted)');
-                printTerm('  → Step 2 (Implementer): Claude Sonnet 4 writing atomic tool modules', 'var(--muted)');
-                printTerm('  → Step 3 (Critic): OpenAI o3 reviewing diffs and verification', 'var(--muted)');
-                setTimeout(() => {
-                    printTerm('[FLOW] Pipeline complete. 0 human interventions needed.', 'var(--mint)');
-                }, 1000);
-            } else if (lower === 'bear') {
-                bearCount++;
-                unlockEgg('bear', 'ARE YOU A BEAR?');
-                if (bearCount === 1) printTerm('ARE YOU A BEAR?<br>No.', 'var(--yellow)');
-                else if (bearCount === 2) printTerm('ARE YOU A BEAR?<br>Still no.', 'var(--yellow)');
-                else if (bearCount === 3) printTerm('ARE YOU A BEAR?<br>...Define bear.', 'var(--yellow)');
-                else printTerm('<pre style="color: var(--cyan); line-height: 1.1;">   ▄▄▄     ▄▄▄   \n  ████▄▄▄▄▄████  \n ██████████████ \n ██ ██████ ██ \n █████ ██ █████ \n ██████████████ \n  ████████████  \nFINE. YES.\nThis changes nothing about the code review.</pre>', 'var(--cyan)');
-            } else if (lower === 'sudo') {
-                sudoCount++;
-                unlockEgg('sudo', 'PERMISSION DENIED');
-                if (sudoCount <= 1) printTerm('PERMISSION DENIED.<br>guest is not in the sudoers file.<br>This incident will be reported to The-Masked-Bear.', 'var(--red)');
-                else if (sudoCount === 2) printTerm('STILL DENIED.<br>The incident was reported. He read it. He said no.', 'var(--red)');
-                else printTerm('ROOT GRANTED.<br>Just kidding. You have root over this dialog box and nothing else.', 'var(--yellow)');
-            } else if (lower === 'matrix') {
-                unlockEgg('matrix', 'WAKE UP, OPERATOR');
-                printTerm('WAKE UP, OPERATOR. Follow the white rabbit.', 'var(--mint)');
-            } else if (lower === 'neofetch' || lower === 'fetch') {
-                unlockEgg('neofetch', 'NEOFETCH SYSTEM INFO');
-                printTerm('<pre style="color: var(--cyan); line-height: 1.2;">   ▄▄▄     ▄▄▄     operator@offset\n  ████▄▄▄▄▄████    ---------------\n ██████████████    OS      : offset 0.1.0\n ██ ██████ ██    Engine  : speculative branching\n █████ ██ █████    Models  : claude/gpt/gemini/ollama\n ██████████████    Arch    : x86_64/arm64\n  ████████████     License : AGPL-3.0</pre>', 'var(--cyan)');
-            } else if (lower === 'hunter2' || lower === 'password') {
-                unlockEgg('hunter2', 'HUNTER2 HONEYPOT');
-                printTerm('ACCESS DENIED.<br>KEY: *******<br>Everyone else in this room just sees *******.', 'var(--red)');
-            } else if (lower === 'coffee' || lower === 'brew') {
-                unlockEgg('coffee', 'HTCPCP 418');
-                printTerm('HTCPCP 418: I\'m a teapot.<br>I am also a Raspberry Pi. Do not pour anything into me.', 'var(--red)');
-            } else if (lower === 'clear') {
-                termOutput.innerHTML = '';
-            } else if (lower === '/model' || lower === 'model') {
-                printTerm('[MODEL] Available models:', 'var(--cyan)');
-                printTerm('  1. claude-sonnet-4    (Anthropic)', 'var(--muted)');
-                printTerm('  2. claude-opus-4      (Anthropic)', 'var(--muted)');
-                printTerm('  3. gpt-4.1            (OpenAI)', 'var(--muted)');
-                printTerm('  4. o3                 (OpenAI)', 'var(--muted)');
-                printTerm('  5. gemini-3-pro       (Google)', 'var(--muted)');
-                printTerm('  6. antigravity        (Google)', 'var(--muted)');
-                printTerm('  7. deepseek-v3        (DeepSeek)', 'var(--muted)');
-                printTerm('  8. ollama/llama3      (Local)', 'var(--muted)');
-                printTerm('Use /model &lt;name&gt; to switch.', 'var(--mint)');
-            } else if (lower === '/login' || lower === 'login') {
-                printTerm('[AUTH] Opening browser for OAuth sign-in...', 'var(--cyan)');
-                setTimeout(() => {
-                    printTerm('[AUTH] Waiting for callback on http://localhost:9876 ...', 'var(--muted)');
-                    setTimeout(() => {
-                        printTerm('[AUTH] ✓ Authenticated as operator@offset.dev', 'var(--mint)');
-                    }, 600);
-                }, 400);
-            } else {
-                printTerm('offset: command not found: \'' + cmd + '\'. Type \'help\' for options.', 'var(--muted)');
-            }
-        }
-
-        termInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const val = termInput.value;
-                termInput.value = '';
-                executeCmd(val);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    termInput.value = cmdHistory[historyIndex];
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < cmdHistory.length - 1) {
-                    historyIndex++;
-                    termInput.value = cmdHistory[historyIndex];
-                } else {
-                    historyIndex = cmdHistory.length;
-                    termInput.value = '';
-                }
-            }
-        });
-
-        // Konami
-        const konamiSequence = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
-        let konamiIndex = 0;
-        window.addEventListener('keydown', (e) => {
-            if (document.activeElement === termInput) return;
-            const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-            const expected = konamiSequence[konamiIndex].length === 1 ? konamiSequence[konamiIndex].toLowerCase() : konamiSequence[konamiIndex];
-            if (key === expected) {
-                konamiIndex++;
-                if (konamiIndex === konamiSequence.length) {
-                    konamiIndex = 0;
-                    unlockEgg('konami', '30 LIVES GRANTED');
-                    showToast('🕹️ 30 lives granted! God mode unlocked.');
-                }
-            } else {
-                konamiIndex = 0;
-            }
-        });
-    </script>
-
-    <!-- Interactive Overdrive Engine -->
-    <style>
-        /* Animations & Interactions */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        .btn:hover, .copy-btn:hover {
-            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
-            box-shadow: 0 0 15px var(--cyan);
-            text-shadow: 0 0 5px rgba(255,255,255,0.5);
-        }
-        .feat-card, .plan-card {
-            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
-            transform-style: preserve-3d;
-            will-change: transform;
-        }
-        .feat-card:hover, .plan-card:hover {
-            box-shadow: 0 10px 30px -10px var(--cyan);
-            z-index: 10;
-        }
-        .interactive-glitch {
-            display: inline-block;
-            transition: color 0.1s;
-        }
-        .interactive-glitch:hover {
-            color: var(--yellow) !important;
-            text-shadow: 2px 0 var(--red), -2px 0 var(--cyan);
-            cursor: crosshair;
-        }
-        /* Custom Cursor Trail */
-        #cursor-trail {
-            position: fixed;
-            top: 0; left: 0;
-            width: 20px; height: 20px;
-            border: 2px solid var(--cyan);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 9999;
-            transition: transform 0.1s ease-out, width 0.1s, height 0.1s;
-            mix-blend-mode: exclusion;
-        }
-        body:hover #cursor-trail {
-            opacity: 1;
-        }
-        /* Click Particles */
-        .click-particle {
-            position: fixed;
-            color: var(--mint);
-            font-family: 'Space Mono', monospace;
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 9998;
-            user-select: none;
-            animation: particle-fade 0.6s ease-out forwards;
-        }
-        @keyframes particle-fade {
-            0% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
-            100% { transform: scale(0) translateY(-50px) rotate(180deg); opacity: 0; }
-        }
-    </style>
-    <div id="cursor-trail"></div>
-    <script>
-        // --- 1. Audio Engine ---
-        let audioCtx = null;
-        let soundEnabled = true;
-        let audioUnlocked = false;
-
-        function unlockAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => { audioUnlocked = true; }).catch(() => {});
-            } else {
-                audioUnlocked = true;
-            }
-        }
-
-        function playBeep(freq = 440, type = 'square', duration = 0.05, vol = 0.03) {
-            if (!soundEnabled || !audioUnlocked || !audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch(e) {}
-        }
-
-        // Attach sounds to interactables
-        document.addEventListener('mouseover', (e) => {
-            if (e.target.closest('button, .btn, .feat-card, .plan-card, a, .chip')) {
-                playBeep(800 + Math.random() * 400, 'sine', 0.02, 0.01);
-            }
-        });
-        document.addEventListener('mousedown', (e) => {
-            if (e.target.closest('button, .btn, a, .chip')) {
-                playBeep(300, 'square', 0.08, 0.05);
-            } else if (e.target.closest('input, textarea')) {
-                playBeep(600, 'triangle', 0.04, 0.02);
-            } else {
-                playBeep(200 + Math.random()*100, 'sawtooth', 0.04, 0.01); // background click
-            }
-        });
-
-        // --- 2. 3D Card Tilt ---
-        document.querySelectorAll('.feat-card, .plan-card').forEach(card => {
-            card.addEventListener('mousemove', e => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotateX = ((y - centerY) / centerY) * -8; // max 8 deg
-                const rotateY = ((x - centerX) / centerX) * 8;
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-            });
-            card.addEventListener('mouseleave', () => {
-                card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-            });
-        });
-
-        // --- 3. Click Particles (ASCII) ---
-        const chars = ['*', '#', '+', '0', '1', 'λ', '_', '/'];
-        window.addEventListener('click', e => {
-            if (e.target.closest('.terminal-wrapper')) return; // keep terminal clean
-            for(let i=0; i<6; i++) {
-                createParticle(e.clientX, e.clientY);
-            }
-        });
-
-        function createParticle(x, y) {
-            const p = document.createElement('div');
-            p.className = 'click-particle';
-            p.innerText = chars[Math.floor(Math.random() * chars.length)];
-            p.style.left = x + 'px';
-            p.style.top = y + 'px';
-            const angle = Math.random() * Math.PI * 2;
-            const velocity = 20 + Math.random() * 40;
-            const tx = Math.cos(angle) * velocity;
-            const ty = Math.sin(angle) * velocity;
-            p.style.transform = `translate(${tx}px, ${ty}px)`;
-            
-            // Random color
-            const colors = ['var(--cyan)', 'var(--mint)', 'var(--yellow)', 'var(--red)'];
-            p.style.color = colors[Math.floor(Math.random() * colors.length)];
-            
-            document.body.appendChild(p);
-            setTimeout(() => p.remove(), 600);
-        }
-
-        // --- 4. Custom Cursor ---
-        const cursor = document.getElementById('cursor-trail');
-        let curX = window.innerWidth/2, curY = window.innerHeight/2;
-        let tgX = curX, tgY = curY;
+    termInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        const val = this.value.trim();
+        if(!val) return;
         
-        window.addEventListener('mousemove', e => {
-            tgX = e.clientX;
-            tgY = e.clientY;
-        });
-        window.addEventListener('mousedown', () => {
-            cursor.style.width = '30px';
-            cursor.style.height = '30px';
-            cursor.style.background = 'rgba(59, 130, 246, 0.2)';
-        });
-        window.addEventListener('mouseup', () => {
-            cursor.style.width = '20px';
-            cursor.style.height = '20px';
-            cursor.style.background = 'transparent';
-        });
+        appendTerminalLine(val, true);
+        this.value = '';
 
-        function animateCursor() {
-            curX += (tgX - curX) * 0.2;
-            curY += (tgY - curY) * 0.2;
-            cursor.style.transform = `translate(${curX - 10}px, ${curY - 10}px)`;
-            requestAnimationFrame(animateCursor);
-        }
-        animateCursor();
-
-        // --- 5. Glitch Text ---
-        const glitchTargets = document.querySelectorAll('h1, h2, .hero-badge');
-        glitchTargets.forEach(el => {
-            el.classList.add('interactive-glitch');
-            const originalText = el.innerText;
-            el.addEventListener('mouseenter', () => {
-                let iterations = 0;
-                const interval = setInterval(() => {
-                    el.innerText = originalText.split('').map(char => {
-                        if (char === ' ' || char === '\n') return char;
-                        return Math.random() > 0.5 ? chars[Math.floor(Math.random() * chars.length)] : char;
-                    }).join('');
-                    iterations++;
-                    if (iterations > 4) {
-                        clearInterval(interval);
-                        el.innerText = originalText;
-                    }
-                }, 40);
-            });
-        });
-
-        // Initialize audio context on first user interaction
-        document.body.addEventListener('click', unlockAudio, { once: true });
-        document.body.addEventListener('keydown', unlockAudio, { once: true });
-    </script>
-
-    <!-- EXTREME INTERACTIVITY ENGINE -->
-    <style>
-        /* 1. Continuous Floating Animations */
-        @keyframes hardcore-float {
-            0% { transform: translateY(0px) rotate(0deg); }
-            25% { transform: translateY(-8px) rotate(2deg); }
-            50% { transform: translateY(4px) rotate(-1deg); }
-            75% { transform: translateY(-4px) rotate(1deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
-        }
-        .feat-card, .plan-card, .sandbox-card, .hero-badge {
-            animation: hardcore-float 6s ease-in-out infinite;
-        }
-        .feat-card:nth-child(even) { animation-delay: -2s; animation-duration: 5s; }
-        .feat-card:nth-child(3) { animation-delay: -4s; animation-duration: 7s; }
-        .plan-card:nth-child(even) { animation-delay: -3s; }
-
-        /* 2. Slam Entrances on Scroll */
-        @keyframes slam-enter {
-            0% { transform: scale(0.1) rotate(25deg) translateY(200px); opacity: 0; box-shadow: 0 0 0 var(--ink); filter: contrast(300%) hue-rotate(90deg); }
-            60% { transform: scale(1.1) rotate(-4deg); opacity: 1; box-shadow: 30px 30px 0 var(--ink); filter: contrast(100%) hue-rotate(0deg); }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; box-shadow: var(--shadow-xl); }
-        }
-        .slam-hidden { visibility: hidden; }
-        .slam-active { 
-            visibility: visible;
-            animation: slam-enter 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
-        }
-
-        /* 3. Screen Flash */
-        body.extreme-flash {
-            filter: invert(100%) hue-rotate(180deg) saturate(200%);
-            background-color: var(--ink);
-        }
-
-        /* 4. Crazy Hover States */
-        a, .nav-links a {
-            transition: letter-spacing 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55), transform 0.2s, color 0.2s;
-        }
-        a:hover, .nav-links a:hover {
-            letter-spacing: 4px;
-            color: var(--pink);
-            transform: scale(1.1) rotate(-2deg);
-        }
-        h1:hover, h2:hover, h3:hover {
-            animation: text-shake 0.1s infinite;
-            color: var(--cyan);
-            text-shadow: 4px 4px 0px var(--red);
-        }
-        @keyframes text-shake {
-            0% { transform: skewX(0deg); }
-            25% { transform: skewX(5deg) translateY(-2px); }
-            50% { transform: skewX(0deg); }
-            75% { transform: skewX(-5deg) translateY(2px); }
-            100% { transform: skewX(0deg); }
-        }
-
-        /* 5. Interactive Grid Background */
-        body {
-            background-image: 
-                linear-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(17, 17, 17, 0.05) 1px, transparent 1px);
-            background-size: 40px 40px;
-            background-position: center center;
-            transition: background-position 0.1s linear;
-        }
-        
-        /* 6. Draggable cursor */
-        .draggable {
-            cursor: grab !important;
-        }
-        .draggable.dragging {
-            cursor: grabbing !important;
-            animation: none !important; /* Stop float while dragging */
-            filter: brightness(120%) contrast(120%);
-        }
-    </style>
-    <script>
-        // --- 1. Global Screen Flash & Extreme Sounds ---
-        window.addEventListener('mousedown', (e) => {
-            if(e.target.closest('.terminal-wrapper, input, button')) return; // Don't flash if typing/using terminal
-            document.body.classList.add('extreme-flash');
-            setTimeout(() => document.body.classList.remove('extreme-flash'), 60);
-        });
-
-        // --- 2. Slam Entrance Observer ---
-        const slamObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.remove('slam-hidden');
-                    entry.target.classList.add('slam-active');
-                    playBeep(100, 'square', 0.1, 0.05); // heavy thud sound on appear
-                    slamObserver.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.15 });
-
-        document.querySelectorAll('.feat-card, .plan-card, .sandbox-card, .terminal-wrapper, .hero-text').forEach(el => {
-            el.classList.add('slam-hidden');
-            slamObserver.observe(el);
-        });
-
-        // --- 3. Make EVERYTHING Draggable (Visual Translation) ---
-        const dragTargets = document.querySelectorAll('.feat-card, .plan-card, .hero-badge');
-        let activeDrag = null;
-        let dragStartX, dragStartY;
-        
-        dragTargets.forEach(el => {
-            el.classList.add('draggable');
-            // Store original translation separate from the dynamic one
-            el.dataset.tx = 0;
-            el.dataset.ty = 0;
-
-            el.addEventListener('mousedown', (e) => {
-                if(e.target.closest('input, button, .btn, a, .install-box')) return;
-                activeDrag = el;
-                el.classList.add('dragging');
-                el.style.zIndex = 1000;
-                dragStartX = e.clientX - parseFloat(el.dataset.tx);
-                dragStartY = e.clientY - parseFloat(el.dataset.ty);
-                playBeep(800, 'triangle', 0.05, 0.05);
-                e.preventDefault(); // Prevent text selection
-            });
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            // Parallax Grid Background
-            document.body.style.backgroundPosition = `${e.clientX * -0.05}px ${e.clientY * -0.05}px`;
-
-            if (!activeDrag) return;
-            const currentX = e.clientX - dragStartX;
-            const currentY = e.clientY - dragStartY;
-            activeDrag.dataset.tx = currentX;
-            activeDrag.dataset.ty = currentY;
-            
-            // Apply extreme rotation based on drag velocity
-            const rot = (e.movementX * 0.8);
-            activeDrag.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rot}deg) scale(1.1)`;
-        });
-
-        window.addEventListener('mouseup', () => {
-            if (activeDrag) {
-                activeDrag.classList.remove('dragging');
-                activeDrag.style.zIndex = '';
-                playBeep(200, 'square', 0.08, 0.08); // Drop sound
-                
-                // Snap back with a spring animation
-                activeDrag.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                activeDrag.style.transform = `translate(${activeDrag.dataset.tx}px, ${activeDrag.dataset.ty}px) rotate(0deg) scale(1)`;
-                
-                // Remove transition after it finishes so float animation can resume
-                setTimeout(() => {
-                    if(activeDrag) activeDrag.style.transition = '';
-                    activeDrag = null;
-                }, 500);
-            }
-        });
-
-        // --- 4. Chaos Mode Command for Terminal ---
-        const originalExecuteCmd = executeCmd;
-        executeCmd = function(rawCmd) {
-            if(rawCmd.trim().toLowerCase() === 'chaos') {
-                printTerm('[CHAOS] Initiating maximum entropy protocol...', 'var(--red)');
-                document.querySelectorAll('.draggable').forEach(el => {
-                    const rx = (Math.random() - 0.5) * 600;
-                    const ry = (Math.random() - 0.5) * 600;
-                    const rr = (Math.random() - 0.5) * 720;
-                    el.style.transition = 'transform 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                    el.style.transform = `translate(${rx}px, ${ry}px) rotate(${rr}deg)`;
-                    el.dataset.tx = rx;
-                    el.dataset.ty = ry;
-                });
-                playBeep(100, 'sawtooth', 1.5, 0.1);
-                document.body.classList.add('extreme-flash');
-                setTimeout(() => document.body.classList.remove('extreme-flash'), 1000);
-                setTimeout(() => printTerm('[CHAOS] Entropy maximized.', 'var(--mint)'), 1500);
-            } else {
-                originalExecuteCmd(rawCmd);
-            }
-        }
-        
-        // Add hint for chaos mode to help command
         setTimeout(() => {
-            const oldHelp = cmdHistory.indexOf('help');
+          if (val === '/help') {
+            appendTerminalLine('Available commands: /spec, /flow, bear, clear, sudo, neofetch');
+          } else if (val === '/spec') {
+            appendTerminalLine('[*] Spawning 3 speculative branches...', 'var(--yellow)');
+            setTimeout(() => appendTerminalLine('Branch A (Opus) completed in 1.2s'), 500);
+            setTimeout(() => appendTerminalLine('Branch B (GPT-4o) completed in 0.9s'), 700);
+            setTimeout(() => appendTerminalLine('Branch C (Gemini) completed in 1.1s'), 900);
+            setTimeout(() => appendTerminalLine('[+] Best result automatically merged.', 'var(--mint)'), 1200);
+          } else if (val === '/flow') {
+            appendTerminalLine('Initializing workflow pipeline...');
+            appendTerminalLine('Step 1: Code analysis [OK]');
+            appendTerminalLine('Step 2: Dependency check [OK]');
+            appendTerminalLine('Step 3: Execution plan ready.');
+          } else if (val === 'bear') {
+            appendTerminalLine('GRAVITY IS A MYTH. THE MATRIX IS REAL.');
+            document.body.style.transform = 'rotate(180deg)';
+            setTimeout(() => document.body.style.transform = 'none', 2000);
+          } else if (val === 'clear') {
+            const lines = document.querySelectorAll('.terminal-line');
+            lines.forEach(l => l.remove());
+          } else if (val === 'sudo' || val === 'su') {
+            appendTerminalLine('This incident will be reported to The-Masked-Bear.', 'var(--red)');
+          } else if (val === 'neofetch') {
+            appendTerminalLine('OS: Linux arm64');
+            appendTerminalLine('Kernel: 6.18.39+rpt-rpi-v8');
+            appendTerminalLine('Shell: offset-repl');
+            appendTerminalLine('Theme: Neubrutalism');
+          } else if (val.toLowerCase() === 'hunter2') {
+            appendTerminalLine('*******');
+          } else {
+            appendTerminalLine(`Command not found: ${val}. Type /help for a list.`, 'var(--red)');
+          }
         }, 100);
-    </script>
+      }
+    });
+
+    // Ensure terminal stays focused when clicking inside it
+    document.querySelector('.terminal-box').addEventListener('click', () => {
+      termInput.focus();
+    });
+
+    // --- Sandbox Logic ---
+    const slider = document.getElementById('runner-count');
+    const display = document.getElementById('runner-display');
+    const container = document.getElementById('runners-container');
+    const btnRace = document.getElementById('btn-race');
+
+    const models = ['Claude-3.5', 'GPT-4o', 'Gemini-1.5', 'Llama-3', 'Mistral', 'Qwen', 'Phi-3', 'Command-R'];
+
+    function renderRunners(count) {
+      container.innerHTML = '';
+      for(let i=0; i<count; i++) {
+        const box = document.createElement('div');
+        box.className = 'runner-box';
+        box.innerHTML = `<div>${models[i % models.length]}</div><div class="status">IDLE</div>`;
+        container.appendChild(box);
+      }
+    }
+
+    slider.addEventListener('input', (e) => {
+      const val = e.target.value;
+      display.innerText = val;
+      renderRunners(val);
+    });
+
+    // Initial render
+    renderRunners(4);
+
+    btnRace.addEventListener('click', () => {
+      btnRace.disabled = true;
+      btnRace.innerText = 'RACING...';
+      const runners = document.querySelectorAll('.runner-box');
+      
+      runners.forEach(r => {
+        r.classList.remove('winner');
+        r.classList.add('active');
+        r.querySelector('.status').innerText = 'THINKING...';
+      });
+
+      // Simulate race
+      let completeCount = 0;
+      let winnerIndex = -1;
+      let minTime = 9999;
+
+      runners.forEach((r, index) => {
+        // random time between 1s and 3s
+        const time = 1000 + Math.random() * 2000;
+        if(time < minTime) {
+          minTime = time;
+          winnerIndex = index;
+        }
+
+        setTimeout(() => {
+          r.classList.remove('active');
+          r.querySelector('.status').innerText = 'DONE';
+          completeCount++;
+
+          if(completeCount === runners.length) {
+            runners[winnerIndex].classList.add('winner');
+            runners[winnerIndex].querySelector('.status').innerText = 'WINNER!';
+            btnRace.disabled = false;
+            btnRace.innerText = 'RACE AGAIN';
+          }
+        }, time);
+      });
+    });
+
+  </script>
 </body>
 </html>
