@@ -1689,7 +1689,7 @@
             el.dataset.ty = 0;
 
             el.addEventListener('mousedown', (e) => {
-                if(e.target.closest('input')) return;
+                if(e.target.closest('input, button, .btn, a, .install-box')) return;
                 activeDrag = el;
                 el.classList.add('dragging');
                 el.style.zIndex = 1000;
