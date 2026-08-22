@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<script src="https://gumroad.com/js/gumroad.js"></script>
 <style>
   :root {
     --black: #111111;
@@ -86,6 +87,21 @@
   .brutal-btn.color-red { background: var(--red); color: var(--white); }
   .brutal-btn.color-white { background: var(--white); }
   .brutal-btn.btn-small { padding: 8px 16px; font-size: 0.8rem; }
+  /* Override Gumroad default styles */
+  .gumroad-button { all: unset !important; }
+  .gumroad-button.brutal-btn {
+    display: inline-block !important; background: var(--yellow) !important;
+    color: var(--black) !important; border: 3px solid var(--black) !important;
+    box-shadow: 6px 6px 0px var(--black) !important; text-decoration: none !important;
+    padding: 14px 28px !important; font-family: 'Archivo Black', sans-serif !important;
+    font-size: 0.95rem !important; font-weight: 900 !important;
+    text-transform: uppercase !important; letter-spacing: 1px !important;
+    transition: transform 0.1s, box-shadow 0.1s !important;
+  }
+  .gumroad-button.brutal-btn:hover {
+    transform: translate(6px, 6px) !important; box-shadow: 0 0 0 var(--black) !important;
+  }
+  .gumroad-button.color-mint { background: var(--mint) !important; }
 
   /* CARDS */
   .brutal-card {
@@ -450,7 +466,7 @@
       <a href="#sandbox" class="nav-link">SANDBOX</a>
       <a href="#pricing" class="nav-link">PRICING</a>
       <a href="https://github.com/The-Masked-Bear/offset-terminal" class="nav-link">GITHUB</a>
-      <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-yellow">GET PLUS</a>
+      <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
     </nav>
   </header>
 
@@ -466,7 +482,7 @@
       <p>Terminal-native coding agent. Fork your repo into speculative branches, race Claude vs GPT vs Gemini simultaneously, auto-merge the best result. Pure Python. No Electron.</p>
       <div class="hero-actions">
         <a href="#install" class="brutal-btn color-pink">INSTALL NOW</a>
-        <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-mint">GET PLUS</a>
+        <a class="gumroad-button brutal-btn color-mint" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
       </div>
     </div>
 
@@ -609,7 +625,7 @@
           <li>OAuth Integrations</li>
           <li>Advanced Workflows (/flow)</li>
         </ul>
-        <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-yellow" style="text-align:center;width:100%;">GET PLUS</a>
+        <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" style="text-align:center;width:100%;">GET PLUS</a>
       </div>
     </div>
   </section>
@@ -631,7 +647,7 @@
   <footer class="brutal-footer">
     <h2>KEEP IT ALIVE</h2>
     <p class="subtitle">If Offset helped you, consider subscribing to Plus.</p>
-    <a href="https://debarghya47.gumroad.com/l/qzqnxk" data-gumroad-overlay-checkout="true" class="brutal-btn color-yellow" style="color:var(--black);">SUBSCRIBE TO PLUS</a>
+    <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" style="color:var(--black);">SUBSCRIBE TO PLUS</a>
     <div class="footer-links">
       <a href="https://github.com/The-Masked-Bear" target="_blank" class="brutal-btn color-white btn-small" style="color:var(--black);">GITHUB PROFILE</a>
       <a href="https://instagram.com/the_masked_bear_" target="_blank" class="brutal-btn color-pink btn-small" style="color:var(--black);">INSTAGRAM</a>
@@ -652,9 +668,6 @@
       <button onclick="document.getElementById('install-modal').classList.remove('active')" class="brutal-btn color-red" style="width:100%;text-align:center;margin-top:20px;">CLOSE</button>
     </div>
   </div>
-
-  <!-- Gumroad -->
-  <script src="https://gumroad.com/js/gumroad.js"></script>
 
   <script>
     // ===== CUSTOM CURSOR =====
