@@ -68,7 +68,18 @@
         }
 
         a { color: var(--blue); text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        h1, h2, h3, h4 {
+            line-height: 1.2;
+            color: var(--text);
+        }
+        code {
+            font-family: 'Space Mono', monospace;
+            background: var(--surface-2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: var(--green);
+        }
 
         .container {
             max-width: 1140px;
@@ -219,6 +230,7 @@
             gap: 12px;
         }
         .install-box code {
+            font-family: 'Space Mono', monospace;
             font-size: 0.82rem;
             color: var(--green);
             overflow-x: auto;
@@ -284,6 +296,7 @@
             overflow-x: hidden;
             min-height: 0;
             color: var(--green);
+            font-family: 'Space Mono', monospace;
             font-size: 0.82rem;
             display: flex;
             flex-direction: column;
@@ -329,6 +342,7 @@
             user-select: none;
         }
         #term-input {
+            font-family: 'Space Mono', monospace;
             flex-grow: 1;
             background: transparent;
             border: none;
@@ -814,6 +828,7 @@
             gap: 10px;
         }
         .modal-code-row code {
+            font-family: 'Space Mono', monospace;
             font-size: 0.8rem;
             color: var(--green);
             white-space: nowrap;
