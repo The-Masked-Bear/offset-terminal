@@ -558,6 +558,62 @@
   </section>
 
   <!-- Pricing -->
+    <!-- STATS COUNTER -->
+    <section class="brutal-stats section-block color-pink">
+        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; text-align: center; border: 5px solid var(--black); background: var(--pink); padding: 60px 20px; box-shadow: 12px 12px 0px var(--black); margin-bottom: 80px;">
+            <div class="stat-item reveal">
+                <span class="stat-number" style="font-size: 4rem; font-family: 'Archivo Black', sans-serif; display: block;" data-target="12">12</span>
+                <span class="stat-unit" style="font-size: 2rem; font-family: 'Archivo Black', sans-serif;">+</span>
+                <span class="stat-label" style="display: block; font-weight: bold; margin-top: 10px;">AI MODELS</span>
+            </div>
+            <div class="stat-item reveal delay-1">
+                <span class="stat-number" style="font-size: 4rem; font-family: 'Archivo Black', sans-serif; display: block;" data-target="0">0</span>
+                <span class="stat-unit" style="font-size: 2rem; font-family: 'Archivo Black', sans-serif;"></span>
+                <span class="stat-label" style="display: block; font-weight: bold; margin-top: 10px;">HALLUCINATIONS</span>
+            </div>
+            <div class="stat-item reveal delay-2">
+                <span class="stat-number" style="font-size: 4rem; font-family: 'Archivo Black', sans-serif; display: block;" data-target="3">3</span>
+                <span class="stat-unit" style="font-size: 2rem; font-family: 'Archivo Black', sans-serif;">x</span>
+                <span class="stat-label" style="display: block; font-weight: bold; margin-top: 10px;">PARALLEL SPEED</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ ACCORDION -->
+    <section class="brutal-faq section-block" style="margin-bottom: 80px;">
+        <h2 style="font-size: 2.5rem; margin-bottom: 30px;">FAQ</h2>
+        <div class="faq-container">
+            <div class="faq-item" style="border: 3px solid var(--black); margin-bottom: -3px; background: var(--surface);">
+                <div class="faq-question" style="padding: 20px; font-family: 'Archivo Black', sans-serif; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: space-between;">
+                    How is this different from Cursor? <span class="faq-icon">+</span>
+                </div>
+                <div class="faq-answer" style="display: none; padding: 0 20px 20px 20px; font-weight: bold; color: var(--text-secondary);">
+                    Cursor is an IDE fork. Offset is a terminal-native agent that forks your git repository into multiple background worktrees, races different AI models (like Claude and GPT-4) simultaneously, runs your local test suite on all of them, and auto-merges the winner.
+                </div>
+            </div>
+            <div class="faq-item" style="border: 3px solid var(--black); margin-bottom: -3px; background: var(--surface);">
+                <div class="faq-question" style="padding: 20px; font-family: 'Archivo Black', sans-serif; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: space-between;">
+                    Does it work with local Ollama models? <span class="faq-icon">+</span>
+                </div>
+                <div class="faq-answer" style="display: none; padding: 0 20px 20px 20px; font-weight: bold; color: var(--text-secondary);">
+                    Yes. Offset supports 12+ providers including local offline Ollama nodes, Claude, GPT, Gemini, DeepSeek, and Google Antigravity.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- INSTALL MODAL -->
+    <div id="install-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17,17,17,0.8); z-index: 99999; align-items: center; justify-content: center;">
+        <div class="brutal-card color-white" style="width: 90%; max-width: 600px; position: relative;">
+            <h2 style="margin-bottom: 20px;">INSTALL OFFSET LITE</h2>
+            <p style="font-weight: bold; margin-bottom: 10px;">Run this command in your terminal (requires Python 3.11+):</p>
+            <div style="background: var(--ink); color: var(--mint); padding: 15px; border: 3px solid var(--black); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <code>pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
+                <button onclick="navigator.clipboard.writeText('pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git'); this.innerText='COPIED!'" class="brutal-btn color-yellow btn-small" style="padding: 5px 10px;">COPY</button>
+            </div>
+            <button onclick="document.getElementById('install-modal').style.display='none'" class="brutal-btn color-red" style="width: 100%; text-align: center;">CLOSE</button>
+        </div>
+    </div>
   <section id="pricing" class="pricing">
     <h2>CHOOSE YOUR TIER</h2>
     <div class="pricing-grid">
@@ -778,6 +834,29 @@
       });
     });
 
+
+    // --- STATS COUNTER ---
+    const statsObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const target = parseInt(entry.target.getAttribute('data-target'));
+                let count = 0;
+                const updateCount = () => {
+                    const inc = target / 20;
+                    if(count < target) {
+                        count += inc;
+                        entry.target.innerText = Math.ceil(count);
+                        setTimeout(updateCount, 40);
+                    } else {
+                        entry.target.innerText = target;
+                    }
+                };
+                updateCount();
+                statsObserver.unobserve(entry.target);
+            }
+        });
+    });
+    document.querySelectorAll('.stat-number').forEach(stat => statsObserver.observe(stat));
   </script>
 
 
@@ -785,6 +864,29 @@
   <canvas id="trail-canvas" style="position:fixed; inset:0; z-index:99996; pointer-events:none;"></canvas>
   
   <!-- GUMROAD SCRIPT -->
+
+    // --- STATS COUNTER ---
+    const statsObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const target = parseInt(entry.target.getAttribute('data-target'));
+                let count = 0;
+                const updateCount = () => {
+                    const inc = target / 20;
+                    if(count < target) {
+                        count += inc;
+                        entry.target.innerText = Math.ceil(count);
+                        setTimeout(updateCount, 40);
+                    } else {
+                        entry.target.innerText = target;
+                    }
+                };
+                updateCount();
+                statsObserver.unobserve(entry.target);
+            }
+        });
+    });
+    document.querySelectorAll('.stat-number').forEach(stat => statsObserver.observe(stat));
   <script src="https://gumroad.com/js/gumroad.js"></script>
 
   <script>
@@ -873,6 +975,29 @@
         btn.setAttribute('data-gumroad-overlay-checkout', 'true');
     });
 
+
+    // --- STATS COUNTER ---
+    const statsObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const target = parseInt(entry.target.getAttribute('data-target'));
+                let count = 0;
+                const updateCount = () => {
+                    const inc = target / 20;
+                    if(count < target) {
+                        count += inc;
+                        entry.target.innerText = Math.ceil(count);
+                        setTimeout(updateCount, 40);
+                    } else {
+                        entry.target.innerText = target;
+                    }
+                };
+                updateCount();
+                statsObserver.unobserve(entry.target);
+            }
+        });
+    });
+    document.querySelectorAll('.stat-number').forEach(stat => statsObserver.observe(stat));
   </script>
 </body>
 </html>
