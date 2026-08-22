@@ -1354,5 +1354,222 @@
             }
         });
     </script>
+
+    <!-- Interactive Overdrive Engine -->
+    <style>
+        /* Animations & Interactions */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .btn:hover, .copy-btn:hover {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+            box-shadow: 0 0 15px var(--blue);
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+        .feat-card, .plan-card {
+            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+        .feat-card:hover, .plan-card:hover {
+            box-shadow: 0 10px 30px -10px var(--blue);
+            z-index: 10;
+        }
+        .interactive-glitch {
+            display: inline-block;
+            transition: color 0.1s;
+        }
+        .interactive-glitch:hover {
+            color: var(--amber) !important;
+            text-shadow: 2px 0 var(--red), -2px 0 var(--blue);
+            cursor: crosshair;
+        }
+        /* Custom Cursor Trail */
+        #cursor-trail {
+            position: fixed;
+            top: 0; left: 0;
+            width: 20px; height: 20px;
+            border: 2px solid var(--blue);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease-out, width 0.1s, height 0.1s;
+            mix-blend-mode: exclusion;
+        }
+        body:hover #cursor-trail {
+            opacity: 1;
+        }
+        /* Click Particles */
+        .click-particle {
+            position: fixed;
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 9998;
+            user-select: none;
+            animation: particle-fade 0.6s ease-out forwards;
+        }
+        @keyframes particle-fade {
+            0% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: scale(0) translateY(-50px) rotate(180deg); opacity: 0; }
+        }
+    </style>
+    <div id="cursor-trail"></div>
+    <script>
+        // --- 1. Audio Engine ---
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function playBeep(freq = 440, type = 'square', duration = 0.05, vol = 0.03) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = initAudio();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(vol, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        // Attach sounds to interactables
+        document.addEventListener('mouseover', (e) => {
+            if (e.target.closest('button, .btn, .feat-card, .plan-card, a, .chip')) {
+                playBeep(800 + Math.random() * 400, 'sine', 0.02, 0.01);
+            }
+        });
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button, .btn, a, .chip')) {
+                playBeep(300, 'square', 0.08, 0.05);
+            } else if (e.target.closest('input, textarea')) {
+                playBeep(600, 'triangle', 0.04, 0.02);
+            } else {
+                playBeep(200 + Math.random()*100, 'sawtooth', 0.04, 0.01); // background click
+            }
+        });
+
+        // --- 2. 3D Card Tilt ---
+        document.querySelectorAll('.feat-card, .plan-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -8; // max 8 deg
+                const rotateY = ((x - centerX) / centerX) * 8;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+            });
+        });
+
+        // --- 3. Click Particles (ASCII) ---
+        const chars = ['*', '#', '+', '0', '1', 'λ', '_', '/'];
+        window.addEventListener('click', e => {
+            if (e.target.closest('.terminal-wrapper')) return; // keep terminal clean
+            for(let i=0; i<6; i++) {
+                createParticle(e.clientX, e.clientY);
+            }
+        });
+
+        function createParticle(x, y) {
+            const p = document.createElement('div');
+            p.className = 'click-particle';
+            p.innerText = chars[Math.floor(Math.random() * chars.length)];
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = 20 + Math.random() * 40;
+            const tx = Math.cos(angle) * velocity;
+            const ty = Math.sin(angle) * velocity;
+            p.style.transform = `translate(${tx}px, ${ty}px)`;
+            
+            // Random color
+            const colors = ['var(--blue)', 'var(--green)', 'var(--amber)', 'var(--red)'];
+            p.style.color = colors[Math.floor(Math.random() * colors.length)];
+            
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 600);
+        }
+
+        // --- 4. Custom Cursor ---
+        const cursor = document.getElementById('cursor-trail');
+        let curX = window.innerWidth/2, curY = window.innerHeight/2;
+        let tgX = curX, tgY = curY;
+        
+        window.addEventListener('mousemove', e => {
+            tgX = e.clientX;
+            tgY = e.clientY;
+        });
+        window.addEventListener('mousedown', () => {
+            cursor.style.width = '30px';
+            cursor.style.height = '30px';
+            cursor.style.background = 'rgba(59, 130, 246, 0.2)';
+        });
+        window.addEventListener('mouseup', () => {
+            cursor.style.width = '20px';
+            cursor.style.height = '20px';
+            cursor.style.background = 'transparent';
+        });
+
+        function animateCursor() {
+            curX += (tgX - curX) * 0.2;
+            curY += (tgY - curY) * 0.2;
+            cursor.style.transform = `translate(${curX - 10}px, ${curY - 10}px)`;
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        // --- 5. Glitch Text ---
+        const glitchTargets = document.querySelectorAll('h1, h2, .hero-badge');
+        glitchTargets.forEach(el => {
+            el.classList.add('interactive-glitch');
+            const originalText = el.innerText;
+            el.addEventListener('mouseenter', () => {
+                let iterations = 0;
+                const interval = setInterval(() => {
+                    el.innerText = originalText.split('').map(char => {
+                        if (char === ' ' || char === '\n') return char;
+                        return Math.random() > 0.5 ? chars[Math.floor(Math.random() * chars.length)] : char;
+                    }).join('');
+                    iterations++;
+                    if (iterations > 4) {
+                        clearInterval(interval);
+                        el.innerText = originalText;
+                    }
+                }, 40);
+            });
+        });
+
+        // Initialize audio context on first user interaction
+        document.body.addEventListener('click', initAudio, { once: true });
+        document.body.addEventListener('keydown', initAudio, { once: true });
+    </script>
 </body>
 </html>
