@@ -519,28 +519,215 @@
     100% { clip-path: inset(58% 0 43% 0); transform: translate(2px,-2px); }
   }
 
-  /* RESPONSIVE */
+  /* HAMBURGER MENU */
+  .menu-toggle {
+    display: none; background: none; border: none; padding: 8px;
+    flex-direction: column; gap: 5px; z-index: 200;
+  }
+  .menu-toggle span {
+    display: block; width: 28px; height: 3px; background: var(--black);
+    transition: transform 0.3s, opacity 0.3s;
+  }
+  .menu-toggle.active span:nth-child(1) { transform: rotate(45deg) translate(5px,6px); }
+  .menu-toggle.active span:nth-child(2) { opacity: 0; }
+  .menu-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(5px,-6px); }
+
+  /* TOUCH DEVICE OVERRIDES */
+  @media (hover: none) {
+    * { cursor: auto !important; }
+    #cursor-dot, #cursor-ring, #trail-canvas { display: none !important; }
+    .brutal-btn::after { display: none; }
+    .feature-card::before { display: none; }
+    .floating-shapes { opacity: 0.03; }
+  }
+
+  /* LARGE DESKTOP (1400px+) */
+  @media (min-width: 1400px) {
+    .hero-content h1 { font-size: 5rem; }
+    .features-header h2, .pricing h2 { font-size: 4rem; }
+    .giant-text { font-size: 10rem; }
+  }
+
+  /* TABLET LANDSCAPE (max 1200px) */
+  @media (max-width: 1200px) {
+    .hero { gap: 40px; padding: 80px 30px 60px; }
+    .hero-content h1 { font-size: 3.5rem; }
+    .features { padding: 80px 30px; }
+    .pricing { padding: 80px 30px; }
+    .features-grid { gap: 25px; }
+    .terminal-box { height: 380px; }
+  }
+
+  /* TABLET PORTRAIT (max 900px) */
   @media (max-width: 900px) {
+    .menu-toggle { display: flex; }
+    nav {
+      position: fixed; top: 0; right: -100%; width: 75%; max-width: 350px;
+      height: 100vh; background: var(--bg); border-left: 4px solid var(--black);
+      flex-direction: column; justify-content: center; align-items: center;
+      gap: 30px; z-index: 150; transition: right 0.4s cubic-bezier(.175,.885,.32,1.275);
+      box-shadow: -12px 0 0 var(--black);
+    }
+    nav.open { right: 0; }
+    nav .nav-link { font-size: 1.3rem; }
+    .nav-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(17,17,17,0.5);
+      z-index: 140;
+    }
+    .nav-overlay.active { display: block; }
+
     .hero { grid-template-columns: 1fr; padding: 60px 20px; }
     .hero-content h1 { font-size: 2.8rem; }
+    .hero-content p { font-size: 1rem; }
+    .terminal-box { height: 350px; }
+
     .pricing-grid { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: 1fr; }
-    .stat-item { border-right: none; border-bottom: 3px solid var(--black); }
+    .stat-item { border-right: none; border-bottom: 3px solid var(--black); padding: 35px 20px; }
     .stat-item:last-child { border-bottom: none; }
+    .stat-number { font-size: 3.5rem; }
+
     .features { padding: 60px 20px; }
+    .features-header h2 { font-size: 2.5rem; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+
+    .faq-section { padding: 60px 20px; }
+    .faq-section h2 { font-size: 2.5rem; }
+
+    .pricing h2 { font-size: 2.5rem; }
+
     .subscribe-form { flex-direction: column; }
     .subscribe-form input[type="email"] { border-right: 3px solid var(--black); border-bottom: none; }
-    header { padding: 15px 20px; }
-    nav { gap: 15px; }
-    .features-header h2, .pricing h2 { font-size: 2.5rem; }
+
+    .sandbox { padding: 60px 20px; }
+    .sandbox-controls { flex-wrap: wrap; }
+
     .giant-text { font-size: 4rem; }
+    .giant-text-section { padding: 40px 20px; }
+
     .sticker { display: none; }
+
+    header { padding: 15px 20px; }
+
+    .brutal-footer { padding: 60px 20px 40px; }
+    .brutal-footer h2 { font-size: 2rem; }
+
+    .modal-content { padding: 30px 20px; }
+    .install-cmd { flex-direction: column; text-align: center; }
+    .install-cmd code { font-size: 0.8rem; }
   }
+
+  /* PHONE LANDSCAPE / SMALL TABLET (max 600px) */
   @media (max-width: 600px) {
-    nav .nav-link { display: none; }
-    .hero-content h1 { font-size: 2.2rem; }
-    .faq-question { font-size: 0.95rem; }
+    .hero { padding: 40px 15px; }
+    .hero-content h1 { font-size: 2rem; letter-spacing: 0; }
+    .hero-content p { font-size: 0.9rem; margin-bottom: 25px; }
+    .hero-badge { font-size: 0.65rem; padding: 6px 12px; }
+    .hero-actions { flex-direction: column; }
+    .hero-actions .brutal-btn { width: 100%; text-align: center; }
+
+    .terminal-box { height: 300px; }
+    .terminal-body { padding: 15px; font-size: 0.8rem; }
+    .terminal-header { padding: 10px 12px; font-size: 0.8rem; }
+
+    .features-grid { grid-template-columns: 1fr; }
+    .feature-card { padding: 25px; }
+    .feature-card h3 { font-size: 1.1rem; }
+    .feature-card p { font-size: 0.9rem; }
+    .features-header h2 { font-size: 2rem; }
+    .features-header p { font-size: 0.95rem; }
+
+    .stat-number { font-size: 3rem; }
+    .stat-label { font-size: 0.75rem; }
+    .stats-section { padding: 0 15px; margin-bottom: 60px; }
+
+    .sandbox-container { padding: 20px; }
+    .sandbox-header h2 { font-size: 2rem; }
+    .sandbox-controls { gap: 10px; }
+    .runner-box { width: 100px; padding: 10px; font-size: 0.75rem; }
+
+    .faq-question { font-size: 0.95rem; padding: 18px 15px; }
+    .faq-answer { font-size: 0.9rem; }
+    .faq-section h2 { font-size: 2rem; margin-bottom: 30px; }
+
+    .pricing h2 { font-size: 2rem; }
+    .price-amount { font-size: 2.8rem; }
+    .price-header h3 { font-size: 1.5rem; }
+    .price-card.plus::after { font-size: 0.6rem; padding: 4px 35px; }
+
+    .subscribe-container h2 { font-size: 1.8rem; }
+    .subscribe-container p { font-size: 0.9rem; }
+    .subscribe-section { padding: 60px 15px; }
+
     .giant-text { font-size: 2.5rem; }
+    .giant-text-section { padding: 30px 10px; }
+
+    .brutal-footer h2 { font-size: 1.8rem; }
+    .footer-links { gap: 10px; }
+    .footer-links .brutal-btn { font-size: 0.7rem; padding: 8px 12px; }
+    .footer-credit { font-size: 0.7rem; }
+
+    .brutal-btn { padding: 12px 20px; font-size: 0.85rem; }
+
+    #back-to-top { bottom: 15px; right: 15px; }
+
+    .logo { font-size: 2rem; }
+    nav.open { width: 85%; }
+  }
+
+  /* SMALL PHONE (max 400px) */
+  @media (max-width: 400px) {
+    .hero { padding: 30px 12px; }
+    .hero-content h1 { font-size: 1.7rem; }
+    .hero-content p { font-size: 0.85rem; }
+    .hero-badge { font-size: 0.6rem; }
+
+    .terminal-box { height: 260px; }
+    .terminal-body { font-size: 0.75rem; padding: 10px; }
+
+    .features-header h2 { font-size: 1.7rem; }
+    .feature-card { padding: 20px; }
+    .feature-icon { width: 36px; height: 36px; }
+
+    .stat-number { font-size: 2.5rem; }
+    .stat-unit { font-size: 1.5rem; }
+    .stat-item { padding: 25px 15px; }
+
+    .faq-question { font-size: 0.85rem; padding: 15px 12px; }
+    .faq-icon { width: 25px; height: 25px; font-size: 1.2rem; }
+
+    .pricing h2 { font-size: 1.7rem; }
+    .price-amount { font-size: 2.2rem; }
+    .price-features li { font-size: 0.85rem; margin-bottom: 10px; }
+
+    .brutal-btn { padding: 10px 16px; font-size: 0.8rem; box-shadow: 4px 4px 0px var(--black); }
+    .brutal-card { box-shadow: 6px 6px 0px var(--black); padding: 20px; }
+
+    .subscribe-container h2 { font-size: 1.5rem; }
+    .subscribe-form input[type="email"] { padding: 12px 15px; font-size: 0.9rem; }
+    .subscribe-form button { padding: 12px 20px; font-size: 0.85rem; }
+
+    .giant-text { font-size: 1.8rem; }
+
+    .modal-content { padding: 25px 15px; }
+    .modal-content h2 { font-size: 1.5rem; }
+    .install-cmd { padding: 12px; font-size: 0.75rem; }
+
+    .brutal-footer { padding: 50px 15px 30px; }
+    .brutal-footer h2 { font-size: 1.5rem; }
+
+    .logo { font-size: 1.7rem; }
+    header { padding: 12px 15px; }
+  }
+
+  /* LANDSCAPE PHONE */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .hero { padding: 30px 20px; gap: 30px; grid-template-columns: 1fr 1fr; }
+    .hero-content h1 { font-size: 2rem; margin-bottom: 10px; }
+    .hero-content p { margin-bottom: 15px; font-size: 0.85rem; }
+    .hero-badge { margin-bottom: 10px; }
+    .terminal-box { height: 250px; }
+    .giant-text-section { padding: 20px 10px; }
   }
 </style>
 </head>
@@ -562,7 +749,10 @@
   <!-- Nav -->
   <header id="main-header">
     <a href="#" class="logo">OFFSET</a>
-    <nav>
+    <button id="menu-toggle" class="menu-toggle" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <nav id="main-nav">
       <a href="#features" class="nav-link">FEATURES</a>
       <a href="#sandbox" class="nav-link">SANDBOX</a>
       <a href="#pricing" class="nav-link">PRICING</a>
@@ -571,6 +761,7 @@
     </nav>
   </header>
 
+  <div class="nav-overlay" id="nav-overlay"></div>
   <!-- Marquee -->
   <div class="brutal-marquee-container">
     <div class="brutal-marquee" id="marquee-content"></div>
@@ -796,6 +987,26 @@
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
+
+    // ===== MOBILE NAV =====
+    const menuToggle = document.getElementById('menu-toggle');
+    const mainNav = document.getElementById('main-nav');
+    const navOverlay = document.getElementById('nav-overlay');
+    function closeNav() {
+      menuToggle.classList.remove('active');
+      mainNav.classList.remove('open');
+      navOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    menuToggle.addEventListener('click', () => {
+      const open = !mainNav.classList.contains('open');
+      menuToggle.classList.toggle('active', open);
+      mainNav.classList.toggle('open', open);
+      navOverlay.classList.toggle('active', open);
+      document.body.style.overflow = open ? 'hidden' : '';
+    });
+    navOverlay.addEventListener('click', closeNav);
+    mainNav.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
 
     // ===== SCROLL PROGRESS =====
     const progressBar = document.getElementById('scroll-progress');
