@@ -1574,5 +1574,192 @@
         document.body.addEventListener('click', unlockAudio, { once: true });
         document.body.addEventListener('keydown', unlockAudio, { once: true });
     </script>
+
+    <!-- EXTREME INTERACTIVITY ENGINE -->
+    <style>
+        /* 1. Continuous Floating Animations */
+        @keyframes hardcore-float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-8px) rotate(2deg); }
+            50% { transform: translateY(4px) rotate(-1deg); }
+            75% { transform: translateY(-4px) rotate(1deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .feat-card, .plan-card, .sandbox-card, .hero-badge {
+            animation: hardcore-float 6s ease-in-out infinite;
+        }
+        .feat-card:nth-child(even) { animation-delay: -2s; animation-duration: 5s; }
+        .feat-card:nth-child(3) { animation-delay: -4s; animation-duration: 7s; }
+        .plan-card:nth-child(even) { animation-delay: -3s; }
+
+        /* 2. Slam Entrances on Scroll */
+        @keyframes slam-enter {
+            0% { transform: scale(0.1) rotate(25deg) translateY(200px); opacity: 0; box-shadow: 0 0 0 var(--ink); filter: contrast(300%) hue-rotate(90deg); }
+            60% { transform: scale(1.1) rotate(-4deg); opacity: 1; box-shadow: 30px 30px 0 var(--ink); filter: contrast(100%) hue-rotate(0deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; box-shadow: var(--shadow-xl); }
+        }
+        .slam-hidden { visibility: hidden; }
+        .slam-active { 
+            visibility: visible;
+            animation: slam-enter 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
+        }
+
+        /* 3. Screen Flash */
+        body.extreme-flash {
+            filter: invert(100%) hue-rotate(180deg) saturate(200%);
+            background-color: var(--ink);
+        }
+
+        /* 4. Crazy Hover States */
+        a, .nav-links a {
+            transition: letter-spacing 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55), transform 0.2s, color 0.2s;
+        }
+        a:hover, .nav-links a:hover {
+            letter-spacing: 4px;
+            color: var(--pink);
+            transform: scale(1.1) rotate(-2deg);
+        }
+        h1:hover, h2:hover, h3:hover {
+            animation: text-shake 0.1s infinite;
+            color: var(--cyan);
+            text-shadow: 4px 4px 0px var(--red);
+        }
+        @keyframes text-shake {
+            0% { transform: skewX(0deg); }
+            25% { transform: skewX(5deg) translateY(-2px); }
+            50% { transform: skewX(0deg); }
+            75% { transform: skewX(-5deg) translateY(2px); }
+            100% { transform: skewX(0deg); }
+        }
+
+        /* 5. Interactive Grid Background */
+        body {
+            background-image: 
+                linear-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(17, 17, 17, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+            transition: background-position 0.1s linear;
+        }
+        
+        /* 6. Draggable cursor */
+        .draggable {
+            cursor: grab !important;
+        }
+        .draggable.dragging {
+            cursor: grabbing !important;
+            animation: none !important; /* Stop float while dragging */
+            filter: brightness(120%) contrast(120%);
+        }
+    </style>
+    <script>
+        // --- 1. Global Screen Flash & Extreme Sounds ---
+        window.addEventListener('mousedown', (e) => {
+            if(e.target.closest('.terminal-wrapper, input, button')) return; // Don't flash if typing/using terminal
+            document.body.classList.add('extreme-flash');
+            setTimeout(() => document.body.classList.remove('extreme-flash'), 60);
+        });
+
+        // --- 2. Slam Entrance Observer ---
+        const slamObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.remove('slam-hidden');
+                    entry.target.classList.add('slam-active');
+                    playBeep(100, 'square', 0.1, 0.05); // heavy thud sound on appear
+                    slamObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.feat-card, .plan-card, .sandbox-card, .terminal-wrapper, .hero-text').forEach(el => {
+            el.classList.add('slam-hidden');
+            slamObserver.observe(el);
+        });
+
+        // --- 3. Make EVERYTHING Draggable (Visual Translation) ---
+        const dragTargets = document.querySelectorAll('.feat-card, .plan-card, h1, .hero-badge');
+        let activeDrag = null;
+        let dragStartX, dragStartY;
+        
+        dragTargets.forEach(el => {
+            el.classList.add('draggable');
+            // Store original translation separate from the dynamic one
+            el.dataset.tx = 0;
+            el.dataset.ty = 0;
+
+            el.addEventListener('mousedown', (e) => {
+                if(e.target.closest('input')) return;
+                activeDrag = el;
+                el.classList.add('dragging');
+                el.style.zIndex = 1000;
+                dragStartX = e.clientX - parseFloat(el.dataset.tx);
+                dragStartY = e.clientY - parseFloat(el.dataset.ty);
+                playBeep(800, 'triangle', 0.05, 0.05);
+                e.preventDefault(); // Prevent text selection
+            });
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            // Parallax Grid Background
+            document.body.style.backgroundPosition = `${e.clientX * -0.05}px ${e.clientY * -0.05}px`;
+
+            if (!activeDrag) return;
+            const currentX = e.clientX - dragStartX;
+            const currentY = e.clientY - dragStartY;
+            activeDrag.dataset.tx = currentX;
+            activeDrag.dataset.ty = currentY;
+            
+            // Apply extreme rotation based on drag velocity
+            const rot = (e.movementX * 0.8);
+            activeDrag.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rot}deg) scale(1.1)`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (activeDrag) {
+                activeDrag.classList.remove('dragging');
+                activeDrag.style.zIndex = '';
+                playBeep(200, 'square', 0.08, 0.08); // Drop sound
+                
+                // Snap back with a spring animation
+                activeDrag.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                activeDrag.style.transform = `translate(${activeDrag.dataset.tx}px, ${activeDrag.dataset.ty}px) rotate(0deg) scale(1)`;
+                
+                // Remove transition after it finishes so float animation can resume
+                setTimeout(() => {
+                    if(activeDrag) activeDrag.style.transition = '';
+                    activeDrag = null;
+                }, 500);
+            }
+        });
+
+        // --- 4. Chaos Mode Command for Terminal ---
+        const originalExecuteCmd = executeCmd;
+        executeCmd = function(rawCmd) {
+            if(rawCmd.trim().toLowerCase() === 'chaos') {
+                printTerm('[CHAOS] Initiating maximum entropy protocol...', 'var(--red)');
+                document.querySelectorAll('.draggable').forEach(el => {
+                    const rx = (Math.random() - 0.5) * 600;
+                    const ry = (Math.random() - 0.5) * 600;
+                    const rr = (Math.random() - 0.5) * 720;
+                    el.style.transition = 'transform 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    el.style.transform = `translate(${rx}px, ${ry}px) rotate(${rr}deg)`;
+                    el.dataset.tx = rx;
+                    el.dataset.ty = ry;
+                });
+                playBeep(100, 'sawtooth', 1.5, 0.1);
+                document.body.classList.add('extreme-flash');
+                setTimeout(() => document.body.classList.remove('extreme-flash'), 1000);
+                setTimeout(() => printTerm('[CHAOS] Entropy maximized.', 'var(--mint)'), 1500);
+            } else {
+                originalExecuteCmd(rawCmd);
+            }
+        }
+        
+        // Add hint for chaos mode to help command
+        setTimeout(() => {
+            const oldHelp = cmdHistory.indexOf('help');
+        }, 100);
+    </script>
 </body>
 </html>
