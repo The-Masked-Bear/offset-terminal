@@ -865,30 +865,6 @@
   
   <!-- GUMROAD SCRIPT -->
 
-    // --- STATS COUNTER ---
-    const statsObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const target = parseInt(entry.target.getAttribute('data-target'));
-                let count = 0;
-                const updateCount = () => {
-                    const inc = target / 20;
-                    if(count < target) {
-                        count += inc;
-                        entry.target.innerText = Math.ceil(count);
-                        setTimeout(updateCount, 40);
-                    } else {
-                        entry.target.innerText = target;
-                    }
-                };
-                updateCount();
-                statsObserver.unobserve(entry.target);
-            }
-        });
-    });
-    document.querySelectorAll('.stat-number').forEach(stat => statsObserver.observe(stat));
-  <script src="https://gumroad.com/js/gumroad.js"></script>
-
   <script>
     // --- MOUSE TRAIL CANVAS ---
     const canvas = document.getElementById('trail-canvas');
@@ -974,30 +950,6 @@
         btn.href = "https://debarghya47.gumroad.com/l/qzqnxk";
         btn.setAttribute('data-gumroad-overlay-checkout', 'true');
     });
-
-
-    // --- STATS COUNTER ---
-    const statsObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const target = parseInt(entry.target.getAttribute('data-target'));
-                let count = 0;
-                const updateCount = () => {
-                    const inc = target / 20;
-                    if(count < target) {
-                        count += inc;
-                        entry.target.innerText = Math.ceil(count);
-                        setTimeout(updateCount, 40);
-                    } else {
-                        entry.target.innerText = target;
-                    }
-                };
-                updateCount();
-                statsObserver.unobserve(entry.target);
-            }
-        });
-    });
-    document.querySelectorAll('.stat-number').forEach(stat => statsObserver.observe(stat));
   </script>
 </body>
 </html>
