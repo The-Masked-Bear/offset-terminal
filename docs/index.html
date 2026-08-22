@@ -251,7 +251,8 @@
             border-radius: 8px;
             display: flex;
             flex-direction: column;
-            min-height: 460px;
+            height: 440px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             overflow: hidden;
         }
         .terminal-bar {
@@ -264,7 +265,7 @@
         }
         .dots {
             display: flex;
-            gap: 7px;
+            gap: 6px;
         }
         .dot-circle {
             width: 12px;
@@ -280,14 +281,15 @@
             flex-grow: 1;
             padding: 16px;
             overflow-y: auto;
-            max-height: 300px;
+            overflow-x: hidden;
+            min-height: 0;
             color: var(--green);
             font-size: 0.82rem;
-            font-family: 'Space Mono', monospace;
             display: flex;
             flex-direction: column;
             gap: 6px;
             word-break: break-word;
+            white-space: pre-wrap;
         }
         .quick-chips {
             display: flex;
