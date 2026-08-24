@@ -21,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("login", help="sign in with your Google or GitHub account")
     sub.add_parser("sync", help="sync Offset Plus subscription status from your account")
 
+    upgrade = sub.add_parser("upgrade", help="redeem a Gumroad licence key to unlock Offset Plus")
+    upgrade.add_argument("key", help="the licence key from your Gumroad receipt")
+
     demo = sub.add_parser("demo", help="render the design system")
     demo.add_argument("--once", action="store_true", help="print one frame and exit")
     demo.add_argument("--time", type=float, default=2.4, help="timestamp of the frame to print")
@@ -38,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "sync":
         from offset.auth import sync_command
         return sync_command()
+
+    if args.cmd == "upgrade":
+        from offset.auth import verify_direct_license_key
+        return verify_direct_license_key(args.key)
 
     if args.cmd == "demo":
         from offset.ui import demo as demo_mod
