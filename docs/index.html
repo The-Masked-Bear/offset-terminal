@@ -129,6 +129,9 @@
                 box-shadow 0.15s cubic-bezier(.175,.885,.32,1.275),
                 background 0.2s, color 0.2s !important;
   }
+  .gumroad-button.brutal-btn *, .gumroad-button.brutal-btn span {
+    color: inherit !important;
+  }
   .gumroad-button.brutal-btn::before {
     content: '★' !important;
     margin-right: 8px !important;
@@ -140,6 +143,7 @@
     transform: translate(6px,6px) !important;
     box-shadow: 0 0 0 var(--yellow) !important;
   }
+
   /* Footer variant — white border on dark bg for readability */
   .brutal-footer .gumroad-button.brutal-btn {
     background: var(--yellow) !important;
@@ -154,12 +158,16 @@
     color: var(--black) !important;
     box-shadow: 0 0 0 var(--white) !important;
   }
-  /* Pricing card variant */
+
+  /* Pricing card buttons (makes DOWNLOAD FREE match GET PLUS width) */
+  .price-card .brutal-btn {
+    text-align: center !important;
+    width: 100% !important;
+    display: block !important;
+  }
   .price-card .gumroad-button.brutal-btn {
     background: var(--black) !important;
     color: var(--yellow) !important;
-    text-align: center !important;
-    width: 100% !important;
   }
   .price-card .gumroad-button.brutal-btn:hover {
     background: var(--yellow) !important;
