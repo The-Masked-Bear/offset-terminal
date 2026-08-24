@@ -51,7 +51,7 @@
   /* CURSOR */
   #cursor-dot {
     position: fixed; width: 10px; height: 10px; background: var(--red);
-    border-radius: 50%; pointer-events: none; z-index: 99999;
+    border-radius: 50%; pointer-events: none; z-index: 2147483647;
     transform: translate(-50%,-50%); mix-blend-mode: difference;
     transition: width 0.2s, height 0.2s, background 0.2s;
   }
@@ -61,7 +61,7 @@
   }
   #cursor-ring {
     position: fixed; width: 40px; height: 40px; border: 2px solid var(--red);
-    border-radius: 50%; pointer-events: none; z-index: 99998;
+    border-radius: 50%; pointer-events: none; z-index: 2147483646;
     transform: translate(-50%,-50%); mix-blend-mode: difference;
     transition: width 0.3s, height 0.3s, border-width 0.3s;
   }
@@ -106,19 +106,64 @@
   .brutal-btn.color-red { background: var(--red); color: var(--white); }
   .brutal-btn.color-white { background: var(--white); }
   .brutal-btn.btn-small { padding: 8px 16px; font-size: 0.8rem; }
-  /* Gumroad override */
-  .gumroad-button { all: unset !important; }
+  /* Gumroad override — premium GET PLUS style */
   .gumroad-button.brutal-btn {
-    display: inline-block !important; color: var(--black) !important;
-    border: 3px solid var(--black) !important; box-shadow: 6px 6px 0px var(--black) !important;
-    text-decoration: none !important; padding: 14px 28px !important;
-    font-family: 'Archivo Black', sans-serif !important; font-size: 0.95rem !important;
-    font-weight: 900 !important; text-transform: uppercase !important; letter-spacing: 1px !important;
-    position: relative !important; overflow: hidden !important;
+    all: unset !important;
+    display: inline-block !important;
+    background: var(--black) !important;
+    color: var(--yellow) !important;
+    border: 3px solid var(--yellow) !important;
+    box-shadow: 6px 6px 0px var(--yellow) !important;
+    text-decoration: none !important;
+    padding: 14px 32px !important;
+    font-family: 'Archivo Black', sans-serif !important;
+    font-size: 0.95rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    cursor: none !important;
+    transition: transform 0.15s cubic-bezier(.175,.885,.32,1.275),
+                box-shadow 0.15s cubic-bezier(.175,.885,.32,1.275),
+                background 0.2s, color 0.2s !important;
   }
-  .gumroad-button.brutal-btn:hover { transform: translate(6px,6px) !important; box-shadow: 0 0 0 var(--black) !important; }
-  .gumroad-button.color-yellow { background: var(--yellow) !important; }
-  .gumroad-button.color-mint { background: var(--mint) !important; }
+  .gumroad-button.brutal-btn::before {
+    content: '★' !important;
+    margin-right: 8px !important;
+    font-size: 1.1rem !important;
+  }
+  .gumroad-button.brutal-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--black) !important;
+    transform: translate(6px,6px) !important;
+    box-shadow: 0 0 0 var(--yellow) !important;
+  }
+  /* Footer variant — white border on dark bg for readability */
+  .brutal-footer .gumroad-button.brutal-btn {
+    background: var(--yellow) !important;
+    color: var(--black) !important;
+    border: 3px solid var(--white) !important;
+    box-shadow: 6px 6px 0px var(--white) !important;
+    font-size: 1.1rem !important;
+    padding: 18px 40px !important;
+  }
+  .brutal-footer .gumroad-button.brutal-btn:hover {
+    background: var(--pink) !important;
+    color: var(--black) !important;
+    box-shadow: 0 0 0 var(--white) !important;
+  }
+  /* Pricing card variant */
+  .price-card .gumroad-button.brutal-btn {
+    background: var(--black) !important;
+    color: var(--yellow) !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+  .price-card .gumroad-button.brutal-btn:hover {
+    background: var(--yellow) !important;
+    color: var(--black) !important;
+  }
 
   /* CARDS */
   .brutal-card {
@@ -741,7 +786,7 @@
   <div id="cursor-ring"></div>
 
   <!-- Trail Canvas -->
-  <canvas id="trail-canvas" style="position:fixed;inset:0;z-index:99996;pointer-events:none;"></canvas>
+  <canvas id="trail-canvas" style="position:fixed;inset:0;z-index:2147483645;pointer-events:none;"></canvas>
 
   <!-- Floating Shapes -->
   <div class="floating-shapes" id="floating-shapes"></div>
@@ -950,7 +995,7 @@
   <footer class="brutal-footer">
     <h2>KEEP IT ALIVE</h2>
     <p class="subtitle">If Offset helped you, consider subscribing to Plus.</p>
-    <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" style="color:var(--black);">SUBSCRIBE TO PLUS</a>
+    <a class="gumroad-button brutal-btn" href="https://debarghya47.gumroad.com/l/qzqnxk">SUBSCRIBE TO PLUS</a>
     <div class="footer-links">
       <a href="https://github.com/The-Masked-Bear" target="_blank" class="brutal-btn color-white btn-small" style="color:var(--black);">GITHUB PROFILE</a>
       <a href="https://instagram.com/the_masked_bear_" target="_blank" class="brutal-btn color-pink btn-small" style="color:var(--black);">INSTAGRAM</a>
