@@ -1,0 +1,122 @@
+{
+  "name": "offset-companion",
+  "displayName": "Offset Companion",
+  "description": "Status, diffs and inline edits for the offset terminal coding agent.",
+  "version": "0.3.0",
+  "publisher": "the-masked-bear",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/The-Masked-Bear/offset-terminal.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "offset",
+    "agent",
+    "terminal"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "offset.connect",
+        "title": "Offset: Connect to running agent",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "offset.prompt",
+        "title": "Offset: Send selection to agent"
+      },
+      {
+        "command": "offset.showDiff",
+        "title": "Offset: Show pending changes",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "offset.cancel",
+        "title": "Offset: Cancel current turn",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "offset.openSession",
+        "title": "Offset: Open a session log"
+      },
+      {
+        "command": "offset.refresh",
+        "title": "Offset: Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "offsetActivity",
+          "name": "Offset",
+          "icon": "$(pulse)",
+          "contextualTitle": "Offset"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "offset.refresh",
+          "when": "view == offsetActivity",
+          "group": "navigation"
+        },
+        {
+          "command": "offset.showDiff",
+          "when": "view == offsetActivity",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "offset.prompt",
+          "when": "editorHasSelection",
+          "group": "offset"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Offset",
+      "properties": {
+        "offset.home": {
+          "type": "string",
+          "default": "",
+          "description": "Where offset keeps its state. Empty means $OFFSET_HOME, then ~/.offset."
+        },
+        "offset.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Connect to a running agent when the window opens."
+        },
+        "offset.reconnectSeconds": {
+          "type": "number",
+          "default": 5,
+          "description": "How long to wait before retrying a dropped connection."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "typecheck": "tsc --noEmit -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

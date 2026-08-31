@@ -55,15 +55,32 @@ def test_resume_selects_by_full_id(home):
 
 
 def test_resume_selects_by_id_prefix(home):
+    """A prefix long enough to name one session selects it.
+
+    ULIDs are monotonic within a millisecond, which means two minted in the
+    same one differ only in their final characters - even a 20-character prefix
+    was ambiguous and this test flaked. A millisecond apart is both realistic
+    and enough for the timestamp component to diverge.
+    """
+    import time
+
     wanted = _session_with(home, "prefix match")
-    _session_with(home, "other")
-    # ULIDs minted in the same millisecond share a long prefix, so a short one is
-    # genuinely ambiguous; use enough of it to name a single session.
-    picked = _pick_session(home, wanted.id[:20])
+    time.sleep(0.002)
+    other = _session_with(home, "other")
+    assert wanted.id[:10] != other.id[:10], "the timestamp component should differ"
+
+    picked = _pick_session(home, wanted.id[:12])
     assert picked.id == wanted.id
 
 
 def test_an_ambiguous_prefix_resolves_to_the_most_recent_match(home):
+    """Two sessions sharing a prefix: the newer one wins.
+
+    `Session.list` orders by mtime, and two sessions created in the same
+    millisecond can carry the same one, which made this flaky. The mtimes are
+    set explicitly so the test asserts the ordering rule rather than the
+    filesystem's timestamp resolution.
+    """
     older = _session_with(home, "older")
     newer = _session_with(home, "newer")
     shared = 0
@@ -73,6 +90,14 @@ def test_an_ambiguous_prefix_resolves_to_the_most_recent_match(home):
         shared += 1
     if shared == 0:
         pytest.skip("ids diverged immediately; nothing ambiguous to assert")
+
+    import os
+    import time
+
+    now = time.time()
+    os.utime(older.path, (now - 60, now - 60))
+    os.utime(newer.path, (now, now))
+
     picked = _pick_session(home, older.id[:shared])
     assert picked.id == newer.id, "listing is newest-first, so the newest match wins"
 
