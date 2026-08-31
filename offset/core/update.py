@@ -85,6 +85,17 @@ NO_CHECK_ENV: Final = "OFFSET_NO_UPDATE_CHECK"
 #: The settings key with the same effect.
 SETTING: Final = "update.check"
 
+#: Auto-update switches, separate from the check switches: wanting to be told
+#: about a release and wanting it installed unattended are different appetites,
+#: and somebody who declines the second should still get the first.
+NO_AUTO_ENV: Final = "OFFSET_NO_AUTO_UPDATE"
+AUTO_SETTING: Final = "update.auto"
+
+#: Set on the child after an auto-update re-executes, so a build that somehow
+#: still reports itself stale cannot re-exec forever.  A loop here would be
+#: unkillable from the terminal it is looping in.
+REEXEC_ENV: Final = "OFFSET_UPDATED_REEXEC"
+
 #: Bumped when the cache layout changes, so an old file is ignored rather than
 #: misread.
 CACHE_VERSION: Final = 1
@@ -385,37 +396,42 @@ def enabled() -> bool:
 
 
 def _setting() -> bool:
-    """`update.check`, read without complaining about itself.
-
-    The settings schema lives in a module this one does not own.  Until the key
-    is declared there, `settings.get` would file a "read of unknown setting"
-    complaint that the user then sees in /settings — so the two config files are
-    read directly instead, project layer last because it wins.
-
-    Once the integrator does declare the key, the declared value gets the first
-    word; the file scan stays as the fallback so switching checks off keeps
-    working either way, which is the only behaviour a user cares about.
-    """
+    """`update.check`, read without complaining about itself."""
     if SETTING in settings.BY_KEY and settings.get(SETTING, True) is False:
         return False
+    return _flag_from_files(SETTING)
+
+
+def _flag_from_files(dotted: str, default: bool = True) -> bool:
+    """A boolean settings key, read straight from the two config files.
+
+    The settings schema lives in a module this one does not own.  Until a key
+    is declared there, `settings.get` files a "read of unknown setting"
+    complaint that the user then sees in /settings — so the files are read
+    directly instead, project layer last because it wins.
+
+    Both spellings are accepted: a nested `{"update": {"auto": false}}` and a
+    flat `{"update.auto": false}`, because a user editing JSON by hand will
+    reasonably write either.
+    """
     # `Settings._home` is captured when that object is built, so reading
     # `active.user_file` would point at whatever $OFFSET_HOME said at import
     # time.  The house rule is that home is resolved on every call.
-    user_file = settings.home() / "config.json"
-    value: Any = True
-    for path in (user_file, settings.active().project_file):
+    section_name, _, leaf = dotted.partition(".")
+    value: Any = default
+    for path in (settings.home() / "config.json", settings.active().project_file):
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
         if not isinstance(raw, dict):
             continue
-        section = raw.get("update")
-        if isinstance(section, dict) and "check" in section:
-            value = section["check"]
-        elif SETTING in raw:
-            value = raw[SETTING]
-    return bool(value) if isinstance(value, bool) else True
+        section = raw.get(section_name)
+        if isinstance(section, dict) and leaf in section:
+            value = section[leaf]
+        elif dotted in raw:
+            value = raw[dotted]
+    return bool(value) if isinstance(value, bool) else default
 
 
 # -- the cache --------------------------------------------------------------
@@ -688,6 +704,112 @@ def check_async(
     threading.Thread(target=work, name="offset-update-check", daemon=True).start()
 
 
+def auto_enabled() -> bool:
+    """Whether an update may be installed without being asked.
+
+    Gated on `enabled()` as well, so switching checks off switches auto-update
+    off with it: it would be strange for a program told not to look to install
+    something anyway.
+    """
+    if not enabled():
+        return False
+    if (os.environ.get(NO_AUTO_ENV) or "").strip().lower() in _TRUTHY:
+        return False
+    if os.environ.get(REEXEC_ENV):
+        return False  # this process IS the update; do not go round again
+    if AUTO_SETTING in settings.BY_KEY and settings.get(AUTO_SETTING, True) is False:
+        return False
+    return _flag_from_files(AUTO_SETTING)
+
+
+@dataclass(frozen=True, slots=True)
+class AutoOutcome:
+    """What the startup auto-update did, if anything."""
+
+    acted: bool = False
+    before: str = ""
+    after: str = ""
+    error: str = ""
+    skipped: str = ""
+
+    def report(self) -> list[str]:
+        if self.acted:
+            return [f"offset updated itself: {self.before} -> {self.after}"]
+        if self.error:
+            return [f"offset could not update itself: {self.error}"]
+        return []
+
+
+def autoupdate(
+    *,
+    fetch: Fetcher | None = None,
+    now: Callable[[], float] | None = None,
+    target: Install | None = None,
+    runner: Runner | None = None,
+    prober: Probe | None = None,
+    echo: Callable[[str], None] | None = None,
+) -> AutoOutcome:
+    """Install a waiting update before the shell loads.  Never raises.
+
+    Three things make this safe enough to do unattended.
+
+    It reads the CACHE, not the network.  The previous run's background check
+    left an answer on disk; consulting it costs a file read, so an offline or
+    slow start is not paid for at the one moment the user is watching. A fresh
+    install with no cache therefore updates on its second launch, not its
+    first, which is the right trade.
+
+    It refuses anything it cannot prove it can do: an editable checkout, an
+    unknown install method, a disabled switch. `apply` verifies the version
+    actually moved rather than trusting the package manager's exit code.
+
+    It does not try to swap code into a running interpreter.  Modules are
+    already imported by the time anything here runs, so a mid-session
+    replacement would leave half the program old. The caller re-executes.
+    """
+    if not auto_enabled():
+        return AutoOutcome(skipped="auto-update is off")
+
+    where = target or detect_install()
+    if not where.upgradable:
+        # Not an error: a git checkout is a perfectly good way to run offset,
+        # it just is not one this can upgrade.
+        return AutoOutcome(skipped=where.reason or f"{where.method} cannot self-upgrade")
+
+    try:
+        info = check(fetch=fetch, now=now)
+    except Exception as exc:
+        return AutoOutcome(error=f"{type(exc).__name__}: {exc}")
+    if not info.available:
+        return AutoOutcome(skipped="already up to date")
+
+    if echo is not None:
+        echo(f"offset {info.latest} is available; updating {info.current} -> {info.latest}")
+    try:
+        result = apply(info=info, target=where, runner=runner, prober=prober, echo=echo)
+    except Exception as exc:
+        return AutoOutcome(error=f"{type(exc).__name__}: {exc}")
+    if not result.ok:
+        return AutoOutcome(error=result.error or "the upgrade did not take")
+    return AutoOutcome(acted=True, before=result.before, after=result.after or info.latest)
+
+
+def reexec() -> None:
+    """Replace this process with the freshly installed one.
+
+    `execv` rather than a subprocess so the user keeps one process, one exit
+    status and one terminal; the marker in the environment is what stops the
+    new image doing this again.  Returns normally if the exec fails, because
+    carrying on with the old version beats refusing to start.
+    """
+    child = dict(os.environ)
+    child[REEXEC_ENV] = "1"
+    try:
+        os.execve(sys.executable, [sys.executable, "-m", "offset", *sys.argv[1:]], child)
+    except OSError:
+        return
+
+
 def install(state: "ShellState") -> None:
     """Startup wiring: begin the background check, block nothing."""
     check_async()
@@ -924,9 +1046,18 @@ def __getattr__(name: str) -> Any:
     PEP 562: the shell can write `from offset.core.update import COMMANDS` and
     get the same list every time, while `import offset.core.update` on its own
     stays free of any dependency on the shell layer.
+
+    The second guard is not redundant.  `update_commands()` imports
+    `offset.shell.commands`, and that module's body asks this one for its
+    COMMANDS in order to register them - so a first access re-enters here
+    before the outer call has filled the list, and both copies then extended
+    it.  Re-checking after the call is what makes the list built once rather
+    than once per level of re-entry.
     """
     if name == "COMMANDS":
         if not _COMMANDS:
-            _COMMANDS.extend(update_commands())
+            built = update_commands()
+            if not _COMMANDS:
+                _COMMANDS.extend(built)
         return _COMMANDS
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -785,3 +785,192 @@ def test_slash_update_apply_runs_the_upgrade_as_a_job(home, monkeypatch):
     assert "running: pipx upgrade offset" in outcome.lines[0]
     finished = outcome.job()
     assert "updated 1.0.0 -> 9.9.9 via pipx" in finished.lines
+
+
+# -- startup auto-update -----------------------------------------------------
+
+
+def _pipx(tmp_path: Path) -> update.Install:
+    return update.Install("pipx", tmp_path, ("pipx", "upgrade", "offset"))
+
+
+def _cached(home: Path, *, current: str, latest: str, when: float = 0.0) -> None:
+    """Seed the cache the way a previous run's background check would have."""
+    import json as _json
+    import time as _time
+
+    (home / "update.json").write_text(
+        _json.dumps({
+            "version": update.CACHE_VERSION,
+            "current": current,
+            "latest": latest,
+            "notes": "",
+            "url": "",
+            "published": "",
+            "checked_at": when or _time.time(),
+            "error": "",
+        }),
+        encoding="utf-8",
+    )
+
+
+def test_auto_update_is_on_by_default(home):
+    assert update.auto_enabled() is True
+
+
+def test_the_auto_opt_out_env_var_switches_it_off(home, monkeypatch):
+    monkeypatch.setenv(update.NO_AUTO_ENV, "1")
+    assert update.auto_enabled() is False
+
+
+def test_switching_checks_off_switches_auto_update_off_too(home, monkeypatch):
+    """A program told not to look must not install something anyway."""
+    monkeypatch.setenv(update.NO_CHECK_ENV, "1")
+    assert update.auto_enabled() is False
+
+
+def test_the_settings_key_switches_auto_update_off(home):
+    import json as _json
+
+    (home / "config.json").write_text(_json.dumps({"update": {"auto": False}}), encoding="utf-8")
+    assert update.auto_enabled() is False
+
+
+def test_a_flat_settings_key_also_switches_it_off(home):
+    import json as _json
+
+    (home / "config.json").write_text(_json.dumps({"update.auto": False}), encoding="utf-8")
+    assert update.auto_enabled() is False
+
+
+def test_a_reexeced_process_refuses_to_update_again(home, monkeypatch):
+    """The guard against an unkillable re-exec loop."""
+    monkeypatch.setenv(update.REEXEC_ENV, "1")
+    assert update.auto_enabled() is False
+
+
+def test_auto_update_installs_a_waiting_release(home, monkeypatch, tmp_path):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    ran: list[tuple[str, ...]] = []
+
+    def runner(command, sink):
+        ran.append(tuple(command))
+        sink("upgraded")
+        return 0
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path), runner=runner, prober=lambda _t: "9.9.9",
+        fetch=_never_called,
+    )
+    assert outcome.acted, outcome.error or outcome.skipped
+    assert outcome.before == "1.0.0" and outcome.after == "9.9.9"
+    assert ran == [("pipx", "upgrade", "offset")]
+    assert "1.0.0 -> 9.9.9" in "\n".join(outcome.report())
+
+
+def test_auto_update_does_nothing_when_already_current(home, monkeypatch, tmp_path):
+    _cached(home, current="9.9.9", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "9.9.9")
+    ran: list[tuple[str, ...]] = []
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path),
+        runner=lambda c, s: ran.append(tuple(c)) or 0,
+        fetch=_never_called,
+    )
+    assert not outcome.acted
+    assert not ran, "nothing should be run when there is nothing to install"
+    assert outcome.report() == [], "silence is the whole point of the common case"
+
+
+def test_auto_update_refuses_an_editable_checkout(home, monkeypatch, tmp_path):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    checkout = update.Install("editable", tmp_path, reason="run git pull instead")
+    ran: list[tuple[str, ...]] = []
+
+    outcome = update.autoupdate(
+        target=checkout,
+        runner=lambda c, s: ran.append(tuple(c)) or 0,
+        fetch=_never_called,
+    )
+    assert not outcome.acted
+    assert not ran, "a checkout must never be upgraded behind the user's back"
+    assert "git pull" in outcome.skipped
+
+
+def test_auto_update_reads_the_cache_rather_than_the_network(home, monkeypatch, tmp_path):
+    """A slow or offline start must not be paid for at launch."""
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path),
+        runner=lambda c, s: 0,
+        prober=lambda _t: "9.9.9",
+        fetch=_never_called,   # raises if the network is touched
+    )
+    assert outcome.acted
+
+
+def test_a_failed_upgrade_is_reported_and_not_claimed(home, monkeypatch, tmp_path):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path),
+        runner=lambda c, s: 1,          # the package manager fails
+        prober=lambda _t: "1.0.0",
+        fetch=_never_called,
+    )
+    assert not outcome.acted
+    assert outcome.error
+    assert "could not update itself" in "\n".join(outcome.report())
+
+
+def test_an_upgrade_that_does_not_move_the_version_is_a_failure(home, monkeypatch, tmp_path):
+    """Exit code 0 is not proof; the version has to actually change."""
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path),
+        runner=lambda c, s: 0,
+        prober=lambda _t: "1.0.0",      # still the old version afterwards
+        fetch=_never_called,
+    )
+    assert not outcome.acted
+    assert "still 1.0.0" in (outcome.error or "")
+
+
+def test_auto_update_is_silent_and_inert_when_switched_off(home, monkeypatch, tmp_path):
+    monkeypatch.setenv(update.NO_AUTO_ENV, "1")
+    _cached(home, current="1.0.0", latest="9.9.9")
+    ran: list[tuple[str, ...]] = []
+
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path),
+        runner=lambda c, s: ran.append(tuple(c)) or 0,
+        fetch=_never_called,
+    )
+    assert not outcome.acted and not ran
+    assert outcome.report() == []
+
+
+def test_reexec_marks_the_child_so_it_cannot_loop(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_execve(path, argv, env):
+        captured["path"] = path
+        captured["argv"] = list(argv)
+        captured["marker"] = env.get(update.REEXEC_ENV)
+        raise OSError("not really execing in a test")
+
+    monkeypatch.setattr(update.os, "execve", fake_execve)
+    update.reexec()   # must return rather than raise when exec fails
+    assert captured["marker"] == "1", "the child must be marked to break the loop"
+    assert "-m" in captured["argv"] and "offset" in captured["argv"]
+
+
+def _never_called(_url: str):
+    raise AssertionError("the network must not be touched here")

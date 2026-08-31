@@ -83,6 +83,99 @@ offset
 
 *On first startup, sign in with your **Google** or **GitHub** account. No license codes needed — if your account has an active Offset Plus subscription, it unlocks automatically.*
 
+**Offset keeps itself current.** It checks for a release in the background, and
+installs a waiting one on the next launch before the shell opens — then
+re-executes, so you are already running the new version. It reads a cached
+answer rather than the network, so an offline start costs nothing. Opt out with
+`OFFSET_NO_AUTO_UPDATE=1`, or `{"update": {"auto": false}}` in
+`~/.offset/config.json`. A git checkout is never touched.
+
+---
+
+## WHAT'S NEW IN 0.5
+
+### Code intelligence, not text search
+
+A real Language Server Protocol client. It follows imports, re-exports and
+shadowing, so it finds the callsites `grep` misses and renames without
+corrupting a file that happens to share a name.
+
+```
+lsp definition  file=auth.py line=42 symbol=verify
+lsp references  file=auth.py line=42 symbol=verify
+lsp_edit rename file=auth.py line=42 symbol=verify new_name=check
+```
+
+Probes your `PATH` for pyright, pylsp, ruff, tsserver, gopls, rust-analyzer,
+clangd, jdtls and lua-ls. Nothing installed for a language? It tells you what
+to install instead of failing.
+
+### Real debugging
+
+A Debug Adapter Protocol client, so the agent reads actual program state
+instead of adding `print` statements and guessing.
+
+```
+debug breakpoint file=app.py line=88
+debug launch program=app.py
+debug_inspect variables
+debug_inspect evaluate expression="user.permissions"
+```
+
+### A browser that can actually check your UI
+
+Backend code can be verified by running it. A web page cannot — the only
+evidence markup works is a browser rendering it.
+
+```
+browser open url=http://localhost:3000
+browser snapshot          # accessibility tree with [ref=eN] handles
+browser click selector=e5
+browser console           # the errors you would otherwise never see
+```
+
+The default view is the accessibility tree rather than a screenshot: smaller,
+and the model can act on the refs it just read.
+
+### Search that understands code
+
+```
+search getUserAuth              # finds get_user_authentication
+symbols importers pkg/auth.py   # what breaks if I change this
+```
+
+BM25 over an incremental SQLite index, blended with symbol definitions, path
+affinity and import proximity. Identifier splitting is what makes the camelCase
+query match the snake_case definition.
+
+### GitHub without leaving the terminal
+
+```
+/pr                    # summarise the branch, open the PR
+/review 12             # prints by default
+/review 12 post        # the extra word publishes it
+/fix-ci                # finds the failing check, excerpts the error
+/resolve-comments 12 reply
+```
+
+### Tasks that survive a restart
+
+```
+/task implement auth
+```
+
+`plan → implement → test → (fix → retest)* → report`, written to disk after
+every transition. Close the terminal mid-task and `/task resume <id>` picks up
+at the boundary. The fix loop is bounded, and the bound is in the record.
+
+### Background agents, session resume, and self-update
+
+```
+/jobs                  # agents that survive closing the terminal
+offset --continue      # carry on the last session
+offset update          # or let it update itself on startup
+```
+
 ---
 
 ## COMMAND MATRIX
@@ -90,12 +183,28 @@ offset
 | Command | Tier | What It Does |
 | :--- | :---: | :--- |
 | `offset` | **Lite** | Start interactive terminal coding session |
-| `/spec <N> <task>` | **Plus** | **Speculative Branching**: Fork N parallel worktrees, race models, merge winner |
-| `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic orchestration |
+| `offset --continue` | **Lite** | Resume the most recent session |
+| `offset --resume <id>` | **Lite** | Resume a specific session |
+| `offset update` | **Lite** | Check for and install a newer offset |
+| `/spec <N> <task>` | **Plus** | **Speculative Branching**: fork N worktrees, race models, score and merge the winner |
+| `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic |
+| `/task <goal>` | **Plus** | **Persistent task**: plan, implement, test, fix, retest — survives a restart |
+| `/pr` `/review` `/fix-ci` `/resolve-comments` | **Plus** | GitHub-native workflow |
+| `/jobs` `/job` `/cancel` | **Lite** | Background agents that outlive the terminal |
+| `/resume <n>` | **Lite** | Reopen an earlier session |
+| `/plugins` | **Lite** | Loaded plugins, load errors, and the trust gate |
+| `/mcp reload\|connect\|resources` | **Lite** | MCP servers without a restart |
 | `/model` | **Lite** | Interactive model picker across 12+ providers |
-| `/login` | **Lite** | Manage API credentials (OpenAI, Anthropic, Google, Ollama) |
-| `offset login` | **All** | Sign in with Google or GitHub account |
+| `/login` | **Lite** | Manage API credentials |
+| `offset login` | **All** | Sign in with Google or GitHub |
 | `offset sync` | **All** | Sync subscription status |
+
+### Tools the model can call
+
+`read` `write` `edit` `bash` `glob` `grep` `list` `fetch` `web_search` `task`
+`todo` `document` `system` `file` `open` — plus, new in 0.5:
+**`lsp`** **`lsp_edit`** **`debug`** **`debug_inspect`** **`browser`**
+**`search`** **`symbols`** **`github`**
 
 ---
 
@@ -107,9 +216,20 @@ offset
 | **Bring Your Own API Keys** | ✅ | ✅ |
 | **Terminal Interface & REPL** | ✅ | ✅ |
 | **12+ Model Support** | ✅ | ✅ |
+| **Code intelligence (LSP)** | ✅ | ✅ |
+| **Debugging (DAP)** | ✅ | ✅ |
+| **Browser agent** | ✅ | ✅ |
+| **Code search & symbol graph** | ✅ | ✅ |
+| **MCP servers & plugins** | ✅ | ✅ |
+| **Background agents (`/jobs`)** | ✅ | ✅ |
+| **Session resume** | ✅ | ✅ |
+| **Self-update** | ✅ | ✅ |
+| **VS Code companion** | ✅ | ✅ |
 | **Easter Egg Engine** | ✅ | ✅ |
 | **Speculative Branching (`/spec`)** | ❌ | ✅ |
 | **Multi-Model Pipeline (`/flow`)** | ❌ | ✅ |
+| **Persistent tasks (`/task`)** | ❌ | ✅ |
+| **GitHub workflow (`/pr`, `/fix-ci`)** | ❌ | ✅ |
 | **Auto-Worktree Diff & Merge** | ❌ | ✅ |
 | **Cloud API Key Pool** | ❌ | ✅ |
 

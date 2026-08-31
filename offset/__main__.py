@@ -6,6 +6,31 @@ import argparse
 import sys
 
 
+def _autoupdate() -> None:
+    """Install a waiting update, then become the new version.
+
+    Deliberately quiet: it prints only when it actually does something, so the
+    overwhelmingly common case of "already current" costs the user no output
+    and no delay.  It reads the cache the previous run's background check left
+    behind rather than the network, so an offline start is not paid for here.
+
+    Every failure is swallowed. A program that refuses to start because it
+    could not upgrade itself is worse than one running last week's build.
+    """
+    try:
+        from offset.core.update import autoupdate, reexec
+    except Exception:
+        return
+    try:
+        outcome = autoupdate(echo=lambda line: print(line, flush=True))
+    except Exception:
+        return
+    for line in outcome.report():
+        print(line, flush=True)
+    if outcome.acted:
+        reexec()  # returns only if exec failed, in which case carry on
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="offset", description="terminal coding agent")
     sub = parser.add_subparsers(dest="cmd")
@@ -67,6 +92,13 @@ def main(argv: list[str] | None = None) -> int:
         return demo_mod.run(fps=args.fps)
 
     if args.cmd in (None, "chat"):
+        # Before the shell, never during it: the modules a running session has
+        # already imported cannot be swapped underneath it, so an update
+        # applied mid-turn would leave half the program on the old version.
+        # A successful update re-executes, so the user gets the new build in
+        # the same invocation rather than being told to start again.
+        _autoupdate()
+
         from offset.shell.app import main as chat_main
 
         resume = getattr(args, "resume", None)

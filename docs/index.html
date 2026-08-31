@@ -816,9 +816,9 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-content">
-      <div class="hero-badge">⚡ NOW WITH GOOGLE ANTIGRAVITY</div>
+      <div class="hero-badge">⚡ NEW — LSP, DEBUGGER, BROWSER AGENT</div>
       <h1 id="hero-title"></h1>
-      <p class="reveal">Terminal-native coding agent. Fork your repo into speculative branches, race Claude vs GPT vs Gemini simultaneously, auto-merge the best result. Pure Python. No Electron.</p>
+      <p class="reveal">Terminal-native coding agent. Race Claude vs GPT vs Gemini across parallel worktrees and keep what passes. Now with real code intelligence, a live debugger, and a browser that checks your UI. Pure Python, one dependency.</p>
       <div class="hero-actions reveal">
         <a href="#install" class="brutal-btn color-pink">INSTALL NOW</a>
         <a class="gumroad-button brutal-btn color-mint" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
@@ -839,7 +839,7 @@
         <div class="terminal-line">Type /help for commands.</div>
         <div class="terminal-input-line">
           <span class="terminal-prompt">❯</span>
-          <input type="text" class="terminal-input" id="term-input" autocomplete="off" spellcheck="false" placeholder="try /spec or bear">
+          <input type="text" class="terminal-input" id="term-input" autocomplete="off" spellcheck="false" placeholder="try /help, debug, browser or /task">
         </div>
       </div>
     </div>
@@ -875,6 +875,36 @@
         <h3>PURE PYTHON</h3>
         <p>No JS runtime. No heavy browser engines. Just clean, raw Python and a brutally fast terminal UI.</p>
       </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--mint);transition-delay:0.4s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/></svg>
+        <h3>CODE INTELLIGENCE</h3>
+        <p>A real LSP client. Follows imports, re-exports and shadowing, so it finds the callsites grep misses and renames without breaking them.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--red);transition-delay:0.5s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
+        <h3>REAL DEBUGGING</h3>
+        <p>Breakpoints, stepping, live variables over DAP. The agent reads actual program state instead of adding print statements and guessing.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--cyan);transition-delay:0.6s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><rect x="2" y="4" width="20" height="16"/><path d="M2 9h20M6 6.5h.01M9 6.5h.01"/></svg>
+        <h3>BROWSER AGENT</h3>
+        <p>Drives real headless Chromium. Reads the accessibility tree, clicks, and reports console errors — so front-end work is verified, not assumed.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--yellow);transition-delay:0.7s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/></svg>
+        <h3>SEARCH THAT KNOWS CODE</h3>
+        <p>BM25 over an incremental symbol index. Ask for getUserAuth and it finds get_user_authentication, then tells you what imports it.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--pink);transition-delay:0.8s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M6 3v12M18 9v12M6 15a6 6 0 0 0 12-6"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/></svg>
+        <h3>GITHUB NATIVE</h3>
+        <p>/pr writes and opens it. /fix-ci finds the failing check and excerpts the actual error out of megabytes of log. /review prints before it posts.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--mint);transition-delay:0.9s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+        <h3>SURVIVES THE TERMINAL</h3>
+        <p>Background agents outlive the window. Tasks resume mid-pipeline after a restart. Sessions reopen where you left them. It updates itself.</p>
+      </div>
     </div>
   </section>
 
@@ -882,19 +912,19 @@
   <div class="stats-section">
     <div class="stats-grid reveal from-scale">
       <div class="stat-item">
-        <span class="stat-number" data-target="12">0</span>
-        <span class="stat-unit">+</span>
-        <span class="stat-label">AI MODELS</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number" data-target="0">0</span>
+        <span class="stat-number" data-target="23">0</span>
         <span class="stat-unit"></span>
-        <span class="stat-label">HALLUCINATIONS</span>
+        <span class="stat-label">AGENT TOOLS</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number" data-target="3">0</span>
-        <span class="stat-unit">x</span>
-        <span class="stat-label">PARALLEL SPEED</span>
+        <span class="stat-number" data-target="1">0</span>
+        <span class="stat-unit"></span>
+        <span class="stat-label">DEPENDENCIES</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-target="1097">0</span>
+        <span class="stat-unit"></span>
+        <span class="stat-label">PASSING TESTS</span>
       </div>
     </div>
   </div>
@@ -956,9 +986,9 @@
         <ul class="price-features">
           <li>Full Terminal REPL</li>
           <li>12+ Model Support</li>
-          <li>Bring-Your-Own API Keys</li>
-          <li>Local Ollama Support</li>
-          <li>Community Support</li>
+          <li>Code intelligence &amp; debugger</li>
+          <li>Browser agent &amp; code search</li>
+          <li>MCP servers, plugins, self-update</li>
         </ul>
         <a href="#install" class="brutal-btn color-mint" >DOWNLOAD FREE</a>
       </div>
@@ -968,11 +998,11 @@
           <div class="price-amount">$15<span style="font-size:1rem;font-family:'Space Mono',monospace">/mo</span></div>
         </div>
         <ul class="price-features">
-          <li>Multi-Model Orchestration</li>
-          <li>Speculative Branching</li>
+          <li>Speculative Branching (/spec)</li>
+          <li>Multi-Model Pipeline (/flow)</li>
+          <li>Persistent tasks (/task)</li>
+          <li>GitHub workflow (/pr, /fix-ci)</li>
           <li>Priority Cloud Inference</li>
-          <li>OAuth Integrations</li>
-          <li>Advanced Workflows (/flow)</li>
         </ul>
         <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" >GET PLUS</a>
       </div>
@@ -1178,6 +1208,10 @@
         if (cmd === '/help') {
           tLine('Available commands:'); tLine('  /spec     - speculative branching demo');
           tLine('  /flow     - workflow pipeline demo'); tLine('  /models   - list supported models');
+          tLine('  /task     - persistent task that survives a restart');
+          tLine('  lsp       - code intelligence'); tLine('  debug     - real breakpoints');
+          tLine('  browser   - drive a real browser'); tLine('  search    - code-aware search');
+          tLine('  /pr       - open a pull request');
           tLine('  bear      - 🐻'); tLine('  gravity   - ???');
           tLine('  matrix    - enter the matrix'); tLine('  sudo      - nice try');
           tLine('  neofetch  - system info'); tLine('  clear     - clear terminal');
@@ -1205,6 +1239,43 @@
           tLine('  deepseek       deepseek-chat, deepseek-reasoner');
           tLine('  ollama         any local model');
           tLine('  openrouter     300+ models via proxy');
+        } else if (cmd === 'lsp' || cmd === '/lsp') {
+          tLine('lsp references file=auth.py line=42 symbol=verify', false, 'var(--yellow)');
+          setTimeout(() => tLine('pkg/session.py:88:12'), 300);
+          setTimeout(() => tLine('pkg/api/routes.py:214:9'), 450);
+          setTimeout(() => tLine('tests/test_auth.py:31:5'), 600);
+          setTimeout(() => tLine('[+] 3 references — following imports and re-exports, not text', false, 'var(--mint)'), 800);
+        } else if (cmd === 'debug' || cmd === '/debug') {
+          tLine('debug breakpoint file=app.py line=88', false, 'var(--yellow)');
+          setTimeout(() => tLine('debug launch program=app.py'), 350);
+          setTimeout(() => tLine('stopped: breakpoint at app.py:88 (thread 1)', false, 'var(--pink)'), 800);
+          setTimeout(() => tLine('  user.permissions = [] &lt;- there it is'), 1050);
+          setTimeout(() => tLine('[+] read from the running process, not inferred', false, 'var(--mint)'), 1300);
+        } else if (cmd === 'browser' || cmd === '/browser') {
+          tLine('browser open url=http://localhost:3000', false, 'var(--yellow)');
+          setTimeout(() => tLine('browser snapshot'), 350);
+          setTimeout(() => tLine('  button "Sign in" [ref=e5]'), 600);
+          setTimeout(() => tLine('  textbox "Email"  [ref=e7]'), 700);
+          setTimeout(() => tLine('browser console'), 950);
+          setTimeout(() => tLine('  error: Cannot read properties of null', false, 'var(--red)'), 1150);
+          setTimeout(() => tLine('[+] a bug you would never have seen from the backend', false, 'var(--mint)'), 1400);
+        } else if (cmd === 'search' || cmd === '/search') {
+          tLine('search getUserAuth', false, 'var(--yellow)');
+          setTimeout(() => tLine('pkg/auth.py:14  (defines it)'), 350);
+          setTimeout(() => tLine('  def get_user_authentication(token):'), 500);
+          setTimeout(() => tLine('[+] camelCase query, snake_case definition', false, 'var(--mint)'), 750);
+        } else if (cmd === '/task') {
+          tLine('[*] task 01M1BW: implement auth', false, 'var(--yellow)');
+          setTimeout(() => tLine(' + plan       done'), 400);
+          setTimeout(() => tLine(' + implement  done'), 700);
+          setTimeout(() => tLine(' ! test       failed   1 failed'), 1000);
+          setTimeout(() => tLine(' + fix        done'), 1300);
+          setTimeout(() => tLine(' + test       done     4 passed'), 1600);
+          setTimeout(() => tLine('[+] green. close the terminal mid-run and /task resume picks up here.', false, 'var(--mint)'), 1900);
+        } else if (cmd === '/pr') {
+          tLine('[*] summarising 6 commits against main...', false, 'var(--yellow)');
+          setTimeout(() => tLine('title: Add token refresh to the auth middleware'), 700);
+          setTimeout(() => tLine('[+] opened: github.com/you/repo/pull/128', false, 'var(--mint)'), 1100);
         } else if (cmd === 'bear') {
           tLine(ascii_bear);
           tLine('GRAVITY IS A MYTH. THE MATRIX IS REAL.', false, 'var(--pink)');

@@ -562,14 +562,24 @@ def task_commands() -> list[Any]:
     ]
 
 
+_COMMANDS: list[Any] = []
+
+
 def __getattr__(name: str) -> Any:
     """`COMMANDS` on demand.
 
     Built lazily because the handlers import from `offset.shell.commands`,
     which imports this module: resolving at import time would be a cycle.
+
+    The re-check after building is the same guard `offset.core.update` needs
+    and for the same reason - importing the shell registry re-enters here
+    before the outer call has stored anything, so a single access would
+    otherwise produce two lists and register every command twice.
     """
     if name == "COMMANDS":
-        value = task_commands()
-        globals()["COMMANDS"] = value
-        return value
+        if not _COMMANDS:
+            built = task_commands()
+            if not _COMMANDS:
+                _COMMANDS.extend(built)
+        return _COMMANDS
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
