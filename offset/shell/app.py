@@ -77,6 +77,9 @@ from offset.tools.mcp import load_config as load_mcp_config
 from offset.tools.debug import debug_tools
 from offset.tools.lsp import lsp_tools
 from offset.tools.web import browser_tools, close_all as close_browsers
+from offset.tools.github import github_tools
+from offset.tools.retrieve import retrieve_tools
+from offset.core.index import close_all as close_indexes
 from offset.tools import plugins as plugin_registry
 from offset.core import jobs as job_store
 from offset.core import update as updater
@@ -686,6 +689,7 @@ class Shell:
             # shell is a process the user cannot see and did not ask to keep.
             try:
                 close_browsers()
+                close_indexes()
             except Exception:
                 pass
             for shut in (_shutdown_language_servers, _shutdown_debuggees):
@@ -791,6 +795,8 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         *lsp_tools(),
         *debug_tools(),
         *browser_tools(),
+        *github_tools(),
+        *retrieve_tools(workspace),
     ])
     # Plugins are merged by `plugins.install` below, which also gates untrusted
     # ones; this keeps the loose-file path working for anything it quarantines.

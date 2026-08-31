@@ -100,9 +100,23 @@ def test_a_wide_pane_uses_two_columns(state):
 
 
 @pytest.mark.parametrize("width", [40, 80])
-def test_a_truncated_summary_is_marked(state, width):
-    """Two columns at 80 and one at 40 both have to cut the longest summaries."""
+def test_help_never_overflows_its_pane(state, width):
+    """Whatever the width, no rendered line may be wider than the pane.
+
+    This used to assert that width 80 always truncated something, which was a
+    fact about the command set rather than about the layout: adding a longer
+    command name widened the name column until every summary fitted, and the
+    test failed while the renderer was behaving correctly.
+    """
     state.width = width
+    lines = dispatch(state, "/help").lines
+    too_wide = [line for line in lines if len(line) > width]
+    assert not too_wide, f"lines exceeded {width} columns: {too_wide[:2]}"
+
+
+def test_a_summary_too_long_for_the_pane_is_marked_as_cut(state):
+    """A pane narrow enough to force a cut must say that it cut."""
+    state.width = 40
     body = "\n".join(dispatch(state, "/help").lines)
     assert "\u2026" in body or ".." in body, "a cut summary must say it was cut"
 

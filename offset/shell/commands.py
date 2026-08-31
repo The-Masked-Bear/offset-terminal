@@ -1030,7 +1030,13 @@ def _extend(module: str, attribute: str = "COMMANDS") -> None:
             COMMANDS.append(command)
 
 
-for _module in ("offset.tools.plugins", "offset.core.jobs", "offset.core.update"):
+for _module in (
+    "offset.tools.plugins",
+    "offset.core.jobs",
+    "offset.core.update",
+    "offset.core.tasks",
+    "offset.tools.github",
+):
     _extend(_module)
 
 BY_NAME: dict[str, Command] = {}

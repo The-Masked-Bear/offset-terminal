@@ -1,6 +1,6 @@
 [project]
 name = "offset"
-version = "0.2.0"
+version = "0.3.0"
 description = "Terminal coding agent. Speculative branching. Neubrutalist by construction."
 requires-python = ">=3.11"
 dependencies = ["prompt_toolkit>=3.0.50"]
