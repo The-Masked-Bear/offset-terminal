@@ -89,7 +89,11 @@ def pending_breakpoints() -> dict[str, list[SourceBreakpoint]]:
 
 
 def _current() -> Session | None:
-    return _BOOK.current
+    # `current` is a method, not a property.  Reading it without the call
+    # returned the bound method, which is always truthy, so the `is None`
+    # guard below never fired and every inspection on a session-less shell
+    # died on `.client` instead of saying there was no session.
+    return _BOOK.current()
 
 
 def _fail(exc: Exception) -> ToolResult:

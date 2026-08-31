@@ -42,6 +42,7 @@ import os
 import re
 import shutil
 import signal
+import sys
 import subprocess
 import tempfile
 import threading
@@ -324,6 +325,32 @@ class Launch:
             shutil.rmtree(self.user_data, ignore_errors=True)
 
 
+def _die_with_parent() -> None:
+    """Ask the kernel to kill this child when offset dies.
+
+    `start_new_session=True` is what lets `close()` signal the browser's whole
+    process group without signalling offset as well - but detaching from the
+    session also means a shell that is killed outright, rather than exiting
+    through its `finally`, leaves a headless browser running that nobody can
+    see. Measured on this machine: eleven chromium processes surviving a
+    SIGKILLed parent, which on a Raspberry Pi is most of the free memory.
+
+    `PR_SET_PDEATHSIG` closes that gap: the kernel delivers SIGKILL to the
+    child the moment its parent goes, however the parent went. Linux only, and
+    a no-op everywhere else - the normal teardown path is unchanged, so a
+    platform without it is no worse off than before.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        import ctypes
+
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+    except (OSError, AttributeError, ValueError):
+        return  # best effort; close() is still the primary path
+
+
 def launch(
     *,
     executable: str | None = None,
@@ -379,6 +406,7 @@ def launch(
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,  # so close() can reap the whole tree
+            preexec_fn=_die_with_parent,  # ...and so a killed shell reaps it too
         )
     except (OSError, ValueError) as exc:
         log.close()
