@@ -22,14 +22,27 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def import_cost(module: str) -> float:
-    """Seconds to import `module` in a fresh interpreter, best of three."""
+    """Seconds spent importing `module`, best of three.
+
+    `-X importtime` reports the cumulative self+children time for the import
+    itself, which is the number this test is actually about.  Timing the
+    subprocess instead measured interpreter startup and the scheduler's mood as
+    well: on a loaded machine that tripled the figure and failed a ceiling the
+    import was nowhere near, which is a false alarm about the one thing the
+    test exists to catch.
+    """
     best = float("inf")
     for _ in range(3):
-        started = time.perf_counter()
-        done = subprocess.run([sys.executable, "-c", f"import {module}"],
-                              capture_output=True, cwd=ROOT)
+        done = subprocess.run(
+            [sys.executable, "-X", "importtime", "-c", f"import {module}"],
+            capture_output=True, cwd=ROOT,
+        )
         assert done.returncode == 0, done.stderr.decode()[:400]
-        best = min(best, time.perf_counter() - started)
+        # The last line is the target module: "import time: self | cumulative | name"
+        tail = [l for l in done.stderr.decode().splitlines() if l.startswith("import time:")]
+        assert tail, "python did not report any import timings"
+        cumulative = tail[-1].split("|")[1].strip()
+        best = min(best, int(cumulative) / 1_000_000)
     return best
 
 

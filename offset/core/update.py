@@ -442,6 +442,59 @@ def cache_file() -> Path:
     return settings.home() / "update.json"
 
 
+def refusal_file() -> Path:
+    """Where a version that would not install is remembered.
+
+    Separate from the check cache because the two have different lifetimes: the
+    cache expires so a newer release can be noticed, while this must outlive it
+    or the same doomed upgrade is retried the moment the cache refreshes.
+    """
+    return settings.home() / "update-refused.json"
+
+
+def refused() -> tuple[str, str]:
+    """The version auto-update last failed on, and why.  `("", "")` if none."""
+    try:
+        raw = json.loads(refusal_file().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "", ""
+    if not isinstance(raw, dict):
+        return "", ""
+    return str(raw.get("version") or ""), str(raw.get("error") or "")
+
+
+def refuse(version: str, error: str) -> None:
+    """Remember that `version` could not be installed unattended.
+
+    Written so the next launch can skip it.  The alternative - retrying every
+    time - means a release that exists on the feed but cannot be applied here
+    costs a multi-second failing upgrade and an error message on every single
+    start, for as long as it remains the latest.  That is the difference
+    between telling the user once and nagging them all day.
+    """
+    path = refusal_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = json.dumps({"version": version, "error": error, "when": time.time()}, indent=1)
+    handle, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".refused.", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def unrefuse() -> None:
+    """Forget any refusal.  Called once an upgrade actually lands."""
+    try:
+        refusal_file().unlink()
+    except OSError:
+        pass
+
+
 @dataclass(frozen=True, slots=True)
 class UpdateInfo:
     """What the last look at the release feed found."""
@@ -783,14 +836,30 @@ def autoupdate(
     if not info.available:
         return AutoOutcome(skipped="already up to date")
 
+    # A release can be advertised and still be unappliable here: the feed is
+    # GitHub releases while the upgrade runs through pip or pipx, so a version
+    # that never reached PyPI, a pipx install pinned to a local path, or a
+    # permission the user does not have all end with the version refusing to
+    # move.  Without this the same doomed upgrade runs on every single start,
+    # costing seconds and printing the same error, until something else
+    # changes.  Try once, remember the refusal, and wait for a strictly newer
+    # version before spending that time again.
+    blocked, why = refused()
+    if blocked and not newer(info.latest, blocked):
+        return AutoOutcome(skipped=f"{blocked} could not be installed here ({why}); waiting for a newer release")
+
     if echo is not None:
         echo(f"offset {info.latest} is available; updating {info.current} -> {info.latest}")
     try:
         result = apply(info=info, target=where, runner=runner, prober=prober, echo=echo)
     except Exception as exc:
+        refuse(info.latest, f"{type(exc).__name__}: {exc}")
         return AutoOutcome(error=f"{type(exc).__name__}: {exc}")
     if not result.ok:
-        return AutoOutcome(error=result.error or "the upgrade did not take")
+        reason = result.error or "the upgrade did not take"
+        refuse(info.latest, reason)
+        return AutoOutcome(error=reason)
+    unrefuse()
     return AutoOutcome(acted=True, before=result.before, after=result.after or info.latest)
 
 

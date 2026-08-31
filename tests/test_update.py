@@ -974,3 +974,132 @@ def test_reexec_marks_the_child_so_it_cannot_loop(monkeypatch):
 
 def _never_called(_url: str):
     raise AssertionError("the network must not be touched here")
+
+
+# -- an advertised release that cannot be installed here ---------------------
+
+
+def test_a_version_that_fails_to_apply_is_not_retried_next_launch(home, tmp_path, monkeypatch):
+    """The feed is GitHub releases; the upgrade runs through pip or pipx.
+
+    Those can disagree - a version that never reached PyPI, a pipx install
+    pinned to a local path, a permission the user lacks - and the version then
+    never moves.  Retrying every launch costs seconds and an error message
+    every single start, so the refusal has to be remembered.
+    """
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    attempts: list[tuple[str, ...]] = []
+
+    def never_lands(command, sink):
+        attempts.append(tuple(command))
+        return 0                      # exit 0, but the version will not move
+
+    def run_once():
+        return update.autoupdate(
+            target=_pipx(tmp_path), runner=never_lands,
+            prober=lambda _t: "1.0.0", fetch=_never_called,
+        )
+
+    first = run_once()
+    assert first.error, "the first attempt should report the failure"
+    assert len(attempts) == 1
+
+    second = run_once()
+    assert not second.error, "the second launch must not repeat the error"
+    assert second.skipped and "9.9.9" in second.skipped
+    assert len(attempts) == 1, f"the upgrade was retried: {attempts}"
+
+
+def test_the_user_is_told_once_and_then_left_alone(home, tmp_path, monkeypatch):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+
+    def run_once():
+        return update.autoupdate(
+            target=_pipx(tmp_path), runner=lambda c, s: 0,
+            prober=lambda _t: "1.0.0", fetch=_never_called,
+        )
+
+    assert run_once().report(), "the first failure is worth saying"
+    assert run_once().report() == [], "the second must be silent"
+
+
+def test_a_strictly_newer_release_is_tried_again(home, tmp_path, monkeypatch):
+    """A refusal is about one version, not about updating for ever."""
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    attempts: list[str] = []
+
+    def failing(command, sink):
+        attempts.append("try")
+        return 0
+
+    update.autoupdate(target=_pipx(tmp_path), runner=failing,
+                      prober=lambda _t: "1.0.0", fetch=_never_called)
+    assert len(attempts) == 1
+
+    _cached(home, current="1.0.0", latest="10.0.0")   # a newer one appears
+    update.autoupdate(target=_pipx(tmp_path), runner=failing,
+                      prober=lambda _t: "1.0.0", fetch=_never_called)
+    assert len(attempts) == 2, "a newer version deserves its own attempt"
+
+
+def test_an_older_or_equal_release_does_not_clear_the_refusal(home, tmp_path, monkeypatch):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    attempts: list[str] = []
+
+    def failing(command, sink):
+        attempts.append("try")
+        return 0
+
+    update.autoupdate(target=_pipx(tmp_path), runner=failing,
+                      prober=lambda _t: "1.0.0", fetch=_never_called)
+    _cached(home, current="1.0.0", latest="9.9.9")    # same version again
+    update.autoupdate(target=_pipx(tmp_path), runner=failing,
+                      prober=lambda _t: "1.0.0", fetch=_never_called)
+    assert len(attempts) == 1, "the same version must not be retried"
+
+
+def test_a_successful_upgrade_clears_an_earlier_refusal(home, tmp_path, monkeypatch):
+    """Otherwise a single bad release would poison every later one."""
+    update.refuse("9.9.9", "did not land")
+    assert update.refused()[0] == "9.9.9"
+
+    _cached(home, current="1.0.0", latest="10.0.0")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path), runner=lambda c, s: 0,
+        prober=lambda _t: "10.0.0", fetch=_never_called,
+    )
+    assert outcome.acted
+    assert update.refused() == ("", ""), "a landed upgrade must forget the refusal"
+
+
+def test_an_exception_from_apply_is_also_remembered(home, tmp_path, monkeypatch):
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+
+    def explode(command, sink):
+        raise RuntimeError("pipx is not on PATH")
+
+    first = update.autoupdate(target=_pipx(tmp_path), runner=explode, fetch=_never_called)
+    assert "pipx is not on PATH" in (first.error or "")
+    assert update.refused()[0] == "9.9.9"
+
+    second = update.autoupdate(target=_pipx(tmp_path), runner=explode, fetch=_never_called)
+    assert not second.error, "a crashing upgrade must not crash every launch"
+
+
+def test_a_corrupt_refusal_file_is_ignored_rather_than_fatal(home, tmp_path, monkeypatch):
+    update.refusal_file().write_text("{not json", encoding="utf-8")
+    assert update.refused() == ("", "")
+
+    _cached(home, current="1.0.0", latest="9.9.9")
+    monkeypatch.setattr(update, "installed_version", lambda: "1.0.0")
+    outcome = update.autoupdate(
+        target=_pipx(tmp_path), runner=lambda c, s: 0,
+        prober=lambda _t: "9.9.9", fetch=_never_called,
+    )
+    assert outcome.acted, "an unreadable memo must not block a good upgrade"
