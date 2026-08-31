@@ -20,16 +20,18 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Final, Iterable
+from typing import Any, Callable, Final, Iterable, Mapping
 
-from offset.tools.base import Cancelled, Danger, Tool, ToolContext, ToolResult
+from offset.tools.base import Cancelled, Danger, Tool, ToolContext, ToolResult, Toolbox
 from offset.tools.mcp.client import (
     CallOutcome,
     MCPCancelled,
     MCPClient,
     MCPError,
     MCPTimeout,
+    Prompt,
     RemoteTool,
+    Resource,
     ServerGone,
 )
 from offset.tools.mcp.transport import HTTPTransport, StdioTransport, Transport, TransportError
@@ -44,6 +46,10 @@ NAME_RE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 SERVER_KEYS: Final = ("mcpServers", "servers")
 
 DEFAULT_TIMEOUT: Final = 60.0
+
+#: `${VAR}` and `${env:VAR}`.  Anything else keeps its braces, so a header
+#: value that merely looks like a template is passed through untouched.
+VAR_RE: Final = re.compile(r"\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(slots=True)
@@ -86,6 +92,40 @@ class Config:
 
     def enabled(self) -> list[ServerConfig]:
         return [s for s in self.servers if s.enabled]
+
+
+def expand(text: str, *, environ: Mapping[str, str] | None = None) -> tuple[str, list[str]]:
+    """Substitute `${VAR}` and `${env:VAR}` from the environment.
+
+    Returns the expanded text and the names that were not set.  A secret does
+    not belong in a config file that gets committed, so the file names the
+    variable and the process supplies it; an unset variable is a configuration
+    error rather than a literal `${TOKEN}` handed to a server, because that
+    reaches the server looking like a credential and fails far from its cause.
+    """
+    env = os.environ if environ is None else environ
+    missing: list[str] = []
+
+    def sub(match: re.Match[str]) -> str:
+        name = match.group(1)
+        value = env.get(name)
+        if value is None:
+            missing.append(name)
+            return ""
+        return value
+
+    return VAR_RE.sub(sub, text), missing
+
+
+def _interpolate(value: str, field_: str, problems: list[str]) -> str | None:
+    """`None` means a variable was missing: the caller must not carry on with a
+    half-substituted string, so the server it belongs to is skipped."""
+    text, missing = expand(value)
+    if missing:
+        for name in dict.fromkeys(missing):
+            problems.append(f"{field_}: ${{{name}}} is not set in the environment")
+        return None
+    return text
 
 
 def config_paths(workspace: Path | str | None = None) -> list[Path]:
@@ -148,11 +188,14 @@ def parse_config(raw: Any, *, source: Path | None = None) -> tuple[list[ServerCo
             errors.append(f"{where}{field_} must be an object")
             continue
 
+        problems_before = len(problems)
         command, args = _command(entry, field_, problems)
         url = _url(entry, field_, problems)
         if command and url:
             problems.append(f'{field_}: set either "command" (stdio) or "url" (http), not both')
-        elif not command and not url:
+        elif not command and not url and len(problems) == problems_before:
+            # A field that failed to interpolate has already been named; also
+            # claiming the server has no command would bury the real cause.
             problems.append(f'{field_}: needs "command" (stdio) or "url" (http)')
 
         env = _strings(entry.get("env"), f"{field_}.env", problems)
@@ -163,6 +206,8 @@ def parse_config(raw: Any, *, source: Path | None = None) -> tuple[list[ServerCo
         if cwd is not None and not isinstance(cwd, str):
             problems.append(f"{field_}.cwd must be a string")
             cwd = None
+        elif isinstance(cwd, str):
+            cwd = _interpolate(cwd, f"{field_}.cwd", problems)
 
         if problems:
             errors.extend(f"{where}{p}" for p in problems)
@@ -201,7 +246,17 @@ def _command(entry: dict[str, Any], field_: str, problems: list[str]) -> tuple[s
     else:
         problems.append(f"{field_}.args must be a list of strings")
         extra = []
-    return (str(command) if command is not None else None), parsed_args + extra
+    if command is not None:
+        command = _interpolate(str(command), f"{field_}.command", problems)
+        if command is None:
+            return None, []
+    whole: list[str] = []
+    for index, arg in enumerate(parsed_args + extra):
+        one = _interpolate(arg, f"{field_}.args[{index}]", problems)
+        if one is None:
+            return None, []
+        whole.append(one)
+    return command, whole
 
 
 def _url(entry: dict[str, Any], field_: str, problems: list[str]) -> str | None:
@@ -210,6 +265,9 @@ def _url(entry: dict[str, Any], field_: str, problems: list[str]) -> str | None:
         return None
     if not isinstance(url, str):
         problems.append(f"{field_}.url must be a string")
+        return None
+    url = _interpolate(url, f"{field_}.url", problems)
+    if url is None:
         return None
     if not url.startswith(("http://", "https://")):
         problems.append(f"{field_}.url must start with http:// or https://")
@@ -223,7 +281,12 @@ def _strings(value: Any, field_: str, problems: list[str]) -> dict[str, str]:
     if not isinstance(value, dict) or not all(isinstance(v, str) for v in value.values()):
         problems.append(f"{field_} must be an object with string values")
         return {}
-    return {str(k): v for k, v in value.items()}
+    out: dict[str, str] = {}
+    for key, item in value.items():
+        one = _interpolate(item, f"{field_}.{key}", problems)
+        if one is not None:
+            out[str(key)] = one
+    return out
 
 
 def _timeout(value: Any, field_: str, problems: list[str]) -> float:
@@ -345,6 +408,47 @@ class Status:
     kind: str = "stdio"
 
 
+@dataclass(slots=True)
+class Offering:
+    """What one server publishes besides its tools.
+
+    Resources and prompts are listed lazily rather than cached at connect: a
+    server is free to change them at any time, and a stale list shown to the
+    user is worse than a round trip.
+    """
+
+    server: str
+    resources: list[Resource] = field(default_factory=list)
+    prompts: list[Prompt] = field(default_factory=list)
+    error: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return not self.error
+
+    def report(self) -> list[str]:
+        if self.error:
+            return [f"{self.server}: {self.error}"]
+        lines = [f"{self.server}: {len(self.resources)} resource(s), {len(self.prompts)} prompt(s)"]
+        lines.extend(f"  resource {r.uri}{f' — {r.name}' if r.name else ''}" for r in self.resources)
+        lines.extend(f"  prompt {p.name}{f' — {p.description}' if p.description else ''}" for p in self.prompts)
+        return lines
+
+
+@dataclass(slots=True)
+class ResourceRead:
+    """The body of one resource, or the reason there is none."""
+
+    server: str
+    uri: str
+    text: str = ""
+    error: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return not self.error
+
+
 class Manager:
     """Owns every MCP connection: connect, retry, withdraw, disconnect.
 
@@ -356,16 +460,20 @@ class Manager:
 
     __slots__ = (
         "_clients",
+        "_collisions",
         "_lock",
         "_reasons",
+        "_registered",
         "_sleep",
         "_state",
         "_tools",
+        "_toolbox",
         "attempts",
         "backoff",
         "config",
         "emit",
         "max_backoff",
+        "workspace",
     )
 
     def __init__(
@@ -377,6 +485,8 @@ class Manager:
         max_backoff: float = 4.0,
         sleep: Callable[[float], None] = time.sleep,
         emit: Callable[[str], None] = lambda _line: None,
+        workspace: Path | str | None = None,
+        toolbox: Toolbox | None = None,
     ) -> None:
         self.config = config or Config()
         self.attempts = max(1, attempts)
@@ -389,11 +499,27 @@ class Manager:
         self._tools: dict[str, list[MCPTool]] = {}
         self._sleep = sleep
         self._lock = threading.Lock()
+        #: The names this manager put in the Toolbox, per server.  Withdrawal
+        #: goes by recorded name rather than by `mcp__<server>__` prefix,
+        #: because two server names can sanitise to the same prefix and a
+        #: reload must never withdraw a neighbour's tool.
+        self._registered: dict[str, list[str]] = {}
+        #: Names a server asked for and could not have.  Kept rather than
+        #: logged: `shell/app.py` used to `except ValueError: pass` around
+        #: registration, so a collision cost the user half a server's tools
+        #: with nothing on screen to say why.
+        self._collisions: dict[str, list[str]] = {}
+        self._toolbox = toolbox
+        self.workspace = Path(workspace) if workspace is not None else None
         for server in self.config.servers:
             self._state[server.name] = IDLE if server.enabled else OFF
 
     @classmethod
     def from_workspace(cls, workspace: Path | str | None = None, **kwargs: Any) -> "Manager":
+        # The workspace is kept, not just used: `reload()` has to re-read the
+        # same pair of files, and without it a reload silently read a different
+        # config to the one that was loaded at startup.
+        kwargs.setdefault("workspace", workspace)
         return cls(load_config(workspace), **kwargs)
 
     # -- accessors ----------------------------------------------------------
@@ -432,6 +558,80 @@ class Manager:
         for server in self.config.servers:
             out.extend(self._tools.get(server.name, ()))
         return out
+
+    # -- the toolbox --------------------------------------------------------
+
+    def attach(self, toolbox: Toolbox | None) -> list[str]:
+        """Adopt a Toolbox and make it match this manager.  Returns collisions.
+
+        The manager owns the registration rather than the caller, because only
+        the manager knows which names came from which listing: a caller that
+        registered the tools itself had no record of its own entries, so a
+        reload could not withdraw them and stale names stayed callable.
+        """
+        if self._toolbox is not None and toolbox is not self._toolbox:
+            for name in list(self._registered):
+                self._withdraw(name)
+        self._toolbox = toolbox
+        return self.publish()
+
+    @property
+    def toolbox(self) -> Toolbox | None:
+        return self._toolbox
+
+    def registered(self, name: str) -> list[str]:
+        """The tool names this manager currently holds in the Toolbox for `name`."""
+        return list(self._registered.get(name, ()))
+
+    def collisions(self) -> list[str]:
+        """Every name a server could not claim, because something else holds it."""
+        return [line for server in sorted(self._collisions) for line in self._collisions[server]]
+
+    def publish(self, name: str | None = None) -> list[str]:
+        """Re-sync the Toolbox for one server, or for all of them."""
+        names = [name] if name is not None else [s.name for s in self.config.servers]
+        out: list[str] = []
+        for one in names:
+            out.extend(self._publish(one))
+        return out
+
+    def _publish(self, name: str) -> list[str]:
+        """Withdraw what this server had, then register what it has now.
+
+        Withdrawal is unconditional and comes first: the previous listing is
+        the only thing that can leave a name in the Toolbox resolving to a tool
+        the server has stopped serving.
+        """
+        self._withdraw(name)
+        box = self._toolbox
+        if box is None:
+            return []
+        taken: list[str] = []
+        clashes: list[str] = []
+        for tool in self._tools.get(name, ()):
+            if box.get(tool.name) is not None:
+                clashes.append(
+                    f"mcp {name}: {tool.name} is already taken by another tool, not registered"
+                )
+                continue
+            box.register(tool)
+            taken.append(tool.name)
+        if taken:
+            self._registered[name] = taken
+        if clashes:
+            self._collisions[name] = clashes
+        else:
+            self._collisions.pop(name, None)
+        return clashes
+
+    def _withdraw(self, name: str) -> list[str]:
+        """Take this server's tools back out of the Toolbox.  Idempotent."""
+        taken = self._registered.pop(name, [])
+        box = self._toolbox
+        if box is not None:
+            for tool in taken:
+                box.unregister(tool)
+        return taken
 
     # -- connecting ---------------------------------------------------------
 
@@ -506,6 +706,10 @@ class Manager:
             return
         with self._lock:
             self._tools[name] = [MCPTool(self, name, tool, timeout=server.timeout) for tool in remote]
+        # Outside the lock, and after the listing is in place: a server may
+        # announce a changed tool list from the reader thread, and the Toolbox
+        # has to follow it or the model keeps seeing the old names.
+        self._publish(name)
 
     def _on_notification(self, name: str, message: dict[str, Any]) -> None:
         if message.get("method") == "notifications/tools/list_changed":
@@ -520,18 +724,21 @@ class Manager:
             self._tools.pop(name, None)
             self._state[name] = DOWN
             self._reasons[name] = reason or "server exited"
+        self._withdraw(name)
         if client is not None:
             client.close()
         self.emit(f"mcp {name} is unavailable: {reason}")
 
     def disconnect(self, name: str) -> None:
-        """Stop a server and reap its process tree."""
+        """Stop a server, reap its process tree, and withdraw its tools."""
         with self._lock:
             client = self._clients.pop(name, None)
             self._tools.pop(name, None)
             server = self.config_for(name)
             self._state[name] = OFF if server is not None and not server.enabled else IDLE
             self._reasons.pop(name, None)
+        self._withdraw(name)
+        self._collisions.pop(name, None)
         if client is not None:
             client.close()
 
@@ -539,5 +746,158 @@ class Manager:
         for name in list(self._clients):
             self.disconnect(name)
 
+    # -- runtime changes ----------------------------------------------------
+
+    def add_server(self, config: ServerConfig) -> bool:
+        """Add, or replace, one server and connect it without a restart.
+
+        Returns whether it came up.  A refusal is recorded in `reason(name)`
+        rather than raised: the caller is a slash command whose whole job is to
+        print the reason.
+        """
+        name = config.name
+        if not NAME_RE.match(name):
+            self._state[name] = DOWN
+            self._reasons[name] = (
+                "a server name may only contain letters, digits, dot, dash and underscore"
+            )
+            return False
+        if self.config_for(name) is not None:
+            self.disconnect(name)
+        others = [s for s in self.config.servers if s.name != name]
+        self.config.servers = sorted([*others, config], key=lambda s: s.name)
+        self._state[name] = IDLE if config.enabled else OFF
+        self._reasons.pop(name, None)
+        return self.connect(name)
+
+    def remove_server(self, name: str) -> bool:
+        """Forget a server: stop it, withdraw its tools, drop its config."""
+        if self.config_for(name) is None:
+            return False
+        self.disconnect(name)  # this is what withdraws from the Toolbox
+        self.config.servers = [s for s in self.config.servers if s.name != name]
+        for book in (self._state, self._reasons, self._tools, self._collisions):
+            book.pop(name, None)
+        return True
+
+    def reconnect(self, name: str) -> bool:
+        """Drop and re-establish one connection, re-listing its tools.
+
+        The only honest way to pick up a server that was restarted behind our
+        back: its old pipe can still be open, so `connect` would short-circuit
+        on a client that will never answer again.
+        """
+        if self.config_for(name) is None:
+            self._state[name] = DOWN
+            self._reasons[name] = f"no server named {name!r} is configured"
+            return False
+        self.disconnect(name)
+        return self.connect(name)
+
+    def reload(self, name: str | None = None) -> list[str]:
+        """Re-read `mcp.json` and make the running set match it.
+
+        A server that vanished from the file is removed, one whose definition
+        changed is reconnected, one that is new is connected, and — for a
+        whole-file reload — one that is untouched is left alone, because a
+        reload that dropped every working connection would be too expensive to
+        reach for.  Naming a single server is an explicit request for that one,
+        so it is always reconnected.
+        """
+        fresh = load_config(self.workspace)
+        self.config.errors = fresh.errors
+        self.config.sources = fresh.sources
+        lines = [f"config: {problem}" for problem in fresh.errors]
+
+        wanted = {s.name: s for s in fresh.servers}
+        if name is None:
+            known = [s.name for s in self.config.servers]
+        else:
+            known = [name] if self.config_for(name) is not None else []
+            wanted = {name: wanted[name]} if name in wanted else {}
+            if not wanted and not known:
+                lines.append(f"mcp {name}: no server by that name is configured")
+
+        for gone in [n for n in known if n not in wanted]:
+            self.remove_server(gone)
+            lines.append(f"mcp {gone}: removed, no longer in mcp.json")
+
+        for server in wanted.values():
+            before = self.config_for(server.name)
+            same = before is not None and _signature(before) == _signature(server)
+            if name is None and same and self.state(server.name) == LIVE:
+                lines.append(f"mcp {server.name}: unchanged, {len(self._tools.get(server.name, ()))} tool(s)")
+                continue
+            if self.add_server(server):
+                lines.append(f"mcp {server.name}: connected, {len(self._tools.get(server.name, ()))} tool(s)")
+            elif not server.enabled:
+                lines.append(f"mcp {server.name}: disabled in mcp.json")
+            else:
+                lines.append(f"mcp {server.name}: {self.reason(server.name)}")
+        lines.extend(self.collisions())
+        return lines
+
+    # -- resources and prompts ---------------------------------------------
+
+    def offering(self, name: str) -> Offering:
+        """List one server's resources and prompts.  Never raises."""
+        client = self.client(name)
+        if client is None:
+            return Offering(name, error=self.reason(name) or "not connected")
+        try:
+            resources = client.list_resources(timeout=self._budget(name))
+            prompts = client.list_prompts(timeout=self._budget(name))
+        except ServerGone as exc:
+            self.mark_dead(name, str(exc))
+            return Offering(name, error=f"server died: {exc}")
+        except (MCPError, TransportError) as exc:
+            return Offering(name, error=f"{type(exc).__name__}: {exc}")
+        return Offering(name, resources=resources, prompts=prompts)
+
+    def offerings(self) -> list[Offering]:
+        """Every live server's listing, in configuration order."""
+        return [self.offering(s.name) for s in self.config.servers if self.state(s.name) == LIVE]
+
+    def read_resource(self, name: str, uri: str) -> ResourceRead:
+        """Fetch one resource body as text.  A failure lands in `.error`."""
+        client = self.client(name)
+        if client is None:
+            return ResourceRead(name, uri, error=self.reason(name) or "not connected")
+        try:
+            text = client.read_resource(uri, timeout=self._budget(name))
+        except ServerGone as exc:
+            self.mark_dead(name, str(exc))
+            return ResourceRead(name, uri, error=f"server died: {exc}")
+        except (MCPError, TransportError) as exc:
+            return ResourceRead(name, uri, error=f"{type(exc).__name__}: {exc}")
+        if not text:
+            return ResourceRead(name, uri, error=f"{uri} carries no readable text")
+        return ResourceRead(name, uri, text=text)
+
+    def _budget(self, name: str) -> float:
+        server = self.config_for(name)
+        # A listing is metadata; spending a whole tool-call timeout on it would
+        # freeze the command that asked for it.
+        return min(server.timeout if server else DEFAULT_TIMEOUT, 30.0)
+
     def __len__(self) -> int:
         return len(self._clients)
+
+
+def _signature(server: ServerConfig) -> tuple[Any, ...]:
+    """Everything that changes how a server is reached, and nothing else.
+
+    `source` is deliberately excluded: the same definition moving from the home
+    file to the workspace file still describes the same process to talk to, and
+    reconnecting it would drop a working session for no reason at all.
+    """
+    return (
+        server.command,
+        tuple(server.args),
+        tuple(sorted(server.env.items())),
+        server.url,
+        tuple(sorted(server.headers.items())),
+        server.cwd,
+        server.timeout,
+        server.enabled,
+    )

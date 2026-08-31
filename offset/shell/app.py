@@ -74,6 +74,12 @@ from offset.tools.websearch import web_search_tools
 from offset.core.snapshots import capture_all, target_paths
 from offset.tools.mcp import Manager as MCPManager
 from offset.tools.mcp import load_config as load_mcp_config
+from offset.tools.debug import debug_tools
+from offset.tools.lsp import lsp_tools
+from offset.tools.web import browser_tools, close_all as close_browsers
+from offset.tools import plugins as plugin_registry
+from offset.core import jobs as job_store
+from offset.core import update as updater
 
 
 class SlashCompleter(Completer):
@@ -676,7 +682,43 @@ class Shell:
             self.state.session.close()
             if self.state.mcp is not None:
                 self.state.mcp.disconnect_all()
+            # A language server, a debuggee or a headless browser outliving the
+            # shell is a process the user cannot see and did not ask to keep.
+            try:
+                close_browsers()
+            except Exception:
+                pass
+            for shut in (_shutdown_language_servers, _shutdown_debuggees):
+                try:
+                    shut(self.state)
+                except Exception:
+                    pass
 
+
+
+def _shutdown_language_servers(state: Any) -> None:
+    """Stop every language server this shell started.
+
+    The pool lives on the tool instances, so it is reached through the toolbox:
+    a module global would let two shells in one process tear down each other's
+    servers, and a test that built a state would leak into the next one.
+    """
+    seen: set[int] = set()
+    for tool in state.toolbox:
+        pool = getattr(tool, "servers", None)
+        if pool is None or id(pool) in seen:
+            continue
+        seen.add(id(pool))
+        shutdown = getattr(pool, "shutdown_all", None)
+        if callable(shutdown):
+            shutdown()
+
+
+def _shutdown_debuggees(state: Any) -> None:
+    """Take down a debuggee the user left stopped at a breakpoint."""
+    from offset.tools.debug.tool import book
+
+    book().release()
 
 # -- construction -----------------------------------------------------------
 
@@ -701,7 +743,33 @@ def reachable_model(configured: str | None) -> str:
     return "mock"
 
 
-def build_state(workspace: Path | str = ".", *, model: str | None = None, approval: str | None = None) -> ShellState:
+def _pick_session(root: Path, resume: str | None) -> Session:
+    """A fresh session, or the one the user asked to carry on with.
+
+    `resume=""` means "the most recent", which is what `--continue` passes; a
+    non-empty value selects by id or id prefix. An unmatched request is a new
+    session rather than an error, because losing a launch to a typo is worse
+    than silently starting clean.
+    """
+    if resume is None:
+        return Session.create(root / "sessions")
+    listed = Session.list(root / "sessions")
+    wanted = resume.strip()
+    match = None
+    if not wanted:
+        match = listed[0] if listed else None
+    else:
+        match = next((m for m in listed if m.id == wanted or m.id.startswith(wanted)), None)
+    if match is None:
+        return Session.create(root / "sessions")
+    try:
+        return Session.resume(Path(match.path))
+    except (FileNotFoundError, OSError):
+        return Session.create(root / "sessions")
+
+
+def build_state(workspace: Path | str = ".", *, model: str | None = None,
+                approval: str | None = None, resume: str | None = None) -> ShellState:
     """Assemble a session, every tool, the eggs, and an agent."""
     workspace = Path(workspace).resolve()
     settings.configure(workspace)
@@ -710,7 +778,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None, approv
     # only if it is a model this machine can actually reach.
     model = model or reachable_model(settings.get("model.default", None))
     home = config_dir()  # resolved now, so OFFSET_HOME really isolates a test
-    session = Session.create(home / "sessions")
+    session = _pick_session(home, resume)
 
     # Every tool ships enabled; what varies is whether a call is allowed.
     # `system_tools()` is the whole-machine set and already carries `document`.
@@ -720,7 +788,12 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None, approv
         *todo_tools(home / "todo"),
         *web_search_tools(),
         *subagent_tools(),
+        *lsp_tools(),
+        *debug_tools(),
+        *browser_tools(),
     ])
+    # Plugins are merged by `plugins.install` below, which also gates untrusted
+    # ones; this keeps the loose-file path working for anything it quarantines.
     found = discover(default_dirs(workspace))
     for tool in found:
         try:
@@ -758,24 +831,35 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None, approv
     agent = Agent(session, runtime, AgentConfig(model=model, system=system))
 
     # MCP servers are optional and must never delay startup: a server that is
-    # slow or absent costs its own tools, nothing else.
+    # slow or absent costs its own tools, nothing else.  Registration itself is
+    # `plugins.install`'s job now, so a later `/mcp reload` can withdraw and
+    # re-publish the same names instead of leaving a stale tool callable.
     mcp_manager = None
     try:
         mcp_config = load_mcp_config(workspace)
         if mcp_config.servers:
             mcp_manager = MCPManager(mcp_config)
             mcp_manager.connect_all()
-            for remote in mcp_manager.tools():
-                try:
-                    toolbox.register(remote)
-                except ValueError:
-                    pass
     except Exception:
         mcp_manager = None
 
     state = ShellState(session, agent, toolbox, policy, eggs, workspace)
     state.mcp = mcp_manager
     state.ensemble = seat_roster(model)
+
+    # Each subsystem owns its own startup: publishing MCP and plugin tools,
+    # settling jobs a previous run left claiming to be alive, and starting the
+    # update check.  All of them are written to degrade quietly, so one failing
+    # costs its own feature and not the shell.
+    for name, hook in (
+        ("plugins", plugin_registry.install),
+        ("jobs", job_store.install),
+        ("update", updater.install),
+    ):
+        try:
+            hook(state)
+        except Exception as exc:  # a broken extension must not cost startup
+            eggs.event("subsystem_failed", name=name, detail=f"{type(exc).__name__}: {exc}")
     return state
 
 
@@ -799,8 +883,9 @@ files. When several approaches are plausible, say so in one line and pick one.
 Never claim a command succeeded without running it."""
 
 
-def main(workspace: str = ".", model: str | None = None, approval: str | None = None) -> int:
+def main(workspace: str = ".", model: str | None = None, approval: str | None = None,
+         resume: str | None = None) -> int:
     from offset.auth import check_login
     check_login()
-    Shell(build_state(workspace, model=model, approval=approval)).run()
+    Shell(build_state(workspace, model=model, approval=approval, resume=resume)).run()
     return 0

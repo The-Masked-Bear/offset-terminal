@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator
@@ -64,7 +65,7 @@ class SessionInfo:
 class Session:
     """An append-only session file plus the indexes derived from it."""
 
-    __slots__ = ("_by_id", "_entries", "_fh", "_kids", "_labels", "_leaf", "_skipped", "id", "path")
+    __slots__ = ("_by_id", "_entries", "_fh", "_kids", "_labels", "_leaf", "_lock", "_skipped", "id", "path")
 
     def __init__(self, path: str | os.PathLike[str]) -> None:
         self.path = Path(path)
@@ -76,6 +77,13 @@ class Session:
         self._leaf: str | None = None
         self._skipped = 0
         self._fh = None
+        #: Every path that mutates the file or the derived indexes takes this.
+        #: `/flow` and background jobs already drive one session from several
+        #: threads; without it two appends could interleave their write and
+        #: their index update, and the second one's parent would be the first
+        #: one's leaf-in-progress.  Reentrant because `branch` calls `_write`
+        #: and `compact` calls `close` and `load`.
+        self._lock = threading.RLock()
 
     # -- lifecycle --------------------------------------------------------
 
@@ -180,35 +188,37 @@ class Session:
                 return
 
     def load(self) -> "Session":
-        self._entries.clear()
-        self._by_id.clear()
-        self._kids.clear()
-        self._labels.clear()
-        self._leaf = None
-        self._skipped = 0
-        if not self.path.exists():
+        with self._lock:
+            self._entries.clear()
+            self._by_id.clear()
+            self._kids.clear()
+            self._labels.clear()
+            self._leaf = None
+            self._skipped = 0
+            if not self.path.exists():
+                return self
+            # `errors="replace"` rather than strict: iteration decodes lazily, so one
+            # bad byte from a torn write or a failing disk raised out of the loop and
+            # made the whole session unopenable. Replaced bytes fail the JSON parse
+            # below instead, and are counted as skipped like any other damaged line.
+            with self.path.open("r", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = Entry.from_obj(json.loads(line))
+                    except (ValueError, json.JSONDecodeError):
+                        self._skipped += 1
+                        continue
+                    self._index(entry)
             return self
-        # `errors="replace"` rather than strict: iteration decodes lazily, so one
-        # bad byte from a torn write or a failing disk raised out of the loop and
-        # made the whole session unopenable. Replaced bytes fail the JSON parse
-        # below instead, and are counted as skipped like any other damaged line.
-        with self.path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = Entry.from_obj(json.loads(line))
-                except (ValueError, json.JSONDecodeError):
-                    self._skipped += 1
-                    continue
-                self._index(entry)
-        return self
 
     def close(self) -> None:
-        if self._fh is not None:
-            self._fh.close()
-            self._fh = None
+        with self._lock:
+            if self._fh is not None:
+                self._fh.close()
+                self._fh = None
 
     def __enter__(self) -> "Session":
         return self
@@ -224,53 +234,61 @@ class Session:
     # -- indexing ---------------------------------------------------------
 
     def _index(self, entry: Entry) -> None:
-        if entry.id in self._by_id:
-            return  # duplicate append: first write wins
-        self._by_id[entry.id] = entry
-        self._entries.append(entry)
-        if entry.type == LEAF:
-            target = entry.data.get("leaf")
-            self._leaf = target if isinstance(target, str) else None
-            return
-        if entry.type == LABEL:
-            target, text = entry.data.get("target"), entry.data.get("text")
-            if isinstance(target, str):
-                if text:
-                    self._labels[target] = str(text)
-                else:
-                    self._labels.pop(target, None)
-            return
-        if entry.type == SNAPSHOT:
-            # Recorded and addressable, but it is a fact about the workspace,
-            # not a turn: it must never become a parent or the leaf.
-            return
-        parent = entry.parent
-        if parent == entry.id or (parent is not None and parent not in self._by_id):
-            parent = None  # orphan or self-parent: promote to root
-        self._kids.setdefault(parent, []).append(entry)
-        self._leaf = entry.id
+        with self._lock:
+            if entry.id in self._by_id:
+                return  # duplicate append: first write wins
+            self._by_id[entry.id] = entry
+            self._entries.append(entry)
+            if entry.type == LEAF:
+                target = entry.data.get("leaf")
+                self._leaf = target if isinstance(target, str) else None
+                return
+            if entry.type == LABEL:
+                target, text = entry.data.get("target"), entry.data.get("text")
+                if isinstance(target, str):
+                    if text:
+                        self._labels[target] = str(text)
+                    else:
+                        self._labels.pop(target, None)
+                return
+            if entry.type == SNAPSHOT:
+                # Recorded and addressable, but it is a fact about the workspace,
+                # not a turn: it must never become a parent or the leaf.
+                return
+            parent = entry.parent
+            if parent == entry.id or (parent is not None and parent not in self._by_id):
+                parent = None  # orphan or self-parent: promote to root
+            self._kids.setdefault(parent, []).append(entry)
+            self._leaf = entry.id
 
     def _write(self, entry: Entry) -> Entry:
-        if self._fh is None:
-            self._fh = self.path.open("a", encoding="utf-8")
-        self._fh.write(entry.to_json() + "\n")
-        self._fh.flush()
-        self._index(entry)
-        return entry
+        with self._lock:
+            if self._fh is None:
+                self._fh = self.path.open("a", encoding="utf-8")
+            self._fh.write(entry.to_json() + "\n")
+            self._fh.flush()
+            self._index(entry)
+            return entry
 
     # -- appending --------------------------------------------------------
 
     def append(self, type: str, data: dict[str, Any] | None = None, *, parent: str | None = "\0") -> Entry:
         """Append an entry as a child of the current leaf (or of `parent`)."""
-        at = self._leaf if parent == "\0" else parent
-        return self._write(Entry(id=new_id(), type=type, parent=at, data=dict(data or {})))
+        # Minting the id inside the lock as well: `new_id` keeps its monotonic
+        # counter in module state, so two threads in the same millisecond could
+        # otherwise agree on an id and the second entry would be indexed as a
+        # duplicate and silently vanish from the tree while sitting on disk.
+        with self._lock:
+            at = self._leaf if parent == "\0" else parent
+            return self._write(Entry(id=new_id(), type=type, parent=at, data=dict(data or {})))
 
     def say(self, role: str, text: str, **extra: Any) -> Entry:
         return self.append(MESSAGE, {"role": role, "text": text, **extra})
 
     def label(self, target: str, text: str | None) -> Entry:
         """Set or clear a label.  Append-only; the newest write wins."""
-        return self._write(Entry(id=new_id(), type=LABEL, parent=None, data={"target": target, "text": text}))
+        with self._lock:
+            return self._write(Entry(id=new_id(), type=LABEL, parent=None, data={"target": target, "text": text}))
 
     def label_of(self, target: str) -> str | None:
         return self._labels.get(target)
@@ -283,9 +301,10 @@ class Session:
 
     def branch(self, target: str | None) -> Entry:
         """Move the leaf.  The move itself is recorded, so replay is exact."""
-        if target is not None and target not in self._by_id:
-            raise KeyError(f"no such entry: {target}")
-        return self._write(Entry(id=new_id(), type=LEAF, parent=None, data={"leaf": target}))
+        with self._lock:
+            if target is not None and target not in self._by_id:
+                raise KeyError(f"no such entry: {target}")
+            return self._write(Entry(id=new_id(), type=LEAF, parent=None, data={"leaf": target}))
 
     def reset_leaf(self) -> Entry:
         return self.branch(None)
@@ -372,23 +391,24 @@ class Session:
         rewrites history, so it writes to a temporary file and renames — a
         crash leaves the original log intact.
         """
-        keep = [e for e in self._entries if e.type not in BOOKKEEPING]
-        tail = [Entry(id=new_id(), type=LABEL, parent=None, data={"target": t, "text": x}) for t, x in self._labels.items()]
-        if self._leaf is not None:
-            tail.append(Entry(id=new_id(), type=LEAF, parent=None, data={"leaf": self._leaf}))
-        dropped = len(self._entries) - len(keep)
-        self.close()
-        fd, tmp = tempfile.mkstemp(dir=self.path.parent, suffix=".jsonl")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                for e in keep + tail:
-                    fh.write(e.to_json() + "\n")
-            os.replace(tmp, self.path)
-        except BaseException:
-            os.unlink(tmp)
-            raise
-        self.load()
-        return dropped
+        with self._lock:
+            keep = [e for e in self._entries if e.type not in BOOKKEEPING]
+            tail = [Entry(id=new_id(), type=LABEL, parent=None, data={"target": t, "text": x}) for t, x in self._labels.items()]
+            if self._leaf is not None:
+                tail.append(Entry(id=new_id(), type=LEAF, parent=None, data={"leaf": self._leaf}))
+            dropped = len(self._entries) - len(keep)
+            self.close()
+            fd, tmp = tempfile.mkstemp(dir=self.path.parent, suffix=".jsonl")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    for e in keep + tail:
+                        fh.write(e.to_json() + "\n")
+                os.replace(tmp, self.path)
+            except BaseException:
+                os.unlink(tmp)
+                raise
+            self.load()
+            return dropped
 
     def __len__(self) -> int:
         return len(self._entries)

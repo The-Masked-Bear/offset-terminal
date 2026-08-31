@@ -17,6 +17,15 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from offset.core.agent import Agent, AgentConfig, RunResult
+from offset.core.scoring import (
+    DEFAULT_WEIGHTS,
+    Baseline,
+    Reviewer,
+    Scorecard,
+    Weights,
+    measure_baseline,
+    score,
+)
 from offset.core.session import Session
 from offset.core.speculate import Approach, Attempt, Speculation, workspaces_for
 from offset.tools.base import ToolContext, Toolbox
@@ -40,10 +49,36 @@ class BranchRun:
     task: str
     attempts: list[Attempt] = field(default_factory=list)
     speculation: Speculation | None = None
+    #: Measured once, before the fan-out, so `regressions` has something to
+    #: compare against.  `None` means nobody measured it, not "all clear".
+    baseline: Baseline | None = None
+    weights: Weights = DEFAULT_WEIGHTS
+    reviewer: Reviewer | None = None
+    _cards: list[Scorecard] | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def scorecards(self) -> list[Scorecard]:
+        """The weighted breakdown, best first.  Memoised: scoring shells out to
+        linters, and `report()` alone asks for the ranking three times."""
+        if self._cards is None:
+            self._cards = score(
+                self.attempts, weights=self.weights,
+                reviewer=self.reviewer, baseline=self.baseline,
+            )
+        return self._cards
+
+    def rescore(self, *, weights: Weights | None = None, reviewer: Reviewer | None = None) -> list[Scorecard]:
+        """Re-run the scorer, optionally under different weights."""
+        if weights is not None:
+            self.weights = weights
+        if reviewer is not None:
+            self.reviewer = reviewer
+        self._cards = None
+        return self.scorecards
 
     @property
     def ranked(self) -> list[Attempt]:
-        return Speculation.rank(self.attempts)
+        return [card.attempt for card in self.scorecards]
 
     @property
     def winner(self) -> Attempt | None:
@@ -51,20 +86,34 @@ class BranchRun:
         return ranked[0] if ranked and ranked[0].error is None else None
 
     def report(self) -> list[str]:
+        cards = self.scorecards
+        if not cards:
+            return ["no branches ran"]
         lines: list[str] = []
-        for i, attempt in enumerate(self.ranked, 1):
+        for i, card in enumerate(cards, 1):
+            attempt = card.attempt
             mark = {"pass": "+", "fail": "x", "idle": "?"}.get(attempt.state, "?")
             lines.append(
                 f"{i}. {mark} {attempt.approach.name:<10} "
-                f"{attempt.churn:>4} lines  {attempt.duration:>5.1f}s  "
+                f"{card.total:.2f}  {attempt.churn:>4} lines  {attempt.duration:>5.1f}s  "
                 f"{'verified' if attempt.state == 'pass' else attempt.state}"
             )
+            # The evidence, not just the verdict: a user comparing branches
+            # wants the tally and the effort side by side with the score.
+            if attempt.verification.counts.known:
+                lines.append(f"      tests   {attempt.verification.counts.summary()}")
+            if attempt.metrics.observed:
+                lines.append(f"      agent   {attempt.metrics.summary()}")
             if attempt.error:
                 lines.append(f"      {attempt.error[:70]}")
-        if not lines:
-            return ["no branches ran"]
+        if self.baseline is not None:
+            lines.append("")
+            lines.append(self.baseline.summary())
         lines.append("")
-        best = self.ranked[0]
+        lines.append(f"why {cards[0].name} leads:")
+        lines.extend(cards[0].lines()[1:])
+        lines.append("")
+        best = cards[0].attempt
         lines.append(f"adopt the leader with /adopt 1  ({best.approach.name}, {best.churn} lines changed)")
         return lines
 
@@ -127,6 +176,8 @@ def run_branches(
     api_key: str | None = None,
     keep: bool = True,
     parallel: bool = True,
+    baseline: bool = True,
+    reviewer: Reviewer | None = None,
 ) -> BranchRun:
     """Try `count` approaches to `task` in isolation and rank what happened."""
     workspace = Path(workspace).resolve()
@@ -136,6 +187,12 @@ def run_branches(
         verify_command=verify_command,
         keep=keep,
     )
+    # Before the fan-out, and only once: the branches are seeded from the same
+    # base, so measuring it afterwards would race their worktrees for no gain.
+    # Without this the regression criterion can never fire, which is the whole
+    # difference between "these tests fail" and "you broke these tests".
+    before = measure_baseline(spec) if baseline and verify_command else None
     plan = approaches(count, task, models)
     attempts = spec.run(plan, branch_runner(config, api_key=api_key), parallel=parallel)
-    return BranchRun(task=task, attempts=attempts, speculation=spec)
+    return BranchRun(task=task, attempts=attempts, speculation=spec,
+                     baseline=before, reviewer=reviewer)

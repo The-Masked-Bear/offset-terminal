@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from offset.tools.base import Cancelled, Danger, ToolContext
+from offset.tools.base import Cancelled, Danger, Tool, ToolContext, ToolResult, Toolbox
 from offset.tools.mcp import (
     Config,
     HTTPTransport,
@@ -31,6 +31,7 @@ from offset.tools.mcp import (
     parse_config,
     tool_name,
 )
+from offset.tools.mcp.manager import expand
 
 # -- the server under test --------------------------------------------------
 
@@ -602,3 +603,231 @@ def test_an_unreachable_http_endpoint_fails_instead_of_hanging(managers):
 def test_sse_framing_survives_multi_line_and_comment_lines():
     body = ": keep-alive\nevent: message\ndata: {\"jsonrpc\": \"2.0\",\ndata: \"id\": 1, \"result\": {}}\n\n"
     assert HTTPTransport._sse(body) == ['{"jsonrpc": "2.0",\n"id": 1, "result": {}}']
+
+
+# -- runtime lifecycle ------------------------------------------------------
+
+
+class Squatter(Tool):
+    """A local tool that got to an `mcp__` name first."""
+
+    name = "mcp__echo__echo"
+    description = "a local tool holding the name first"
+    schema = {"type": "object", "properties": {}}
+
+    def run(self, args, ctx):
+        return ToolResult.text("local")
+
+
+def write_config(workspace: Path, script: Path, log: Path, names: list[str]) -> None:
+    body = {"mcpServers": {name: {
+        "command": sys.executable,
+        "args": [str(script)],
+        "env": {"ECHO_LOG": str(log)},
+        "timeout": 30,
+    } for name in names}}
+    target = workspace / ".offset" / "mcp.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(body), encoding="utf-8")
+
+
+def test_a_reload_withdraws_the_tools_of_a_server_that_is_gone(
+    script, log, managers, tmp_path, monkeypatch, ctx,
+):
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "home"))
+    workspace = tmp_path / "project"
+    write_config(workspace, script, log, ["one", "two"])
+    box = Toolbox()
+    manager = Manager.from_workspace(workspace, attempts=1, toolbox=box)
+    managers.append(manager)
+
+    assert manager.connect_all() == []
+    assert "mcp__two__echo" in box and "mcp__one__echo" in box
+    stale = box.get("mcp__two__echo")
+    survivor = manager.client("one")
+
+    write_config(workspace, script, log, ["one"])
+    lines = manager.reload()
+
+    assert "mcp__two__echo" not in box, "a removed server's tools must stop being callable"
+    assert manager.registered("two") == []
+    assert manager.config_for("two") is None
+    assert any("two: removed" in line for line in lines)
+    assert "mcp__one__echo" in box
+    assert manager.client("one") is survivor, "an untouched server must not be reconnected"
+    assert stale.run({"text": "gone"}, ctx).ok is False, "the withdrawn tool must not reach a server"
+
+
+def test_a_reload_reconnects_only_the_server_whose_definition_changed(
+    script, log, managers, tmp_path, monkeypatch,
+):
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "home"))
+    workspace = tmp_path / "project"
+    write_config(workspace, script, log, ["one", "two"])
+    manager = Manager.from_workspace(workspace, attempts=1, toolbox=Toolbox())
+    managers.append(manager)
+    manager.connect_all()
+    kept, replaced = manager.client("one"), manager.client("two")
+
+    raw = json.loads((workspace / ".offset" / "mcp.json").read_text(encoding="utf-8"))
+    raw["mcpServers"]["two"]["timeout"] = 11
+    (workspace / ".offset" / "mcp.json").write_text(json.dumps(raw), encoding="utf-8")
+    lines = manager.reload()
+
+    assert manager.client("one") is kept
+    assert manager.client("two") is not replaced, "a changed definition has to be re-established"
+    assert manager.config_for("two").timeout == 11.0
+    assert any("one: unchanged" in line for line in lines)
+    assert any("two: connected" in line for line in lines)
+
+
+def test_a_server_added_at_runtime_is_usable_without_a_restart(
+    script, log, managers, tmp_path, monkeypatch, ctx,
+):
+    monkeypatch.setenv("OFFSET_HOME", str(tmp_path / "home"))
+    box = Toolbox()
+    manager = Manager(Config(), attempts=1, toolbox=box)
+    managers.append(manager)
+    assert manager.tools() == []
+
+    added = manager.add_server(ServerConfig(
+        name="late", command=sys.executable, args=[str(script)],
+        env={"ECHO_LOG": str(log)}, timeout=30.0,
+    ))
+
+    assert added is True
+    assert manager.state("late") == "live"
+    tool = box.get("mcp__late__echo")
+    assert tool is not None, "a server added at runtime must reach the toolbox"
+    assert tool.run({"text": "now"}, ctx).content == "echo: now"
+
+    assert manager.remove_server("late") is True
+    assert box.names() == [], "removing a server takes its tools with it"
+    assert manager.remove_server("late") is False
+
+
+def test_a_server_name_a_model_could_not_reproduce_is_refused(managers):
+    manager = Manager(Config(), attempts=1)
+    managers.append(manager)
+    assert manager.add_server(ServerConfig(name="two words", command="/bin/true")) is False
+    assert "letters, digits" in manager.reason("two words")
+    assert manager.config_for("two words") is None
+
+
+def test_a_reconnect_replaces_the_registered_tools_rather_than_duplicating_them(
+    script, log, managers,
+):
+    box = Toolbox()
+    manager = build(managers, script, log)
+    assert manager.attach(box) == []
+    manager.connect("echo")
+    before = sorted(box.names())
+
+    assert manager.reconnect("echo") is True
+
+    assert sorted(box.names()) == before
+    assert len(manager.registered("echo")) == 5
+    assert manager.reconnect("absent") is False
+    assert "absent" in manager.reason("absent")
+
+
+def test_a_dead_servers_tools_leave_the_toolbox(script, log, managers, ctx):
+    box = Toolbox()
+    manager = build(managers, script, log)
+    manager.attach(box)
+    manager.connect("echo")
+    assert "mcp__echo__die" in box
+
+    box.get("mcp__echo__die").run({}, ctx)  # the server exits without answering
+
+    assert manager.state("echo") == "down"
+    assert box.names() == [], "a dead server must not leave a callable name behind"
+
+
+def test_a_tool_name_already_taken_is_reported_not_swallowed(script, log, managers):
+    box = Toolbox([Squatter()])
+    manager = build(managers, script, log)
+    manager.attach(box)
+    manager.connect("echo")
+
+    clashes = manager.collisions()
+    assert any("mcp__echo__echo" in line for line in clashes), "a lost tool must be named"
+    assert box.get("mcp__echo__echo").description == "a local tool holding the name first"
+    assert "mcp__echo__write_note" in box, "one clash must not cost the rest of the server"
+    assert "mcp__echo__echo" not in manager.registered("echo")
+
+    manager.disconnect("echo")
+    assert manager.collisions() == []
+    assert "mcp__echo__echo" in box, "withdrawal must not take a tool we never registered"
+
+
+# -- resources and prompts through the manager ------------------------------
+
+
+def test_resources_and_prompts_are_reachable_through_the_manager(script, log, managers):
+    manager = build(managers, script, log)
+    manager.connect("echo")
+
+    offering = manager.offering("echo")
+    assert offering.ok
+    assert [r.uri for r in offering.resources] == ["mem://note"]
+    assert [p.name for p in offering.prompts] == ["greet"]
+    assert "1 resource(s), 1 prompt(s)" in offering.report()[0]
+    assert [o.server for o in manager.offerings()] == ["echo"]
+
+    got = manager.read_resource("echo", "mem://note")
+    assert got.ok and got.text == "the note body"
+
+
+def test_a_listing_on_a_server_that_never_started_is_a_value_not_a_raise(managers, tmp_path):
+    manager = Manager(Config(servers=[ServerConfig(name="ghost", command=str(tmp_path / "nope"))]),
+                      attempts=1)
+    managers.append(manager)
+    manager.connect("ghost")
+
+    offering = manager.offering("ghost")
+    assert offering.ok is False and offering.error
+    assert offering.report() == [f"ghost: {offering.error}"]
+    got = manager.read_resource("ghost", "mem://note")
+    assert got.ok is False and got.error
+    assert manager.offerings() == [], "nothing is live, so there is nothing to list"
+
+
+# -- variable interpolation -------------------------------------------------
+
+
+def test_a_configured_variable_is_taken_from_the_environment(monkeypatch):
+    monkeypatch.setenv("MCP_TOKEN", "s3cret")
+    monkeypatch.setenv("MCP_BIN", "/usr/bin/thing")
+
+    servers, errors = parse_config({"mcpServers": {
+        "local": {"command": "${env:MCP_BIN}", "args": ["--token=${MCP_TOKEN}"], "cwd": "/tmp"},
+        "web": {"url": "https://example.com/mcp",
+                "headers": {"Authorization": "Bearer ${MCP_TOKEN}"}},
+    }})
+
+    assert errors == []
+    local, web = servers
+    assert local.command == "/usr/bin/thing"
+    assert local.args == ["--token=s3cret"]
+    assert web.headers["Authorization"] == "Bearer s3cret"
+
+
+def test_a_missing_variable_names_the_field_and_drops_the_server(monkeypatch, tmp_path):
+    monkeypatch.delenv("MCP_TOKEN", raising=False)
+
+    servers, errors = parse_config({"mcpServers": {
+        "web": {"url": "https://example.com/mcp",
+                "headers": {"Authorization": "Bearer ${MCP_TOKEN}"}},
+    }}, source=tmp_path / "mcp.json")
+
+    assert servers == [], "a half-substituted credential must never reach a server"
+    assert "mcpServers.web.headers.Authorization: ${MCP_TOKEN} is not set" in errors[0]
+    assert str(tmp_path / "mcp.json") in errors[0]
+
+
+def test_a_value_that_merely_looks_like_a_template_is_left_alone():
+    text, missing = expand("${9bad} ${A}-${A}", environ={"A": "1"})
+    assert text == "${9bad} 1-1", "only a well-formed variable name is substituted"
+    assert missing == []
+    assert expand("${GONE}", environ={}) == ("", ["GONE"])

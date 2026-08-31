@@ -210,6 +210,16 @@ class Toolbox:
         self._tools[tool.name] = tool
         return tool
 
+    def unregister(self, name: str) -> bool:
+        """Withdraw a tool.  True if it was there, False if it never was.
+
+        The registry has to be able to shrink, not just grow: a reconnected MCP
+        server publishes a different tool list, and leaving the old entries in
+        place left names the model could call that resolved to a dead pipe.
+        Removal is idempotent so a reload can be repeated safely.
+        """
+        return self._tools.pop(name, None) is not None
+
     def get(self, name: str) -> Tool | None:
         return self._tools.get(name)
 

@@ -14,12 +14,20 @@ nobody can attribute, so each attempt gets its own filesystem:
   * `CopyWorkspaces` — a filtered directory copy, for workspaces that are not
     git repositories at all.
 
+Evidence is only useful if it is kept.  A branch used to throw away everything
+it learned except an exit code, so `observe` projects the runner's payload onto
+`BranchMetrics` and `parse_test_output` turns a verification's own summary into
+`TestCounts`.  Both are read once, when the `Attempt` is assembled, because an
+untyped `detail` object re-interpreted at every call site is a bug waiting for
+a runner that returns something else.
+
 Nothing is adopted automatically.  Ranking proposes; the human disposes.
 """
 
 from __future__ import annotations
 
 import difflib
+import re
 import shutil
 import subprocess
 import time
@@ -186,6 +194,227 @@ def workspaces_for(root: Path) -> Workspaces:
     return GitWorktrees(root) if GitWorktrees.usable(root) else CopyWorkspaces(root)
 
 
+# -- observation ------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class TestCounts:
+    """How many tests ran, when the runner said so.
+
+    Every field is `None` rather than `0` when the output could not be parsed.
+    "nothing failed" and "we have no idea whether anything failed" must not
+    compare equal: the first is evidence, the second is silence, and a scorer
+    that confuses them will happily crown a branch whose suite never ran.
+    """
+
+    passed: int | None = None
+    failed: int | None = None
+    skipped: int | None = None
+    total: int | None = None
+
+    @property
+    def known(self) -> bool:
+        return self.total is not None
+
+    def summary(self) -> str:
+        if not self.known:
+            return "no test counts"
+        parts = [f"{self.passed or 0} passed"]
+        if self.failed:
+            parts.append(f"{self.failed} failed")
+        if self.skipped:
+            parts.append(f"{self.skipped} skipped")
+        return f"{', '.join(parts)} of {self.total}"
+
+
+#: pytest and cargo both spell their tally as `N word`; the words differ.
+_TALLY = re.compile(r"(\d+)\s+([a-z]+)")
+_PYTEST_WORDS = {
+    "passed": "passed", "xpassed": "passed",
+    "failed": "failed", "error": "failed", "errors": "failed",
+    "skipped": "skipped", "xfailed": "skipped", "deselected": "skipped",
+}
+_JEST = re.compile(r"^Tests:\s+([^\n]*?)(\d+)\s+total\s*$", re.M)
+_JEST_WORDS = re.compile(r"(\d+)\s+(passed|failed|skipped|todo)")
+_CARGO = re.compile(r"test result:\s*(?:ok|FAILED)\.\s*(\d+) passed;\s*(\d+) failed;\s*(\d+) ignored")
+_GO = re.compile(r"^\s*--- (PASS|FAIL|SKIP): ", re.M)
+_RAN = re.compile(r"^Ran (\d+) tests?\b", re.M)
+_VERDICT = re.compile(r"^(?:OK|FAILED)\b(.*)$", re.M)
+_KEYED = re.compile(r"(failures|errors|skipped)=(\d+)")
+
+
+def parse_test_output(text: str) -> TestCounts:
+    """Read a test runner's own summary rather than guessing from its exit code.
+
+    Five formats cover nearly everything a project actually verifies with:
+    jest, cargo, `go test -v`, pytest and unittest.  They are tried
+    most-specific first, because the generic `N passed` scan that catches
+    pytest would also half-read the others and report the wrong skip count.
+    Unrecognised output yields empty counts — absent, not zero.
+    """
+    if not text:
+        return TestCounts()
+    for parser in (_jest_counts, _cargo_counts, _go_counts, _pytest_counts, _unittest_counts):
+        counts = parser(text)
+        if counts is not None:
+            return _complete(counts)
+    return TestCounts()
+
+
+def _complete(counts: TestCounts) -> TestCounts:
+    known = [n for n in (counts.passed, counts.failed, counts.skipped) if n is not None]
+    if counts.total is None and known:
+        counts.total = sum(known)
+    if counts.passed is None and counts.total is not None:
+        counts.passed = max(0, counts.total - (counts.failed or 0) - (counts.skipped or 0))
+    return counts
+
+
+def _jest_counts(text: str) -> TestCounts | None:
+    found = _JEST.search(text)
+    if found is None:
+        return None
+    counts = TestCounts(total=int(found.group(2)))
+    for number, word in _JEST_WORDS.findall(found.group(1)):
+        slot = "skipped" if word == "todo" else word
+        setattr(counts, slot, (getattr(counts, slot) or 0) + int(number))
+    return counts
+
+
+def _cargo_counts(text: str) -> TestCounts | None:
+    # A workspace prints one `test result:` line per test binary; sum them.
+    hits = _CARGO.findall(text)
+    if not hits:
+        return None
+    passed = sum(int(h[0]) for h in hits)
+    failed = sum(int(h[1]) for h in hits)
+    skipped = sum(int(h[2]) for h in hits)
+    return TestCounts(passed, failed, skipped, passed + failed + skipped)
+
+
+def _go_counts(text: str) -> TestCounts | None:
+    marks = _GO.findall(text)
+    if not marks:
+        return None
+    return TestCounts(marks.count("PASS"), marks.count("FAIL"), marks.count("SKIP"), len(marks))
+
+
+def _pytest_counts(text: str) -> TestCounts | None:
+    # The tally is the LAST such line: a rerun or a `-p no:randomly` banner
+    # earlier in the output must not win over the summary at the bottom.
+    for line in reversed(text.splitlines()):
+        tally = [(int(n), _PYTEST_WORDS[w]) for n, w in _TALLY.findall(line) if w in _PYTEST_WORDS]
+        if not tally:
+            continue
+        counts = TestCounts()
+        for number, slot in tally:
+            setattr(counts, slot, (getattr(counts, slot) or 0) + number)
+        return counts
+    return None
+
+
+def _unittest_counts(text: str) -> TestCounts | None:
+    ran = _RAN.search(text)
+    verdicts = list(_VERDICT.finditer(text))
+    if ran is None or not verdicts:
+        return None
+    total = int(ran.group(1))
+    keyed = {key: int(value) for key, value in _KEYED.findall(verdicts[-1].group(1))}
+    failed = keyed.get("failures", 0) + keyed.get("errors", 0)
+    skipped = keyed.get("skipped", 0)
+    return TestCounts(max(0, total - failed - skipped), failed, skipped, total)
+
+
+@dataclass(slots=True)
+class BranchMetrics:
+    """What the agent actually did on a branch.
+
+    `Attempt.detail` carries whatever the runner returned — a `RunResult` in
+    practice, but the type stays `object` so a branch can be driven by anything
+    at all.  This record is the typed projection of it, read exactly once by
+    `observe`, so no consumer has to go spelunking in an untyped payload.
+    """
+
+    tokens_in: int = 0
+    tokens_out: int = 0
+    tokens_cached: int = 0
+    steps: int = 0
+    stop_reason: str = ""
+    tool_calls: int = 0
+    tools: tuple[str, ...] = ()
+    tool_failures: int = 0
+    tool_time: float = 0.0
+    error: str | None = None
+
+    @property
+    def observed(self) -> bool:
+        """False when the runner told us nothing: absent, not healthy."""
+        return bool(self.steps or self.tool_calls or self.stop_reason or self.tokens)
+
+    @property
+    def tokens(self) -> int:
+        return self.tokens_in + self.tokens_out
+
+    def summary(self) -> str:
+        if not self.observed:
+            return "no agent metrics"
+        parts = [f"{self.steps} step{'' if self.steps == 1 else 's'}", f"{self.tokens} tokens"]
+        if self.tokens_cached:
+            parts.append(f"{self.tokens_cached} cached")
+        if self.tool_calls:
+            failed = f", {self.tool_failures} failed" if self.tool_failures else ""
+            parts.append(f"{self.tool_calls} tool call{'' if self.tool_calls == 1 else 's'}{failed}")
+        if self.tools:
+            parts.append("/".join(self.tools))
+        if self.stop_reason and self.stop_reason != "stop":
+            parts.append(f"stopped: {self.stop_reason}")
+        return ", ".join(parts)
+
+
+def _number(value: object) -> float:
+    """A number from an untyped payload, or nothing.  `bool` is not a count."""
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
+
+
+def observe(detail: object) -> BranchMetrics:
+    """Project an untyped runner payload onto typed fields, never raising.
+
+    Defensive by contract.  `Runner` returns `object`, so every field is
+    fetched with `getattr` and coerced: a runner that hands back `None`, a
+    string or a test double yields empty metrics instead of exploding on a
+    branch that has just spent a minute of real work.
+    """
+    metrics = BranchMetrics()
+    if detail is None:
+        return metrics
+    usage = getattr(detail, "usage", None)
+    metrics.tokens_in = int(_number(getattr(usage, "input", 0)))
+    metrics.tokens_out = int(_number(getattr(usage, "output", 0)))
+    metrics.tokens_cached = int(
+        _number(getattr(usage, "cache_read", 0)) + _number(getattr(usage, "cache_write", 0))
+    )
+    metrics.steps = int(_number(getattr(detail, "steps", 0)))
+    reason = getattr(detail, "stop_reason", "")
+    metrics.stop_reason = reason if isinstance(reason, str) else ""
+    failure = getattr(detail, "error", None)
+    metrics.error = failure if isinstance(failure, str) else None
+    invocations = getattr(detail, "invocations", None)
+    # Only walk a concrete sequence: iterating an arbitrary object could
+    # consume a generator the caller still needs, or block forever.
+    seen: list[str] = []
+    for call in invocations if isinstance(invocations, (list, tuple)) else ():
+        metrics.tool_calls += 1
+        name = getattr(getattr(call, "call", None), "name", "")
+        if isinstance(name, str) and name and name not in seen:
+            seen.append(name)
+        result = getattr(call, "result", None)
+        if getattr(result, "ok", True) is False:
+            metrics.tool_failures += 1
+        metrics.tool_time += _number(getattr(result, "duration", 0.0))
+    metrics.tools = tuple(sorted(seen))
+    return metrics
+
+
 # -- attempts ---------------------------------------------------------------
 
 
@@ -206,6 +435,9 @@ class Verification:
     command: str = ""
     duration: float = 0.0
     skipped: bool = False
+    #: `skipped` above already means "no verification ran at all", so the
+    #: parsed tally lives in its own record rather than colliding with it.
+    counts: TestCounts = field(default_factory=TestCounts)
 
 
 @dataclass(slots=True)
@@ -217,6 +449,7 @@ class Attempt:
     error: str | None = None
     duration: float = 0.0
     detail: object = None  # whatever the agent factory returned
+    metrics: BranchMetrics = field(default_factory=BranchMetrics)
 
     @property
     def ok(self) -> bool:
@@ -281,6 +514,8 @@ class Speculation:
             record.detail = runner(approach, record.path)
         except Exception as exc:
             record.error = f"{type(exc).__name__}: {exc}"
+        # Read the payload once, here, where the only Attempt is assembled.
+        record.metrics = observe(record.detail)
         try:
             record.diff = self.spaces.diff(record.path)
         except Exception as exc:
@@ -304,12 +539,13 @@ class Speculation:
         except subprocess.TimeoutExpired:
             return Verification(False, f"verification exceeded {self.verify_timeout:g}s",
                                 str(command), time.monotonic() - started)
-        output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        output = ((proc.stdout or "") + (proc.stderr or "")).strip()[-4000:]
         return Verification(
             ok=proc.returncode == 0,
-            output=output[-4000:],
+            output=output,
             command=str(command),
             duration=time.monotonic() - started,
+            counts=parse_test_output(output),
         )
 
     # -- the fan-out ------------------------------------------------------

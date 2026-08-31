@@ -14,6 +14,7 @@ error and skipped, because one bad file must not stop the agent from starting.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import inspect
 import json
@@ -22,6 +23,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Iterable
 
 from offset.tools.base import Danger, Tool, ToolContext, ToolResult
@@ -34,6 +36,9 @@ class LoadError:
     source: Path
     message: str
 
+    def line(self) -> str:
+        return f"{self.source.name}: {self.message}"
+
 
 @dataclass(slots=True)
 class Discovery:
@@ -45,6 +50,18 @@ class Discovery:
 
     def __len__(self) -> int:
         return len(self.tools)
+
+    def report(self) -> list[str]:
+        """What loaded and what did not.
+
+        Every caller of `discover` used to throw `errors` away, so a plugin
+        with a syntax error was indistinguishable from a plugin that was never
+        written: nothing appeared and nothing said why.
+        """
+        lines = [f"{len(self.tools)} user tool(s): {', '.join(t.name for t in self.tools)}"
+                 if self.tools else "no user tools found"]
+        lines.extend(f"failed {error.source}: {error.message}" for error in self.errors)
+        return lines
 
 
 class ExternalTool(Tool):
@@ -134,8 +151,15 @@ def _danger(value: Any) -> Danger:
     return Danger.WRITE
 
 
-def load_manifest(path: Path) -> list[Tool]:
-    """Build tools from a `tool.json`.  Accepts one object or a list."""
+def load_manifest(path: Path, *, trusted: bool = True) -> list[Tool]:
+    """Build tools from a `tool.json`.  Accepts one object or a list.
+
+    `trusted=False` means nobody has approved this manifest yet, so its own
+    claim about how dangerous it is carries no weight and every tool it
+    describes is treated as FULL.  A manifest that could talk its way down to
+    SAFE would clear the approval threshold in every mode, which is exactly the
+    bypass the trust gate exists to close.
+    """
     raw = json.loads(path.read_text(encoding="utf-8"))
     entries = raw if isinstance(raw, list) else [raw]
     out: list[Tool] = []
@@ -155,8 +179,8 @@ def load_manifest(path: Path) -> list[Tool]:
             description=str(entry.get("description") or f"user tool {name}"),
             schema=entry.get("schema") if isinstance(entry.get("schema"), dict) else {"type": "object", "properties": {}},
             command=resolved,
-            danger=_danger(entry.get("danger")),
-            parallel_safe=bool(entry.get("parallel_safe", True)),
+            danger=_danger(entry.get("danger")) if trusted else Danger.FULL,
+            parallel_safe=bool(entry.get("parallel_safe", True)) if trusted else False,
             timeout=float(entry["timeout"]) if entry.get("timeout") else None,
             source=path,
             env=entry.get("env") if isinstance(entry.get("env"), dict) else None,
@@ -164,15 +188,36 @@ def load_manifest(path: Path) -> list[Tool]:
     return out
 
 
-def load_python(path: Path) -> list[Tool]:
-    """Import a plugin file and collect the tools it defines."""
-    spec = importlib.util.spec_from_file_location(f"offset_plugin_{path.stem}", path)
+def import_plugin(path: Path) -> ModuleType:
+    """Execute a plugin file and hand back the module.
+
+    The module name carries a digest of the path because the stem alone is not
+    unique: a `tools.py` in the workspace and one in the user's home landed on
+    the same `sys.modules` key, and the second import silently returned the
+    first file's module.
+
+    Nothing here decides whether the file *should* run — that is the trust
+    gate's job in `offset.tools.plugins`, and calling this function is the act
+    of consenting to run the code.
+    """
+    tag = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:8]
+    spec = importlib.util.spec_from_file_location(f"offset_plugin_{path.stem}_{tag}", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # A half-executed module left in sys.modules would be handed out whole
+        # on the next import attempt, hiding the failure it caused.
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
 
+
+def tools_from(module: ModuleType) -> list[Tool]:
+    """Collect the tools a plugin module offers: `TOOLS`, `TOOL`, or classes."""
     declared = getattr(module, "TOOLS", None)
     if isinstance(declared, (list, tuple)):
         return [t if isinstance(t, Tool) else t() for t in declared]
@@ -184,6 +229,11 @@ def load_python(path: Path) -> list[Tool]:
         for _, obj in inspect.getmembers(module, inspect.isclass)
         if issubclass(obj, Tool) and obj is not Tool and obj.__module__ == module.__name__ and getattr(obj, "name", "")
     ]
+
+
+def load_python(path: Path) -> list[Tool]:
+    """Import a plugin file and collect the tools it defines."""
+    return tools_from(import_plugin(path))
 
 
 def discover(dirs: Iterable[Path]) -> Discovery:

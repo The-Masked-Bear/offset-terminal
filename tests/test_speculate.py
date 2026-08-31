@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from offset.core.scoring import DIFF, score
 from offset.core.speculate import (
     Approach,
     Attempt,
@@ -191,22 +192,47 @@ def make(name: str, *, ok: bool, skipped: bool = False, churn_lines: int = 0, du
 
 
 def test_ranking_prefers_evidence_then_smaller_change():
-    ranked = Speculation.rank([
+    """`rank` is the cheap lexicographic path; `score` is the selector.
+
+    Both must agree on the coarse ordering - proven, then unproven, then
+    disproven - or `/adopt 1` would mean two different branches depending on
+    which one the caller happened to ask.
+    """
+    attempts = [
         make("big-pass", ok=True, churn_lines=50),
         make("failed", ok=False, churn_lines=1),
         make("small-pass", ok=True, churn_lines=2),
         make("unverified", ok=True, skipped=True, churn_lines=1),
-    ])
-    assert [a.approach.name for a in ranked] == ["small-pass", "big-pass", "unverified", "failed"]
+    ]
+    expected = ["small-pass", "big-pass", "unverified", "failed"]
+
+    assert [a.approach.name for a in Speculation.rank(attempts)] == expected
+
+    cards = score(attempts)
+    assert [c.name for c in cards] == expected
+    assert cards[0].total > cards[1].total > cards[2].total > cards[3].total, \
+        "the scorer must separate them by margin, not just by position"
+    assert "2 changed lines" in cards[0][DIFF].reason, "the winner has to say why it won"
 
 
 def test_ranking_breaks_ties_by_speed_then_name():
-    ranked = Speculation.rank([
+    """Speed and name are tiebreakers only - never criteria in their own right.
+
+    Being fast is not evidence of being right, so three identical branches
+    score identically and are then ordered by duration and name so that a
+    replayed session picks the same one.
+    """
+    attempts = [
         make("b", ok=True, churn_lines=2, duration=5.0),
         make("a", ok=True, churn_lines=2, duration=5.0),
         make("c", ok=True, churn_lines=2, duration=0.5),
-    ])
-    assert [a.approach.name for a in ranked] == ["c", "a", "b"]
+    ]
+    assert [a.approach.name for a in Speculation.rank(attempts)] == ["c", "a", "b"]
+
+    cards = score(attempts)
+    assert [c.name for c in cards] == ["c", "a", "b"]
+    assert len({round(c.total, 9) for c in cards}) == 1, \
+        "duration must not leak into the score itself"
 
 
 def test_churn_counts_only_real_changes():

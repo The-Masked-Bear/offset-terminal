@@ -17,12 +17,20 @@ def main(argv: list[str] | None = None) -> int:
     chat.add_argument("--approve", default=None,
                   choices=("safe", "auto-edit", "yolo", "full"),
                   help="approval mode; defaults to the stored permission grant")
+    chat.add_argument("--resume", nargs="?", const="", default=None, metavar="ID",
+                  help="carry on an earlier session; bare --resume takes the most recent")
+    chat.add_argument("--continue", dest="continue_", action="store_true",
+                  help="carry on the most recent session")
 
     sub.add_parser("login", help="sign in with your Google or GitHub account")
     sub.add_parser("sync", help="sync Offset Plus subscription status from your account")
 
     upgrade = sub.add_parser("upgrade", help="redeem a Gumroad licence key to unlock Offset Plus")
     upgrade.add_argument("key", help="the licence key from your Gumroad receipt")
+
+    upd = sub.add_parser("update", help="check for a newer offset and install it")
+    upd.add_argument("--check", action="store_true",
+                 help="only report whether an update exists")
 
     demo = sub.add_parser("demo", help="render the design system")
     demo.add_argument("--once", action="store_true", help="print one frame and exit")
@@ -46,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
         from offset.auth import verify_direct_license_key
         return verify_direct_license_key(args.key)
 
+    if args.cmd == "update":
+        from offset.core.update import update_command
+        return update_command(check_only=args.check)
+
     if args.cmd == "demo":
         from offset.ui import demo as demo_mod
 
@@ -57,10 +69,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd in (None, "chat"):
         from offset.shell.app import main as chat_main
 
+        resume = getattr(args, "resume", None)
+        if getattr(args, "continue_", False) and resume is None:
+            resume = ""  # bare --continue means "the most recent"
         return chat_main(
             workspace=getattr(args, "workspace", "."),
             model=getattr(args, "model", None),
             approval=getattr(args, "approve", None),
+            resume=resume,
         )
 
     parser.error(f"unknown command {args.cmd!r}")

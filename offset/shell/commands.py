@@ -848,6 +848,47 @@ def _sessions(state: ShellState, args: list[str]) -> Outcome:
     return Outcome(lines, TONE_INFO)
 
 
+def _resume(state: ShellState, args: list[str]) -> Outcome:
+    """Reopen an earlier session in place, by ordinal or by id.
+
+    The store has always been able to do this - `Session.resume` reopens at the
+    recorded leaf and repairs it if that entry has gone - but nothing ever called
+    it, so every launch started from nothing and `/sessions` printed a list you
+    could not act on. The ordinals here are the ones that listing shows.
+    """
+    listed = Session.list(state.session.path.parent)
+    if not listed:
+        return Outcome(["no other sessions"], TONE_INFO)
+    if not args:
+        return Outcome.error("usage: /resume <n|id>", "/sessions lists them")
+
+    choice = args[0].strip()
+    target = None
+    if choice.isdigit():
+        index = int(choice)
+        if 1 <= index <= len(listed):
+            target = listed[index - 1]
+    if target is None:
+        target = next((m for m in listed if m.id == choice or m.id.startswith(choice)), None)
+    if target is None:
+        return Outcome.error(f"no session {choice!r}", "/sessions lists them")
+    if Path(target.path) == state.session.path:
+        return Outcome(["already in that session"], TONE_INFO)
+
+    try:
+        reopened = Session.resume(Path(target.path))
+    except (FileNotFoundError, OSError) as exc:
+        return Outcome.error(f"could not reopen: {exc}")
+
+    state.session.close()
+    state.session = reopened
+    state.agent.session = reopened
+    return Outcome(
+        [f"resumed {reopened.id}", f"{target.messages} messages, at {reopened.leaf or 'the start'}"],
+        TONE_OK,
+    )
+
+
 def _context(state: ShellState, args: list[str]) -> Outcome:
     """Which project instruction files offset is obeying."""
     lines = context.summary(state.workspace)
@@ -948,6 +989,8 @@ COMMANDS: list[Command] = [
     Command("verify", "the command branches must pass", _verify, usage="/verify pytest -q"),
     Command("session", "where this session lives and how big it is", _session),
     Command("sessions", "recent sessions, newest first", _sessions),
+    Command("resume", "reopen an earlier session", _resume, usage="/resume <n|id>",
+            aliases=("continue",)),
     Command("compact", "summarise old history to free up context", _compact, usage="/compact [now]"),
     Command("rewind", "restore files to an earlier point", _rewind, usage="/rewind [n]"),
     Command("mcp", "MCP servers and their remote tools", _mcp),
@@ -960,6 +1003,35 @@ COMMANDS: list[Command] = [
     Command("clear", "drop the context, keep the history", _clear),
     Command("quit", "leave", _quit, aliases=("exit",)),
 ]
+
+
+def _extend(module: str, attribute: str = "COMMANDS") -> None:
+    """Append a subsystem's commands, replacing any name it supersedes.
+
+    Imported here rather than at the top of the file because these modules
+    import `Command` and `Outcome` from this one: doing it at import time is a
+    cycle. A subsystem that cannot be imported costs its own commands and
+    nothing else, which is why the failure is swallowed - the shell has to come
+    up even if one extension is broken.
+    """
+    try:
+        from importlib import import_module
+
+        supplied = getattr(import_module(module), attribute, None)
+    except Exception:
+        return
+    if not supplied:
+        return
+    existing = {c.name: i for i, c in enumerate(COMMANDS)}
+    for command in supplied:
+        if command.name in existing:
+            COMMANDS[existing[command.name]] = command  # /mcp supersedes the stub
+        else:
+            COMMANDS.append(command)
+
+
+for _module in ("offset.tools.plugins", "offset.core.jobs", "offset.core.update"):
+    _extend(_module)
 
 BY_NAME: dict[str, Command] = {}
 for _command in COMMANDS:
