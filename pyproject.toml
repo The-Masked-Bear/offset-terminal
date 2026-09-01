@@ -1,9 +1,44 @@
 [project]
-name = "offset"
+# The distribution is `offset-terminal` because `offset` is taken on PyPI by an
+# unrelated package.  The command and the import package are both still
+# `offset`; only the name you `pip install` differs, which is ordinary enough
+# (`python-dateutil` installs `dateutil`).
+name = "offset-terminal"
 version = "0.5.2"
-description = "Terminal coding agent. Speculative branching. Neubrutalist by construction."
+description = "Terminal coding agent. Race AI models in parallel worktrees and keep the winner."
+readme = "README.md"
 requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "The-Masked-Bear" }]
+keywords = [
+    "ai", "agent", "cli", "terminal", "coding-assistant", "llm",
+    "claude", "gpt", "gemini", "ollama", "lsp", "debugger",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+# One dependency, deliberately.  Everything else is the standard library: the
+# LSP and DAP clients, the WebSocket for the browser agent, the HTTP transport
+# and the search index are all hand-rolled rather than pulled in.
 dependencies = ["prompt_toolkit>=3.0.50"]
+
+[project.urls]
+Homepage = "https://the-masked-bear.github.io/offset-terminal/"
+Repository = "https://github.com/The-Masked-Bear/offset-terminal"
+Issues = "https://github.com/The-Masked-Bear/offset-terminal/issues"
+Changelog = "https://github.com/The-Masked-Bear/offset-terminal/releases"
 
 [project.scripts]
 offset = "offset.__main__:main"
@@ -14,3 +49,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["offset"]
+
+[tool.hatch.build.targets.sdist]
+# The tests ship in the sdist so a packager can run them; nothing else needs to.
+include = ["offset", "tests", "README.md", "LICENSE", "pyproject.toml"]

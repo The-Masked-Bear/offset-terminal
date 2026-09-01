@@ -1,8 +1,8 @@
-__pycache__/
-*.py[cod]
-.venv/
-.pytest_cache/
-dist/
-build/
 *.egg-info/
+*.py[cod]
 .offset/
+.pytest_cache/
+.venv/
+__pycache__/
+build/
+dist/

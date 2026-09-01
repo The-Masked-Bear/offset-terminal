@@ -73,15 +73,64 @@ No other coding agent does this.
 
 ## INSTALLATION
 
-```bash
-# Install globally via pipx (Python 3.11+ required)
-pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
+**One line, and it works out what you have:**
 
-# Launch
-offset
+```bash
+curl -fsSL https://raw.githubusercontent.com/The-Masked-Bear/offset-terminal/main/install.sh | sh
 ```
 
-*On first startup, sign in with your **Google** or **GitHub** account. No license codes needed — if your account has an active Offset Plus subscription, it unlocks automatically.*
+It prefers `uv`, falls back to `pipx`, and failing both builds a private
+virtualenv and drops a shim on your `PATH` — so it works on a machine with no
+Python tooling beyond the interpreter itself. Requires **Python 3.11+**.
+
+<details>
+<summary><b>Prefer to run it yourself?</b></summary>
+
+```bash
+# uv — fastest, isolated
+uv tool install offset-terminal
+
+# pipx — the standard way to install a Python application
+pipx install offset-terminal
+
+# pip, into a virtualenv you control
+python3 -m venv ~/.offset-venv
+~/.offset-venv/bin/pip install offset-terminal
+~/.offset-venv/bin/offset
+
+# the development tip rather than the release
+pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git
+
+# from a checkout
+git clone https://github.com/The-Masked-Bear/offset-terminal.git
+cd offset-terminal && pipx install -e .
+```
+
+**Installer options**
+
+| | |
+| :--- | :--- |
+| `--method uv\|pipx\|venv` | force one installer instead of choosing |
+| `--pypi` | install the published release rather than git main |
+| `--quiet` | less output |
+| `OFFSET_INSTALL_DIR=…` | where the shim goes (venv method) |
+
+```bash
+curl -fsSL https://.../install.sh | sh -s -- --method venv --pypi
+```
+
+</details>
+
+> The package is published as **`offset-terminal`** because `offset` was already
+> taken on PyPI. The command is still `offset`.
+
+```bash
+offset          # start a session
+```
+
+*On first startup, sign in with your **Google** or **GitHub** account. No licence
+codes needed — if your account has an active Offset Plus subscription, it unlocks
+automatically.*
 
 **Offset keeps itself current.** It checks for a release in the background, and
 installs a waiting one on the next launch before the shell opens — then

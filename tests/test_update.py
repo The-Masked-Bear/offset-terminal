@@ -186,13 +186,13 @@ def test_install_detection_distinguishes_pipx_pip_and_a_checkout(tmp_path):
     pipx_site = _venv(tmp_path / ".local" / "pipx" / "venvs" / "offset")
     pipx = update.detect_install(pipx_site, user_site=tmp_path / "nowhere")
     assert pipx.method == "pipx"
-    assert pipx.command == ("pipx", "upgrade", "offset")
+    assert pipx.command == ("pipx", "upgrade", update.PACKAGE)
     assert pipx.upgradable
 
     venv_site = _venv(tmp_path / "env")
     pip = update.detect_install(venv_site, user_site=tmp_path / "nowhere")
     assert pip.method == "pip"
-    assert pip.command[1:] == ("-m", "pip", "install", "--upgrade", "offset")
+    assert pip.command[1:] == ("-m", "pip", "install", "--upgrade", update.PACKAGE)
     assert pip.command[0] == str(tmp_path / "env" / "bin" / "python"), \
         "pip must be run from the venv that owns the copy, not from sys.executable"
 
@@ -217,7 +217,7 @@ def test_a_user_site_install_upgrades_with_the_user_flag(tmp_path):
     where = update.detect_install(site, executable="/usr/bin/python3", user_site=site)
     assert where.method == "pip-user"
     assert where.command == (
-        "/usr/bin/python3", "-m", "pip", "install", "--upgrade", "--user", "offset",
+        "/usr/bin/python3", "-m", "pip", "install", "--upgrade", "--user", update.PACKAGE,
     )
 
 
@@ -1103,3 +1103,61 @@ def test_a_corrupt_refusal_file_is_ignored_rather_than_fatal(home, tmp_path, mon
         prober=lambda _t: "9.9.9", fetch=_never_called,
     )
     assert outcome.acted, "an unreadable memo must not block a good upgrade"
+
+
+# -- the distribution rename -------------------------------------------------
+
+
+def test_the_distribution_and_the_command_are_deliberately_different():
+    """`offset` was taken on PyPI, so the package ships as `offset-terminal`.
+
+    The command and the import package stay `offset`. Pinning this stops
+    somebody "tidying" the constant back and breaking every upgrade command.
+    """
+    assert update.PACKAGE == "offset-terminal"
+    assert update.LEGACY_PACKAGE == "offset"
+    assert update.PYPI_URL.endswith("/offset-terminal/json")
+
+
+def test_a_pre_rename_install_is_still_recognised(monkeypatch):
+    """Anyone who installed from git before the rename is filed under `offset`.
+
+    Reporting "not installed" there would make the update check believe it was
+    looking at a fresh checkout, and the upgrade command would name a
+    distribution their environment has never heard of.
+    """
+    def only_legacy(name):
+        if name == update.LEGACY_PACKAGE:
+            return "0.4.0"
+        raise update.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(update.metadata, "version", only_legacy)
+    assert update.installed_version() == "0.4.0"
+    assert update.installed_distribution() == update.LEGACY_PACKAGE
+
+
+def test_the_upgrade_names_whichever_distribution_is_installed(monkeypatch, tmp_path):
+    """Upgrading a name pip has never heard of fails with nothing useful."""
+    def only_legacy(name):
+        if name == update.LEGACY_PACKAGE:
+            return "0.4.0"
+        raise update.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(update.metadata, "version", only_legacy)
+    where = _venv(tmp_path / ".local" / "pipx" / "venvs" / "offset")
+    found = update.detect_install(where)
+    assert found.command == ("pipx", "upgrade", "offset"), found.command
+
+
+def test_the_current_name_wins_when_both_are_somehow_present(monkeypatch):
+    monkeypatch.setattr(update.metadata, "version", lambda name: "9.9.9")
+    assert update.installed_distribution() == update.PACKAGE
+
+
+def test_neither_installed_falls_back_to_the_source_version(monkeypatch):
+    def nothing(name):
+        raise update.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(update.metadata, "version", nothing)
+    assert update.installed_version() == update.SOURCE_VERSION
+    assert update.installed_distribution() == update.PACKAGE

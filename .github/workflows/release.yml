@@ -1,0 +1,159 @@
+name: Release
+
+# Publishing is driven by the tag, not by a branch: `git tag v1.2.3 && git push
+# --tags` is the whole ritual, and the tag is what the release is named after.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check, but publish nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The tag says what version this is; pyproject says what version the code
+  # thinks it is.  If those disagree the wheel is mislabelled forever, and PyPI
+  # will not let the version be reused - so it is checked before anything is
+  # built rather than discovered afterwards.
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - id: check
+        name: The tag and the package must agree
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, sys, tomllib
+
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]
+          declared = project["version"]
+
+          source = pathlib.Path("offset/__init__.py").read_text()
+          constant = re.search(r'__version__\s*=\s*"([^"]+)"', source).group(1)
+
+          ref = os.environ.get("GITHUB_REF", "")
+          tagged = ref.removeprefix("refs/tags/v") if ref.startswith("refs/tags/v") else declared
+
+          print(f"pyproject: {declared}\n__init__:  {constant}\ntag:       {tagged}")
+          problems = []
+          if declared != constant:
+              problems.append(f"pyproject says {declared} but offset/__init__.py says {constant}")
+          if declared != tagged:
+              problems.append(f"pyproject says {declared} but the tag says {tagged}")
+          if problems:
+              print("\n".join("error: " + p for p in problems), file=sys.stderr)
+              sys.exit(1)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={declared}\n")
+          PY
+
+  # The full suite on every supported interpreter.  A release that has not been
+  # tested on the oldest one it claims to support is a claim, not a fact.
+  test:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip pytest
+      - run: python -m pip install -e .
+      - run: python -m pytest tests/ -q
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+
+      # `twine check` catches the README rendering badly on PyPI, which cannot
+      # be fixed after upload without burning a version number.
+      - run: python -m twine check --strict dist/*
+
+      # A wheel that imports is not the same as a wheel whose command runs.
+      - name: The built wheel must actually work
+        run: |
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install --quiet dist/*.whl
+          /tmp/fresh/bin/offset --help > /dev/null
+          /tmp/fresh/bin/offset update --check
+          cd /tmp   # not the checkout, or python imports the source tree instead
+          /tmp/fresh/bin/python -c "
+          from offset.core.update import detect_install, installed_distribution
+          assert installed_distribution() == 'offset-terminal', installed_distribution()
+          assert detect_install().method == 'pip', detect_install().method
+          print('the wheel installs, runs, and knows how to update itself')
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    needs: [verify, build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/offset-terminal
+    # Trusted Publishing: PyPI verifies this workflow's OIDC identity, so there
+    # is no API token to store, leak or rotate.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-github:
+    needs: [verify, build, publish-pypi]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Attach the artefacts to the release the tag created, and create it if
+      # it does not exist yet, so a plain `git push --tags` is enough.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release upload "v$VERSION" dist/* --clobber
+          else
+            gh release create "v$VERSION" dist/* \
+              --title "offset $VERSION" --generate-notes
+          fi

@@ -57,8 +57,14 @@ from offset.core import settings
 if TYPE_CHECKING:  # only for annotations: see `update_commands` for why
     from offset.shell.commands import Command, Outcome, ShellState
 
-#: The distribution name, in `importlib.metadata` and on PyPI.
-PACKAGE: Final = "offset"
+#: The distribution name, in `importlib.metadata` and on PyPI.  Not `offset`:
+#: that name belongs to an unrelated package there.  The command and the import
+#: package are still `offset`; only what you install is spelled differently.
+PACKAGE: Final = "offset-terminal"
+
+#: What the distribution was called before it went to PyPI.  Anyone who
+#: installed from git in that window has their metadata under this name.
+LEGACY_PACKAGE: Final = "offset"
 
 #: Where releases are published.
 REPO: Final = "The-Masked-Bear/offset-terminal"
@@ -262,13 +268,35 @@ def installed_version() -> str:
     The installed metadata wins over the source constant: a wheel built from an
     older tree still reports what was installed, which is what an update check
     is about.  A checkout with no metadata falls back to the constant.
+
+    `LEGACY_PACKAGE` is checked second because the distribution was renamed
+    when it went to PyPI - anyone who installed before that has their metadata
+    filed under the old name, and reporting "no version" would make the update
+    check think a fresh install had happened.
     """
-    try:
-        return metadata.version(PACKAGE)
-    except metadata.PackageNotFoundError:
-        return SOURCE_VERSION
-    except Exception:  # a broken dist-info must not stop the program starting
-        return SOURCE_VERSION
+    for name in (PACKAGE, LEGACY_PACKAGE):
+        try:
+            return metadata.version(name)
+        except metadata.PackageNotFoundError:
+            continue
+        except Exception:  # a broken dist-info must not stop the program starting
+            break
+    return SOURCE_VERSION
+
+
+def installed_distribution() -> str:
+    """Which distribution name this copy is filed under.
+
+    Falls back to the current name when neither is installed, so a
+    checkout still produces a sensible command to show the user.
+    """
+    for name in (PACKAGE, LEGACY_PACKAGE):
+        try:
+            metadata.version(name)
+        except Exception:
+            continue
+        return name
+    return PACKAGE
 
 
 def package_location() -> Path:
@@ -347,10 +375,14 @@ def detect_install(
     where = Path(location).resolve() if location is not None else package_location()
     lowered = {part.lower() for part in where.parts}
     python = executable or _venv_python(where)
+    # Upgrade whichever distribution name this copy actually answers to:
+    # a pre-rename install is filed under the old one, and asking pip to
+    # upgrade a name it has never heard of fails with nothing useful.
+    dist = installed_distribution()
 
     if "pipx" in lowered and "venvs" in lowered:
         # pipx owns that venv; pip inside it would leave the shims behind.
-        return Install("pipx", where, ("pipx", "upgrade", PACKAGE), python)
+        return Install("pipx", where, ("pipx", "upgrade", dist), python)
 
     if (where / "pyproject.toml").is_file() or (where / ".git").is_dir():
         return Install(
@@ -363,14 +395,14 @@ def detect_install(
     if base is not None and _under(where, base):
         return Install(
             "pip-user", where,
-            (python, "-m", "pip", "install", "--upgrade", "--user", PACKAGE),
+            (python, "-m", "pip", "install", "--upgrade", "--user", dist),
             python,
         )
 
     if where.name in ("site-packages", "dist-packages"):
         return Install(
             "pip", where,
-            (python, "-m", "pip", "install", "--upgrade", PACKAGE),
+            (python, "-m", "pip", "install", "--upgrade", dist),
             python,
         )
 
