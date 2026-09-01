@@ -122,7 +122,10 @@ jobs:
       name: pypi
       url: https://pypi.org/p/offset-terminal
     # Trusted Publishing: PyPI verifies this workflow's OIDC identity, so there
-    # is no API token to store, leak or rotate.
+    # is no API token to store, leak or rotate.  It does require the project to
+    # have a trusted publisher configured on PyPI first; until somebody does
+    # that, this job fails with `invalid-publisher` and the release carries on
+    # without it, which is why `publish-github` does not depend on it.
     permissions:
       id-token: write
     steps:
@@ -133,7 +136,10 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-github:
-    needs: [verify, build, publish-pypi]
+    # Deliberately not `needs: publish-pypi`.  A PyPI misconfiguration is not a
+    # reason to withhold the artefacts from the GitHub release: the tag exists,
+    # the wheel is built and tested, and people install from here too.
+    needs: [verify, build]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
