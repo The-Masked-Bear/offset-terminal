@@ -141,6 +141,82 @@ answer rather than the network, so an offline start costs nothing. Opt out with
 
 ---
 
+## WHAT'S NEW IN 0.8
+
+Nine features. Every one of them runs locally, and none of them is gated.
+
+### Ghost text
+
+Dim completions ahead of the cursor, from slash commands, workspace paths and
+your own history. Right arrow accepts it, `ctrl-right` takes one word. The
+engine has a **40 ms deadline**: a suggestion that misses it is simply absent,
+never a stutter while typing.
+
+### Hash-anchored patching
+
+A line-number patch bets nothing moved between reading a file and writing it,
+and loses silently when a formatter runs or a sibling edit lands. An anchor
+identifies a region by the hash of its bytes **and the bytes around it**, so
+two identical blocks are told apart and a changed region is *refused* rather
+than corrupted. Hunks apply all-or-nothing.
+
+### Architect and coder decomposition
+
+`/decompose <goal>` — an architect plans a dependency graph, coders execute it
+in waves. Two units naming the same file are **serialised at planning time**,
+because concurrent edits to one file lose one of them and nothing reports it.
+Cycles are refused and named. A failed unit blocks its dependents, not the
+independent subtrees.
+
+### Infinite sessions
+
+Compaction now happens without being asked, at turn start. Measured on a real
+session: **60,566 → 8,351 tokens**, 69 entries summarised, all 95 originals
+still on disk and reachable in `/tree`.
+
+### Mid-stream auditing
+
+The provider stream is watched as it arrives and a generation that has plainly
+gone wrong is halted, with its evidence named — runaway repetition, or a claim
+about a file that is not there. A second model can be sampled as a judge, on a
+worker, so it never holds up a token.
+
+**Off by default.** The checks are heuristics and a false halt costs a correct
+answer the user cannot recover. That tension is the whole design.
+
+### Filesystem snapshots
+
+Zero-cost workspace isolation via btrfs, zfs, APFS clonefile or reflink,
+**probed by trying the cheap operation** rather than guessing from the mount
+table. Where none works it falls back to a real copy and says so, rather than
+reporting a snapshot as free when it cost a gigabyte. Release is idempotent and
+refuses, loudly, to delete the workspace.
+
+### The loopback bridge
+
+Code the agent is executing can call the agent's own tools over an
+authenticated socket. The **permission system still applies** — a writing tool
+with nobody to approve it is refused, not allowed. The token travels by
+environment because argv is world-readable in `/proc`, and nesting is capped by
+a counter that fails closed when corrupted.
+
+### Terminal multiplayer
+
+`/collab host`, `/collab join <addr>` — several people, one session, over the
+same protocol as the editor bridge. **One driver at a time**, and the second
+claimant is told who holds it rather than silently queued. Chat and prompts are
+separate, so an observer's aside cannot become an instruction. A peer that
+stops reading is dropped rather than stalling the room.
+
+### MCP marketplace
+
+`/market search|info|install|remove|list`. Installing **records** a server; it
+never executes anything at install time. Anything off the built-in list is
+untrusted until you say otherwise, and a server missing its environment
+variables is installed but reported as unconfigured, by name.
+
+---
+
 ## WHAT'S NEW IN 0.7
 
 ### The model list is asked for, not remembered
@@ -299,32 +375,37 @@ offset update          # or let it update itself on startup
 
 ## COMMAND MATRIX
 
-| Command | Tier | What It Does |
-| :--- | :---: | :--- |
-| `offset` | **Lite** | Start interactive terminal coding session |
-| `offset --continue` | **Lite** | Resume the most recent session |
-| `offset --resume <id>` | **Lite** | Resume a specific session |
-| `offset daemon` | **Lite** | Run headless for an editor or a remote client |
-| `offset update` | **Lite** | Check for and install a newer offset |
-| `/spec <N> <task>` | **Plus** | **Speculative Branching**: fork N worktrees, race models, score and merge the winner |
-| `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic |
-| `/task <goal>` | **Plus** | **Persistent task**: plan, implement, test, fix, retest — survives a restart |
-| `/pr` `/review` `/fix-ci` `/resolve-comments` | **Plus** | GitHub-native workflow |
-| `/jobs` `/job` `/cancel` | **Lite** | Background agents that outlive the terminal |
-| `/resume <n>` | **Lite** | Reopen an earlier session |
-| `/plugins` | **Lite** | Loaded plugins, load errors, and the trust gate |
-| `/mcp reload\|connect\|resources` | **Lite** | MCP servers without a restart |
-| `/model` | **Lite** | Interactive model picker across 12+ providers |
-| `/login` | **Lite** | Manage API credentials |
-| `offset login` | **All** | Sign in with Google or GitHub |
-| `offset sync` | **All** | Sync subscription status |
+Everything below is free. There is no tier column any more because there is no
+tier: nothing here checks a licence before doing work.
+
+| Command | What It Does |
+| :--- | :--- |
+| `offset` | Start an interactive terminal coding session |
+| `offset --continue` | Resume the most recent session |
+| `offset --resume <id>` | Resume a specific session |
+| `offset daemon` | Run headless for an editor or a remote client |
+| `offset update` | Check for and install a newer offset |
+| `offset login` | Sign in with Google or GitHub |
+| `/spec <N> <task>` | **Speculative Branching**: fork N worktrees, race models, merge the winner |
+| `/flow <task>` | **Multi-Model Pipeline**: Planner → Implementer → Critic |
+| `/decompose <goal>` | **Architect + coders**: a dependency graph, executed in parallel waves |
+| `/task <goal>` | **Persistent task**: plan, implement, test, fix, retest — survives a restart |
+| `/collab host\|join\|drive\|say` | **Multiplayer**: share this session with other humans |
+| `/pr` `/review` `/fix-ci` `/resolve-comments` | GitHub-native workflow |
+| `/market search\|install\|remove` | MCP marketplace |
+| `/compact` | Summarise old history — or let it happen by itself |
+| `/jobs` `/job` `/cancel` | Background agents that outlive the terminal |
+| `/models [query] [--all] [--refresh]` | Every model, live from each provider |
+| `/model` | Interactive model picker |
+| `/login` | Manage API credentials |
+| `/plugins` | Loaded plugins, load errors, and the trust gate |
+| `/mcp reload\|connect\|resources` | MCP servers without a restart |
 
 ### Tools the model can call
 
-`read` `write` `edit` `bash` `glob` `grep` `list` `fetch` `web_search` `task`
-`todo` `document` `system` `file` `open` — plus, new in 0.5:
-**`lsp`** **`lsp_edit`** **`debug`** **`debug_inspect`** **`browser`**
-**`search`** **`symbols`** **`github`**
+`read` `write` `edit` `patch` `bash` `glob` `grep` `list` `fetch` `web_search`
+`task` `todo` `document` `system` `file` `open` `lsp` `lsp_edit` `debug`
+`debug_inspect` `browser` `search` `symbols` `github`
 
 ---
 
