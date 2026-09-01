@@ -32,14 +32,21 @@ jobs:
         PYTHONPATH=. pytest tests/
 
   client:
-    name: typescript client
+    name: typescript client (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      # Both ends of the supported range.  `node --test` only learned to expand
+      # glob patterns itself in 22, so a script that works on the newest Node
+      # can still fail on the oldest one this package claims to support - which
+      # is exactly how it failed the first time.
+      matrix:
+        node-version: ["20", "24"]
     steps:
     - uses: actions/checkout@v4
 
     - uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: ${{ matrix.node-version }}
 
     # `npm ci` because the client commits its lockfile.  The extension below
     # does not: its only dependency is a `file:` link to this package, which a

@@ -24,7 +24,7 @@
   "scripts": {
     "build": "tsc -p .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "tsc -p . && node --test \"out/test/**/*.test.js\""
+    "test": "tsc -p . && node --test out/test/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
