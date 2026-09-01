@@ -28,15 +28,18 @@ still gets its artefacts.
 
 ## One-time setup: PyPI Trusted Publishing
 
-**This has not been done yet.** Until it is, the `publish-pypi` job fails with
-`invalid-publisher` and everything else in the release still succeeds.
+**Done.** Configured 2026-09-01; `offset-terminal` 0.8.0 was the first upload,
+and `pip install offset-terminal` works. Nothing below needs doing again — it
+is kept because the values are the ones to re-enter if the publisher is ever
+removed, and because the failure mode is otherwise very hard to diagnose.
 
 Trusted Publishing means PyPI verifies the workflow's OIDC identity directly,
 so there is no API token to store in GitHub, leak, or rotate.
 
-Because `offset-terminal` does not exist on PyPI yet, register it as a
-**pending publisher** — that is the flow for a project whose first upload will
-come from CI:
+A project whose first upload comes from CI is registered as a **pending
+publisher**, under *Account settings*, not under the project — the project does
+not exist yet, so there are no project settings to put it in. That is the step
+people miss:
 
 1. Sign in at <https://pypi.org> (create an account if needed, and turn on 2FA;
    PyPI requires it for publishing).

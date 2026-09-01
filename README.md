@@ -19,7 +19,8 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-yellow.svg?style=for-the-badge&colorA=111111&colorB=FFDE59)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-cyan.svg?style=for-the-badge&colorA=111111&colorB=8CFFFB)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.1.0-pink.svg?style=for-the-badge&colorA=111111&colorB=FF90E8)](https://github.com/The-Masked-Bear/offset-terminal/releases)
+[![PyPI](https://img.shields.io/pypi/v/offset-terminal?style=for-the-badge&label=PYPI&colorA=111111&colorB=FF90E8)](https://pypi.org/project/offset-terminal/)
+[![Tests](https://img.shields.io/badge/tests-1425_passing-mint.svg?style=for-the-badge&colorA=111111&colorB=B2FF9E)](https://github.com/The-Masked-Bear/offset-terminal/actions)
 
 <br><br>
 
