@@ -1146,7 +1146,7 @@
 
       <p style="font-size:0.85rem;margin-top:16px;">Then type <code style="background:var(--ink);color:var(--mint);padding:3px 8px;">offset</code> anywhere. It keeps itself updated.</p>
       <p style="font-size:0.78rem;color:var(--text-secondary);">The package is <code>offset-terminal</code> on PyPI &mdash; <code>offset</code> was taken. The command is still <code>offset</code>.</p>
-      <button onclick="document.getElementById('install-modal').classList.remove('active')" class="brutal-btn color-red" style="width:100%;text-align:center;margin-top:20px;">CLOSE</button>
+      <button id="install-close" class="brutal-btn color-red" style="width:100%;text-align:center;margin-top:20px;">CLOSE</button>
     </div>
   </div>
 
@@ -1555,20 +1555,46 @@
     });
 
     // ===== INSTALL MODAL =====
-    document.querySelectorAll('a[href="#install"]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        const modal = document.getElementById('install-modal');
-        modal.style.display='flex';
-        requestAnimationFrame(()=>modal.classList.add('active'));
+    //
+    // Opening sets an inline `display:flex` so the opacity transition has a
+    // box to animate; closing therefore *must* put it back, or the overlay
+    // stays laid out at z-index 9999 with opacity 0 - invisible, full-screen,
+    // and swallowing every click on the page.  That is exactly what happened:
+    // the backdrop handler cleared it and the CLOSE button did not, so closing
+    // by the obvious route killed the site while leaving it looking fine.
+    //
+    // One function, three callers.  Two copies of a close routine is what
+    // allowed them to disagree.
+    (() => {
+      const modal = document.getElementById('install-modal');
+      //: Must match the `transition: opacity` duration in `.modal-overlay`.
+      const FADE = 300;
+      let timer = null;
+
+      const open = () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => modal.classList.add('active'));
+      };
+
+      const close = () => {
+        modal.classList.remove('active');
+        if (timer) clearTimeout(timer);
+        // Hidden after the fade, not during it, so the close is still visible.
+        timer = setTimeout(() => { modal.style.display = 'none'; timer = null; }, FADE);
+      };
+
+      document.querySelectorAll('a[href="#install"]').forEach(btn => {
+        btn.addEventListener('click', e => { e.preventDefault(); open(); });
       });
-    });
-    document.getElementById('install-modal').addEventListener('click', e => {
-      if (e.target===e.currentTarget) {
-        e.currentTarget.classList.remove('active');
-        setTimeout(()=>e.currentTarget.style.display='none',300);
-      }
-    });
+      document.getElementById('install-close').addEventListener('click', close);
+      modal.addEventListener('click', e => { if (e.target === e.currentTarget) close(); });
+      // Escape was missing entirely: a modal you cannot dismiss with the key
+      // everybody reaches for is the same trap by a slower route.
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) close();
+      });
+    })();
 
     // ===== SUBSCRIBE =====
     document.getElementById('subscribe-form').addEventListener('submit', e => {
