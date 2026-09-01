@@ -11,6 +11,7 @@ Every test here uses an injected fetcher.  Nothing reaches a network.
 from __future__ import annotations
 
 import json
+import threading
 
 import pytest
 
@@ -261,3 +262,48 @@ def test_the_shipped_table_itself_has_no_duplicates():
 
     ids = [m.id for m in MODELS]
     assert len(ids) == len(set(ids)), "duplicate ids in the shipped catalogue"
+
+
+def test_a_background_refresh_writes_where_it_started_not_where_it_lands(tmp_path, monkeypatch):
+    """A daemon thread outlives whatever started it.
+
+    Resolving `settings.home()` inside the worker meant a refresh begun against
+    one home finished against another - and the other was observably the user's
+    real `~/.offset`, because a test reverting `OFFSET_HOME` (or a shell simply
+    exiting) is enough to change the answer mid-flight.
+    """
+    started_in = tmp_path / "started"
+    started_in.mkdir()
+    later = tmp_path / "later"
+    later.mkdir()
+
+    monkeypatch.setattr(cat, "credential", lambda p: "key")
+    monkeypatch.setenv("OFFSET_HOME", str(started_in))
+
+    done = threading.Event()
+    cat.refresh_async(
+        fetch=fetcher({"api.openai.com": {"data": [{"id": "gpt-5.6-luna"}]}}),
+        done=done,
+    )
+    # Move the goalposts while the worker is in flight, exactly as monkeypatch
+    # does when a test ends.
+    monkeypatch.setenv("OFFSET_HOME", str(later))
+    assert done.wait(20), "the refresh thread never finished"
+
+    assert (started_in / "models.json").exists(), "it did not write where it started"
+    assert not (later / "models.json").exists(), "it followed OFFSET_HOME after the fact"
+
+
+def test_an_explicit_home_beats_the_environment(tmp_path, monkeypatch):
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.setattr(cat, "credential", lambda p: "key")
+    cat.refresh(
+        ["openai"],
+        fetch=fetcher({"api.openai.com": {"data": [{"id": "a"}]}}),
+        force=True,
+        home=elsewhere,
+    )
+    assert (elsewhere / "models.json").exists()
+    assert cat.cached("openai", elsewhere) is not None
+    assert cat.cached("openai") is None, "the default home should be untouched"

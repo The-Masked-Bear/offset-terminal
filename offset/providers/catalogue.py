@@ -320,14 +320,22 @@ def fetch_provider(provider: str, *, fetch: Fetcher | None = None) -> Listing:
 # -- the cache ---------------------------------------------------------------
 
 
-def cache_file() -> Path:
-    """Resolved late: `OFFSET_HOME` moves under tests and `--home`."""
-    return settings.home() / "models.json"
+def cache_file(home: Path | None = None) -> Path:
+    """Where the listing cache lives.
+
+    `home` is explicit for the background refresh, which must write to the
+    directory that was current when it *started*.  Resolving `settings.home()`
+    inside the thread means a shell that has since exited - or a test whose
+    `OFFSET_HOME` has been reverted - gets its cache written into whatever the
+    variable happens to say by then, which was observably the user's real
+    `~/.offset`.
+    """
+    return (home if home is not None else settings.home()) / "models.json"
 
 
-def _read_cache() -> dict[str, Any]:
+def _read_cache(home: Path | None = None) -> dict[str, Any]:
     try:
-        raw = json.loads(cache_file().read_text(encoding="utf-8"))
+        raw = json.loads(cache_file(home).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     if not isinstance(raw, dict) or raw.get("version") != CACHE_VERSION:
@@ -335,8 +343,8 @@ def _read_cache() -> dict[str, Any]:
     return raw
 
 
-def _write_cache(body: dict[str, Any]) -> None:
-    path = cache_file()
+def _write_cache(body: dict[str, Any], home: Path | None = None) -> None:
+    path = cache_file(home)
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".models.", suffix=".tmp")
     try:
@@ -375,9 +383,9 @@ def _from_json(raw: Any) -> ModelInfo | None:
         return None
 
 
-def cached(provider: str) -> Listing | None:
+def cached(provider: str, home: Path | None = None) -> Listing | None:
     """What we last heard from a provider, fresh or not."""
-    entry = _read_cache().get("providers", {}).get(provider)
+    entry = _read_cache(home).get("providers", {}).get(provider)
     if not isinstance(entry, dict):
         return None
     models = [m for m in (_from_json(x) for x in entry.get("models", [])) if m is not None]
@@ -392,21 +400,21 @@ def stale(listing: Listing | None, *, now: float | None = None) -> bool:
     return age > (RETRY_TTL if listing.error else TTL)
 
 
-def store(listing: Listing) -> None:
-    body = _read_cache() or {}
+def store(listing: Listing, home: Path | None = None) -> None:
+    body = _read_cache(home) or {}
     body["version"] = CACHE_VERSION
     body.setdefault("providers", {})[listing.provider] = {
         "models": [_to_json(m) for m in listing.models],
         "error": listing.error,
         "fetched": listing.fetched,
     }
-    _write_cache(body)
+    _write_cache(body, home)
 
 
 # -- the merged view ---------------------------------------------------------
 
 
-def merged(*, include_live: bool = True) -> list[ModelInfo]:
+def merged(*, include_live: bool = True, home: Path | None = None) -> list[ModelInfo]:
     """The static table with every cached live listing merged over it.
 
     A live entry adds itself, but where the table already knows a model the
@@ -418,7 +426,7 @@ def merged(*, include_live: bool = True) -> list[ModelInfo]:
 
     if include_live:
         for provider in SOURCES:
-            listing = cached(provider)
+            listing = cached(provider, home)
             if listing is None:
                 continue
             for model in listing.models:
@@ -440,7 +448,8 @@ def merged(*, include_live: bool = True) -> list[ModelInfo]:
 
 
 def refresh(providers: Iterable[str] | None = None, *,
-            fetch: Fetcher | None = None, force: bool = False) -> list[Listing]:
+            fetch: Fetcher | None = None, force: bool = False,
+            home: Path | None = None) -> list[Listing]:
     """Re-ask every provider whose cache has gone stale. Never raises."""
     if not enabled():
         return []
@@ -448,31 +457,43 @@ def refresh(providers: Iterable[str] | None = None, *,
     for provider in (providers if providers is not None else list(SOURCES)):
         if provider not in SOURCES:
             continue
-        if not force and not stale(cached(provider)):
+        if not force and not stale(cached(provider, home)):
             continue
         listing = fetch_provider(provider, fetch=fetch)
         # A failed refresh must not erase what we already knew: a provider that
         # is briefly unreachable should not empty the picker.
         if listing.error:
-            previous = cached(provider)
+            previous = cached(provider, home)
             if previous is not None and previous.models:
                 listing = Listing(provider, previous.models, listing.error, time.time())
-        store(listing)
+        store(listing, home)
         done.append(listing)
     return done
 
 
 def refresh_async(*, fetch: Fetcher | None = None,
-                  done: threading.Event | None = None) -> None:
-    """Refresh on a background thread. Startup waits for nothing."""
+                  done: threading.Event | None = None,
+                  home: Path | None = None) -> None:
+    """Refresh on a background thread. Startup waits for nothing.
+
+    The home directory is resolved *here*, on the calling thread, not inside
+    the worker.  A daemon thread outlives whatever started it, and one that
+    asks `settings.home()` on its own time answers with whatever `OFFSET_HOME`
+    says by then - which for a shell that has exited, or a test that has
+    reverted its patch, is the user's real `~/.offset`.  That was observable:
+    a refresh started against a temporary home wrote its cache into the real
+    one.
+    """
     if not enabled():
         if done is not None:
             done.set()
         return
 
+    where = home if home is not None else settings.home()
+
     def work() -> None:
         try:
-            refresh(fetch=fetch)
+            refresh(fetch=fetch, home=where)
         except Exception:
             pass  # a model listing is never worth a traceback over the prompt
         finally:
@@ -484,7 +505,7 @@ def refresh_async(*, fetch: Fetcher | None = None,
 
 def install(state: Any) -> None:
     """Startup wiring: begin the refresh, block nothing."""
-    refresh_async()
+    refresh_async(home=settings.home())
 
 
 def report() -> list[str]:
