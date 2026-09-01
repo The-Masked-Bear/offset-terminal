@@ -328,36 +328,35 @@ offset update          # or let it update itself on startup
 
 ---
 
-## LITE vs PLUS
+## EVERYTHING IS FREE
 
-| Feature | Offset Lite (Free) | Offset Plus (Subscription) |
-| :--- | :---: | :---: |
-| **Pricing** | Free Forever | Monthly (Cancel Anytime) |
-| **Bring Your Own API Keys** | ✅ | ✅ |
-| **Terminal Interface & REPL** | ✅ | ✅ |
-| **12+ Model Support** | ✅ | ✅ |
-| **Code intelligence (LSP)** | ✅ | ✅ |
-| **Debugging (DAP)** | ✅ | ✅ |
-| **Browser agent** | ✅ | ✅ |
-| **Code search & symbol graph** | ✅ | ✅ |
-| **MCP servers & plugins** | ✅ | ✅ |
-| **Background agents (`/jobs`)** | ✅ | ✅ |
-| **Session resume** | ✅ | ✅ |
-| **Self-update** | ✅ | ✅ |
-| **VS Code companion** | ✅ | ✅ |
-| **Easter Egg Engine** | ✅ | ✅ |
-| **Speculative Branching (`/spec`)** | ❌ | ✅ |
-| **Multi-Model Pipeline (`/flow`)** | ❌ | ✅ |
-| **Persistent tasks (`/task`)** | ❌ | ✅ |
-| **GitHub workflow (`/pr`, `/fix-ci`)** | ❌ | ✅ |
-| **Auto-Worktree Diff & Merge** | ❌ | ✅ |
-| **Cloud API Key Pool** | ❌ | ✅ |
+Every workflow offset performs runs **on your machine, against your own API
+keys**. Charging for permission to invoke local code was a barrier with no cost
+behind it — and one any user could lift by editing a single function, which
+made it theatre rather than a boundary. So it is gone.
 
-👉 **[Subscribe to Offset Plus on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)**
+| Was gated | Now |
+| :--- | :---: |
+| **Speculative Branching** (`/spec`) | free |
+| **Multi-Model Pipeline** (`/flow`) | free |
+| **Persistent tasks** (`/task`) | free |
+| **GitHub workflow** (`/pr`, `/review`, `/fix-ci`, `/resolve-comments`) | free |
+| **Auto-Worktree Diff & Merge** | free |
 
-> **⚠️ Before subscribing:** Sign in to Offset first (`offset login`) with your **Google** or **GitHub** account. Use that **exact same email** on Gumroad checkout so your account upgrades automatically.
+Nothing in this repository checks a licence before doing work. There is no
+`require_plus`; the function was deleted rather than made to return `True`,
+because a gate that always opens is still a gate somebody has to read.
 
----
+### So what is the subscription for?
+
+Hosted things that genuinely cost money to run — a shared inference pool for
+people without their own keys, and priority capacity. If you bring your own
+keys, which is the normal case, you need none of it.
+
+👉 **[Support the project on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)** — it funds the work, it does not unlock it.
+
+`offset login` still exists, because signing in is how session sync and the
+account-scoped features find you. It has never been required to use offset.
 
 ## SUPPORTED PROVIDERS
 

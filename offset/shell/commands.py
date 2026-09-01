@@ -136,10 +136,25 @@ class ShellState:
     #: out a table needs it; without it /help built rows wider than the pane and
     #: the second column was clipped off the right edge.
     width: int = 96
+    #: Terminal rows, refreshed alongside `width`.  `/help` needs it: the
+    #: command list outgrew the pane's *height* once it passed forty entries,
+    #: and a layout that only knows the width silently drops the last rows.
+    height: int = 34
 
     @property
     def model(self) -> str:
         return self.agent.config.model
+
+
+#: Terminal rows the chrome takes before command output gets any: the banner,
+#: the transcript's minimum, the prompt line and the status bar.
+#:
+#: Lives here rather than in the app because `/help` has to lay itself out
+#: against the same budget the app will give it, and when the two numbers
+#: drifted apart `/help` emitted twenty-five lines into a twenty-two row pane -
+#: which scrolls from the top, so the commands that vanished were the first
+#: ones alphabetically and nothing said they were missing.
+MESSAGE_CHROME: Final = 10
 
 
 Runner = Callable[[ShellState, list[str]], Outcome]
@@ -158,37 +173,98 @@ class Command:
 
 
 def _help(state: ShellState, args: list[str]) -> Outcome:
-    """Two columns when they fit, one when they do not.
+    """Every command, at the highest density the pane can carry.
 
-    The list outgrew a single column, then outgrew the pane. Laying it out
-    without knowing the terminal width meant the right-hand summaries ran off the
-    edge and were cut mid-word.
+    Three failures, in the order they were found.  Laying out without the
+    terminal width ran the summaries off the right edge.  Two columns fixed
+    that, until the list passed forty entries and the twenty-odd rows it needs
+    outgrew the pane's *height* - so the last commands, `/model` among them,
+    simply were not on screen and nothing said so.
+
+    Losing a summary is a much smaller loss than losing a command, so when the
+    annotated layout will not fit, the summaries go and the names are packed
+    into a grid.  `/help <query>` filters instead, for when you know roughly
+    what you are after.
     """
-    names = [f"/{c.name}" for c in COMMANDS]
+    shown = list(COMMANDS)
+    query = " ".join(args).strip().lower().lstrip("/")
+    if query:
+        shown = [c for c in COMMANDS
+                 if query in c.name.lower() or query in c.summary.lower()]
+        if not shown:
+            return Outcome.error(f"no command matches {query!r}", "/help lists them all")
+
+    names = [f"/{c.name}" for c in shown]
     keys = max(len(n) for n in names) + 1
     available = max(28, state.width - 2)
+    # Exactly the budget the app will hand this output, less the two footer
+    # lines appended below.  Guessing high here is not a cosmetic error: the
+    # pane scrolls from the top, so the overflow silently eats the *first*
+    # commands and the user sees a complete-looking list that is not.
+    rows = max(6, state.height - MESSAGE_CHROME - 2)
 
     def cell(name: str, summary: str, room: int) -> str:
         # `fit` marks a cut with an ellipsis; slicing cut mid-word silently.
         return f"{name:<{keys}} {fit(summary, max(0, room - keys - 1), upper=False)}"
 
-    # Two columns need a gutter and enough left over for a summary worth reading;
-    # below that a single wide column beats two cramped ones.
+    # Two columns need a gutter and enough left over for a summary worth
+    # reading; below that a single wide column beats two cramped ones.
     column = (available - 3) // 2
-    if column < keys + 22:
-        lines = [cell(n, c.summary, available) for n, c in zip(names, COMMANDS)]
+    wide = column >= keys + 22
+    needed = (len(names) + 1) // 2 if wide else len(names)
+
+    if needed <= rows:
+        if not wide:
+            lines = [cell(n, c.summary, available) for n, c in zip(names, shown)]
+        else:
+            half = (len(names) + 1) // 2
+            pairs = list(zip(names[:half], shown[:half]))
+            others = (list(zip(names[half:], shown[half:]))
+                      + [("", None)] * (half - len(names[half:])))
+            lines = [
+                (f"{cell(ln, lc.summary, column):<{column + 3}}"
+                 + (cell(rn, rc.summary, column) if rc is not None else "")).rstrip()
+                for (ln, lc), (rn, rc) in zip(pairs, others)
+            ]
     else:
-        half = (len(names) + 1) // 2
-        pairs = list(zip(names[:half], COMMANDS[:half]))
-        others = list(zip(names[half:], COMMANDS[half:])) + [("", None)] * (half - len(names[half:]))
-        lines = [
-            (f"{cell(ln, lc.summary, column):<{column + 3}}"
-             + (cell(rn, rc.summary, column) if rc is not None else "")).rstrip()
-            for (ln, lc), (rn, rc) in zip(pairs, others)
-        ]
+        # Names only, wrapped rather than columned.  A fixed-width grid pads
+        # every cell to the longest name - `/resolve-comments` at seventeen
+        # characters - which wastes most of a row on the six-character ones and
+        # still overflowed a short terminal.  Ragged packing fits roughly twice
+        # as many, and every command staying on screen is the property that
+        # matters here.
+        lines = []
+        row = ""
+        for name in names:
+            candidate = f"{row}  {name}" if row else name
+            if len(candidate) > available and row:
+                lines.append(row)
+                row = name
+            else:
+                row = candidate
+        if row:
+            lines.append(row)
+        # The hint is the first thing to go when even this will not fit.
+        if len(lines) + 4 <= rows + 2:
+            lines.append("")
+            lines.append(fit("/help <word> to filter, for the summaries",
+                             available, upper=False))
+
     found, total = state.eggs.progress()
     footer = f"{found}/{total} easter eggs found. Some of them are commands. Keep typing."
     lines += ["", fit(footer, available, upper=False)]
+
+    # A terminal can simply be too small for forty-five commands, and the pane
+    # scrolls from the top - so emitting more than fits does not "overflow
+    # harmlessly", it deletes the beginning of the list without a word.  Emit
+    # exactly what will be shown, and spend the last line saying so.
+    budget = max(3, state.height - MESSAGE_CHROME)
+    if len(lines) > budget:
+        kept = lines[: budget - 1]
+        hidden = len(names) - sum(line.count("/") for line in kept)
+        kept.append(fit(f"...and {max(1, hidden)} more - /help <word> to filter",
+                        available, upper=False))
+        lines = kept
     return Outcome(lines, TONE_INFO)
 
 
@@ -600,9 +676,6 @@ def _flow(state: ShellState, args: list[str]) -> Outcome:
     the best: this decomposes the task once and runs the pieces on different
     models, in dependency order, against this repository.
     """
-    from offset.auth import require_plus
-    if not require_plus("flow"):
-        return Outcome.error("Offset Lite does not support /flow.", "Upgrade to Offset Plus via 'offset upgrade <key>'.")
 
     goal = " ".join(args)
     if not goal:
@@ -701,9 +774,6 @@ def reviser_for(roster: Ensemble, planner: Seat) -> workflow.Reviser:
 
 def _spec(state: ShellState, args: list[str]) -> Outcome:
     """Really run N approaches in isolated worktrees, then rank them."""
-    from offset.auth import require_plus
-    if not require_plus("spec"):
-        return Outcome.error("Offset Lite does not support /spec.", "Upgrade to Offset Plus via 'offset upgrade <key>'.")
 
     if not args:
         if state.spec_run is not None:
@@ -1074,6 +1144,9 @@ for _module in (
     "offset.core.update",
     "offset.core.tasks",
     "offset.tools.github",
+    "offset.core.collab",
+    "offset.core.decompose",
+    "offset.tools.mcp.marketplace",
 ):
     _extend(_module)
 

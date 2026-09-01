@@ -63,15 +63,32 @@ def test_every_command_is_reachable_and_documented(state):
     for command in COMMANDS:
         assert command.summary, f"{command.name} has no summary"
         assert BY_NAME[command.name] is command
-    # Wide enough that nothing is ellipsised: whether a narrow pane truncates
-    # tidily is a separate question, covered by the layout tests.
-    state.width = 220
+    # Wide enough that nothing is ellipsised, and tall enough that the
+    # annotated layout is used at all: past forty commands the summaries are
+    # dropped for a dense name grid when they will not fit, because losing a
+    # summary beats losing a command. Whether a cramped pane degrades tidily
+    # is a separate question, covered by the layout tests.
+    state.width, state.height = 220, 80
     listing = dispatch(state, "/help")
     body = "\n".join(listing.lines)
     for command in COMMANDS:
         # /help is laid out in two columns, so a name need not start its line.
         assert f"/{command.name}" in body, f"/{command.name} is not documented"
         assert command.summary in body, f"/{command.name}'s summary is missing"
+
+
+def test_a_summary_is_always_reachable_even_when_the_pane_is_tiny(state):
+    """The grid drops summaries to fit. They must still be obtainable, or the
+    command set becomes undiscoverable on a short terminal.
+
+    The pane is short but not narrow: filtering is what makes the summaries
+    reappear, and how a *narrow* pane ellipsises them is the layout tests'
+    business, not this one's.
+    """
+    state.width, state.height = 200, 20
+    for command in COMMANDS[:5]:
+        body = "\n".join(dispatch(state, f"/help {command.name}").lines)
+        assert command.summary in body, f"/{command.name}'s summary is unreachable"
 
 
 def test_aliases_work(state):

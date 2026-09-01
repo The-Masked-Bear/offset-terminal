@@ -81,22 +81,64 @@ def test_help_never_exceeds_the_pane(state, width):
 
 @pytest.mark.parametrize("width", [40, 62, 80, 100, 200])
 def test_every_command_is_listed_at_every_width(state, width):
+    state.height = 60  # tall enough that width is the only variable
     state.width = width
     body = "\n".join(dispatch(state, "/help").lines)
     for command in COMMANDS:
         assert f"/{command.name}" in body, f"/{command.name} vanished at width {width}"
 
 
-def test_a_narrow_pane_falls_back_to_one_column(state):
-    state.width = 50
-    lines = dispatch(state, "/help").lines
-    assert len(lines) >= len(COMMANDS), "two cramped columns beat neither; expected one column"
+def test_a_narrow_pane_does_not_use_two_annotated_columns(state):
+    """Two cramped columns beat neither.
+
+    This used to assert one rendered line per command, which stopped being the
+    right shape when the list grew past forty: at that size the annotated
+    layout no longer fits the pane's *height*, and packing the bare names is
+    strictly better than dropping the summaries' owners.  What still has to
+    hold is that no line carries two summaries side by side.
+    """
+    state.width, state.height = 50, 60
+    lines = [line for line in dispatch(state, "/help").lines if line.strip()]
+    doubled = [line for line in lines if line.count("  /") >= 1 and len(line.split()) > 4]
+    assert not doubled, f"narrow pane paired commands up anyway: {doubled[:2]}"
 
 
 def test_a_wide_pane_uses_two_columns(state):
-    state.width = 140
+    state.width, state.height = 140, 60
     lines = [line for line in dispatch(state, "/help").lines if line.strip()]
     assert len(lines) < len(COMMANDS), "a wide pane should pair the commands up"
+
+
+@pytest.mark.parametrize("size", [(40, 20), (80, 24), (100, 32), (30, 14)])
+def test_help_fits_the_rows_it_will_be_given(state, size):
+    """The pane scrolls from the *top*, so emitting more lines than fit does
+    not overflow harmlessly - it deletes the beginning of the list in silence.
+    """
+    from offset.shell.commands import MESSAGE_CHROME
+
+    state.width, state.height = size
+    lines = dispatch(state, "/help").lines
+    budget = max(0, state.height - MESSAGE_CHROME)
+    assert len(lines) <= budget, f"{len(lines)} lines into a {budget}-row pane"
+
+
+def test_a_pane_too_small_for_the_list_says_so(state):
+    """Silently showing two thirds of the commands is the failure this whole
+    layout exists to avoid."""
+    state.width, state.height = 40, 20
+    body = "\n".join(dispatch(state, "/help").lines)
+    shown = [c for c in COMMANDS if f"/{c.name}" in body]
+    if len(shown) < len(COMMANDS):
+        assert "more" in body, "commands were hidden without a word about it"
+
+
+def test_help_can_be_filtered(state):
+    state.width, state.height = 80, 24
+    body = "\n".join(dispatch(state, "/help", ).lines)
+    assert "/spec" in body
+    narrowed = "\n".join(dispatch(state, "/help session").lines)
+    assert "/sessions" in narrowed
+    assert "/spec" not in narrowed, "the filter matched everything"
 
 
 @pytest.mark.parametrize("width", [40, 80])

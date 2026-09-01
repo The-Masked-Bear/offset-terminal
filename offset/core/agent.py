@@ -28,6 +28,8 @@ from offset.providers.base import (
     TurnBuilder,
     Usage,
 )
+from pathlib import Path
+
 from offset.providers.auth import load as load_credential
 from offset.providers.registry import ModelInfo
 from offset.tools.runtime import Invocation, Runtime
@@ -172,6 +174,15 @@ class AgentConfig:
     #: Fraction of the window at which to act.  Below 1.0 so compaction happens
     #: *before* a request is refused rather than in response to one.
     compact_at: float = 0.8
+    #: Watch the stream and halt a generation that has plainly gone wrong.
+    #:
+    #: Off by default, and deliberately so.  The cheap checks are heuristics;
+    #: a false halt costs the user a correct answer they cannot recover, which
+    #: is worse than the wasted tokens it was trying to save.  Turned on, every
+    #: halt names the evidence that caused it.
+    audit: bool = False
+    #: Which checks to run when auditing.  Empty means the safe default set.
+    audit_checks: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -290,7 +301,7 @@ class Agent:
             yield StepStarted(step, self.config.model)
 
             builder = TurnBuilder()
-            for event in provider.stream(self._request(specs), api_key=key, credential=cred):
+            for event in self._watch(provider.stream(self._request(specs), api_key=key, credential=cred)):
                 yield builder.feed(event)
             turn = builder.finish()
 
@@ -320,6 +331,34 @@ class Agent:
             reason = "max_steps"
 
         yield Finished(reason, total, steps, last_text)
+
+    def _watch(self, events: Iterator[Event]) -> Iterator[Event]:
+        """Pass a provider stream through the auditor, if one is enabled.
+
+        Off unless asked for.  The cheap checks are heuristics, and a false
+        halt is worse than the runaway it was guarding against: the user loses
+        a correct answer and has no way to see what was rejected.  Enabling it
+        is therefore a decision, and a halt always names its evidence.
+        """
+        if not self.config.audit:
+            yield from events
+            return
+
+        from offset.core.audit import audit
+
+        workspace = getattr(getattr(self.runtime, "ctx", None), "root", None)
+
+        def exists(path: str) -> bool:
+            if workspace is None:
+                return True  # cannot judge, so never accuse
+            return (Path(workspace) / path).exists()
+
+        yield from audit(
+            events,
+            exists=exists,
+            max_output=self.config.max_tokens,
+            enable=tuple(self.config.audit_checks),
+        )
 
     def _autocompact(self) -> Iterator[Event]:
         """Summarise the oldest history if this turn would not otherwise fit.

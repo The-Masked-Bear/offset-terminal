@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from prompt_toolkit.application import Application
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion as PTSuggestion
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import ANSI
@@ -39,7 +40,7 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.styles import Style
 
 from offset.core.agent import Agent, AgentConfig, Compacted, Finished, ToolFinished
-from offset.core.entries import CONVERSATIONAL
+from offset.core.entries import CONVERSATIONAL, MESSAGE
 from offset.core.multimodel import seat_roster
 from offset.core.session import Session
 from offset.eggs.catalogue import build_engine
@@ -53,6 +54,7 @@ from offset.providers.registry import (
 from offset.shell import render
 from offset.shell.commands import (
     COMMANDS,
+    MESSAGE_CHROME,
     Outcome,
     Overlay,
     ShellState,
@@ -78,12 +80,34 @@ from offset.tools.debug import debug_tools
 from offset.tools.lsp import lsp_tools
 from offset.tools.web import browser_tools, close_all as close_browsers
 from offset.tools.github import github_tools
+from offset.tools.patch import patch_tools
 from offset.tools.retrieve import retrieve_tools
+from offset.tools.mcp import marketplace as mcp_marketplace
 from offset.core.index import close_all as close_indexes
 from offset.tools import plugins as plugin_registry
 from offset.core import jobs as job_store
 from offset.core import update as updater
 from offset.providers import catalogue as model_catalogue
+from offset.ui.ghost import Suggester, Suggestion, accept_word
+
+
+
+class GhostSuggest(AutoSuggest):
+    """Bridges `offset.ui.ghost` to prompt_toolkit's inline suggestion slot.
+
+    The engine is deliberately ignorant of prompt_toolkit so it can be tested
+    without a terminal; this is the twenty lines that know about both.  The
+    engine's own deadline is what keeps this cheap - `get_suggestion` is called
+    on the keypress path, so anything that blocks here is felt as a stutter
+    while typing.
+    """
+
+    def __init__(self, suggester: Suggester) -> None:
+        self.suggester = suggester
+
+    def get_suggestion(self, buffer: Buffer, document: Any) -> PTSuggestion | None:
+        found = self.suggester.suggest(document.text, document.cursor_position)
+        return PTSuggestion(found.text) if found else None
 
 
 class SlashCompleter(Completer):
@@ -136,11 +160,22 @@ class Shell:
             None if permissions.current(state.workspace) else Consent(workspace=state.workspace)
         )
 
+        #: Seeded from this session's own history, so a resumed session offers
+        #: what you typed before the restart rather than starting blank.
+        self.suggester = Suggester(
+            workspace=state.workspace,
+            history=[
+                e.data.get("text", "")
+                for e in reversed(state.session.transcript())
+                if e.type == MESSAGE and e.data.get("role") == "user"
+            ],
+        )
         self.buffer = Buffer(
             completer=SlashCompleter(),
             complete_while_typing=True,
             multiline=False,
             accept_handler=self._accept,
+            auto_suggest=GhostSuggest(self.suggester),
         )
         self.app = self._build()
         # The policy now has a human behind it, so `safe` mode asks instead of
@@ -194,8 +229,13 @@ class Shell:
 
     def _message_rows(self) -> int:
         """Command output gets as much room as it needs, up to most of the
-        screen.  Clipping `/help` to a handful of lines makes it useless."""
-        return min(len(self.messages), max(0, self.size[1] - 10))
+        screen.  Clipping `/help` to a handful of lines makes it useless.
+
+        `MESSAGE_CHROME` is shared with `/help`, which lays itself out against
+        this same budget.  When the two numbers were written separately they
+        drifted, and `/help` overflowed a pane that scrolls from the top.
+        """
+        return min(len(self.messages), max(0, self.size[1] - MESSAGE_CHROME))
 
     def _transcript(self) -> ANSI:
         width, rows = self.size
@@ -264,8 +304,11 @@ class Shell:
     def submit(self, text: str) -> None:
         if not text.strip() or self.busy:
             return
+        # Recorded before dispatch, so a command that fails is still offered
+        # back: the usual reason to retype something is that it did not work.
+        self.suggester.remember(text)
         self.state.eggs.touch()
-        self.state.width = self.size[0]
+        self.state.width, self.state.height = self.size
         outcome = dispatch(self.state, text)
         if outcome.handled:
             # Each command replaces the last one's output; stacking it means
@@ -579,6 +622,22 @@ class Shell:
             else:
                 panel.widen()
 
+        @keys.add("c-right")
+        def _(event):
+            """Accept one word of the ghost suggestion, as a shell does.
+
+            Right-arrow already accepts the whole thing (prompt_toolkit binds
+            that itself). Taking a word at a time is what makes a long path
+            suggestion usable when only its first component is what you meant.
+            """
+            offered = self.buffer.suggestion
+            if offered is None or not offered.text:
+                return
+            # `accept_word` takes our own Suggestion, not prompt_toolkit's:
+            # the two are different types that happen to share a field name.
+            self.buffer.text = accept_word(self.buffer.text, Suggestion(offered.text, "ghost"))
+            self.buffer.cursor_position = len(self.buffer.text)
+
         return keys
 
     def _build(self) -> Application:
@@ -809,6 +868,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         *browser_tools(),
         *github_tools(),
         *retrieve_tools(workspace),
+        *patch_tools(),
     ])
     # Plugins are merged by `plugins.install` below, which also gates untrusted
     # ones; this keeps the loose-file path working for anything it quarantines.
@@ -874,11 +934,20 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         ("jobs", job_store.install),
         ("update", updater.install),
         ("models", model_catalogue.install),
+        # `refresh_on_start`, not `install`: the marketplace's `install` takes
+        # a server id and installs *that server*, so handing it a ShellState
+        # fails with a baffling AttributeError about `.strip`.
+        ("mcp-market", mcp_marketplace.refresh_on_start),
     ):
         try:
             hook(state)
         except Exception as exc:  # a broken extension must not cost startup
-            eggs.event("subsystem_failed", name=name, detail=f"{type(exc).__name__}: {exc}")
+            # `subsystem=`, not `name=`: `EggEngine.event(name, **data)` already
+            # binds `name` positionally, so the obvious spelling raised
+            # TypeError *inside the handler* and turned one broken subsystem
+            # into a dead shell - the exact opposite of what this guard is for.
+            eggs.event("subsystem_failed", subsystem=name,
+                       detail=f"{type(exc).__name__}: {exc}")
     return state
 
 

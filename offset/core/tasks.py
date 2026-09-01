@@ -499,14 +499,8 @@ def shell_worker(state: Any) -> Worker:
 
 def _task(state: Any, args: list[str]) -> Any:
     """`/task <goal>`, `/task resume <id>`."""
-    from offset.auth import require_plus
     from offset.shell.commands import TONE_INFO, TONE_OK, Outcome
 
-    if not require_plus("task"):
-        return Outcome.error(
-            "Offset Lite does not support /task.",
-            "Upgrade to Offset Plus via 'offset upgrade <key>'.",
-        )
     if not args:
         return Outcome.error("usage: /task <goal>", "or /task resume <id>")
 
