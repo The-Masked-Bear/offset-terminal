@@ -261,7 +261,7 @@ offset update          # or let it update itself on startup
 
 | Feature | Offset Lite (Free) | Offset Plus (Subscription) |
 | :--- | :---: | :---: |
-| **Pricing** | Free Forever | Monthly or Yearly (Cancel Anytime) |
+| **Pricing** | Free Forever | Monthly (Cancel Anytime) |
 | **Bring Your Own API Keys** | ✅ | ✅ |
 | **Terminal Interface & REPL** | ✅ | ✅ |
 | **12+ Model Support** | ✅ | ✅ |
