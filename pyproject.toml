@@ -4,7 +4,7 @@
 # `offset`; only the name you `pip install` differs, which is ordinary enough
 # (`python-dateutil` installs `dateutil`).
 name = "offset-terminal"
-version = "0.5.2"
+version = "0.6.0"
 description = "Terminal coding agent. Race AI models in parallel worktrees and keep the winner."
 readme = "README.md"
 requires-python = ">=3.11"

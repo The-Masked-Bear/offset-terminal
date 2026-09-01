@@ -504,6 +504,19 @@
     gap: 15px; font-size: 0.9rem;
   }
   .install-cmd code { word-break: break-all; }
+  .install-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .install-tab {
+    background: var(--surface); border: 3px solid var(--black);
+    box-shadow: 3px 3px 0px var(--black); padding: 6px 16px;
+    font-family: 'Archivo Black', sans-serif; font-size: 0.8rem;
+    text-transform: uppercase; letter-spacing: 1px;
+    transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+  }
+  .install-tab:hover { background: var(--yellow); }
+  .install-tab.active {
+    background: var(--black); color: var(--yellow);
+    transform: translate(3px, 3px); box-shadow: 0 0 0 var(--black);
+  }
 
   /* BACK TO TOP */
   #back-to-top {
@@ -1039,12 +1052,26 @@
   <div id="install-modal" class="modal-overlay">
     <div class="modal-content">
       <h2>INSTALL OFFSET</h2>
-      <p>Run this in your terminal. Requires Python 3.11+.</p>
+      <p>One line. It works out whether you have uv, pipx, or neither. Python 3.11+.</p>
       <div class="install-cmd">
-        <code>pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git</code>
-        <button onclick="navigator.clipboard.writeText('pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git');this.innerText='COPIED!';setTimeout(()=>this.innerText='COPY',2000)" class="brutal-btn color-yellow btn-small">COPY</button>
+        <code id="install-cmd-text">curl -fsSL https://raw.githubusercontent.com/The-Masked-Bear/offset-terminal/main/install.sh | sh</code>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('install-cmd-text').textContent);this.innerText='COPIED!';setTimeout(()=>this.innerText='COPY',2000)" class="brutal-btn color-yellow btn-small">COPY</button>
       </div>
-      <p style="font-size:0.85rem;">Then just type <code style="background:var(--ink);color:var(--mint);padding:3px 8px;">offset</code> anywhere to launch.</p>
+
+      <p style="font-weight:900;margin-bottom:10px;">Or pick your own:</p>
+      <div class="install-tabs">
+        <button class="install-tab active" data-cmd="uv tool install offset-terminal">uv</button>
+        <button class="install-tab" data-cmd="pipx install offset-terminal">pipx</button>
+        <button class="install-tab" data-cmd="python3 -m venv ~/.offset-venv &amp;&amp; ~/.offset-venv/bin/pip install offset-terminal">pip</button>
+        <button class="install-tab" data-cmd="pipx install git+https://github.com/The-Masked-Bear/offset-terminal.git">git</button>
+      </div>
+      <div class="install-cmd" style="margin-top:12px;">
+        <code id="install-alt-text">uv tool install offset-terminal</code>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('install-alt-text').textContent);this.innerText='COPIED!';setTimeout(()=>this.innerText='COPY',2000)" class="brutal-btn color-yellow btn-small">COPY</button>
+      </div>
+
+      <p style="font-size:0.85rem;margin-top:16px;">Then type <code style="background:var(--ink);color:var(--mint);padding:3px 8px;">offset</code> anywhere. It keeps itself updated.</p>
+      <p style="font-size:0.78rem;color:var(--text-secondary);">The package is <code>offset-terminal</code> on PyPI &mdash; <code>offset</code> was taken. The command is still <code>offset</code>.</p>
       <button onclick="document.getElementById('install-modal').classList.remove('active')" class="brutal-btn color-red" style="width:100%;text-align:center;margin-top:20px;">CLOSE</button>
     </div>
   </div>
@@ -1406,6 +1433,18 @@
       q.addEventListener('click', () => {
         const item = q.parentElement;
         item.classList.toggle('open');
+      });
+    });
+
+    // ===== INSTALL TABS =====
+    const altText = document.getElementById('install-alt-text');
+    document.querySelectorAll('.install-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        // textContent, not innerHTML: the pip line contains && and must be
+        // copied as the shell sees it, not as the entity the markup needs.
+        altText.textContent = tab.dataset.cmd;
       });
     });
 
