@@ -541,6 +541,8 @@ class Bridge:
         "dropped",
         "home",
         "hooks",
+        "host",
+        "listen",
         "port",
         "problems",
         "queue_limit",
@@ -558,6 +560,7 @@ class Bridge:
         home: str | os.PathLike[str] | None = None,
         queue_limit: int = QUEUE_LIMIT,
         send_timeout: float = SEND_TIMEOUT,
+        listen: str = "",
     ) -> None:
         self.hooks = hooks or Hooks()
         #: Resolved now rather than at import, and never from a module-level
@@ -568,7 +571,15 @@ class Bridge:
         self.descriptor_path = self.home / DESCRIPTOR_NAME
         self.queue_limit = max(1, queue_limit)
         self.send_timeout = max(0.05, send_timeout)
+        #: Empty means "a unix socket if this platform has them", which is the
+        #: right answer for an editor on the same machine.  `tcp` or `host:port`
+        #: forces a socket a remote client can reach - the daemon's reason to
+        #: exist - and the token is what keeps that safe, so it is never
+        #: optional.  Binding beyond loopback is a deliberate act, never a
+        #: default.
+        self.listen = listen.strip()
         self.token = ""
+        self.host = ""
         self.port = 0
         self.started = 0.0
         #: Reasons a client was hung up on, counted rather than raised: an
@@ -600,9 +611,13 @@ class Bridge:
 
     @property
     def unix(self) -> bool:
-        """Whether this platform has unix domain sockets.  Windows does not get
-        one with a filesystem mode, hence the loopback fallback."""
-        return hasattr(socket, "AF_UNIX")
+        """Whether this bridge is on a unix domain socket.
+
+        False on Windows, which has none with a filesystem mode, and false
+        whenever a listen address was asked for: a remote client cannot reach a
+        socket file on somebody else's machine.
+        """
+        return hasattr(socket, "AF_UNIX") and not self.listen
 
     @property
     def listening(self) -> bool:
@@ -644,17 +659,40 @@ class Bridge:
         self._accept.start()
         return []
 
+    def _address(self) -> tuple[str, int]:
+        """The host and port a TCP bridge should bind.
+
+        `""` and `tcp` both mean loopback on an ephemeral port.  Anything else
+        is `host`, `host:port` or `:port`, and a host that is not loopback is
+        the caller deliberately exposing the agent to their network.
+        """
+        spec = self.listen
+        if not spec or spec == "tcp":
+            return "127.0.0.1", 0
+        host, sep, port = spec.rpartition(":")
+        if not sep:
+            return spec, 0
+        try:
+            return (host or "127.0.0.1"), int(port)
+        except ValueError:
+            # `[::1]` and other bracketless colons: treat the whole thing as a
+            # host rather than silently binding a port nobody asked for.
+            return spec, 0
+
     def _bind(self) -> tuple[socket.socket | None, str | None]:
         if not self.unix:
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            host, port = self._address()
+            family = socket.AF_INET6 if ":" in host else socket.AF_INET
+            server = socket.socket(family, socket.SOCK_STREAM)
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
-                server.bind(("127.0.0.1", 0))
+                server.bind((host, port))
                 server.listen(MAX_CLIENTS)
             except OSError as exc:
                 server.close()
-                return None, f"127.0.0.1: {type(exc).__name__}: {exc}"
-            self.port = int(server.getsockname()[1])
+                return None, f"{host}:{port}: {type(exc).__name__}: {exc}"
+            bound = server.getsockname()
+            self.host, self.port = host, int(bound[1])
             server.settimeout(_TICK)
             return server, None
 
@@ -700,7 +738,7 @@ class Bridge:
             "protocol": PROTOCOL,
             "transport": "unix" if self.unix else "tcp",
             "path": str(self.socket_path) if self.unix else "",
-            "host": "" if self.unix else "127.0.0.1",
+            "host": "" if self.unix else (self.host or "127.0.0.1"),
             "port": self.port,
             "token_path": str(self.token_path),
             "pid": os.getpid(),
@@ -1188,20 +1226,23 @@ def active() -> Bridge | None:
     return _active
 
 
-def install(state: Any, *, jobs: Callable[[], list[dict[str, Any]]] | None = None) -> None:
+def install(state: Any, *, jobs: Callable[[], list[dict[str, Any]]] | None = None,
+            listen: str = "") -> None:
     """Start the editor bridge for a running shell.
 
     Idempotent, and never raises: a bridge that cannot bind records its reason
     in `active().problems` and the shell carries on without an editor view.
     Pass `jobs` to expose a background-job registry in `status` and the tree
-    view; without one the bridge honestly reports no jobs.
+    view; without one the bridge honestly reports no jobs.  Pass `listen` to
+    bind a TCP socket instead of a unix one, which is what a daemon serving a
+    remote editor needs.
     """
     global _active
     if _active is not None and _active.listening:
         return
 
     workspace = Path(getattr(state, "workspace", None) or Path.cwd())
-    bridge = Bridge(Hooks(workspace=workspace))
+    bridge = Bridge(Hooks(workspace=workspace), listen=listen)
     bridge.hooks.status = _status_of(state, bridge)
     bridge.hooks.cancel = _cancel_of(state)
     bridge.hooks.prompt = _prompt_of(state, bridge)

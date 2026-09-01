@@ -64,8 +64,6 @@ MODELS: Final[tuple[ModelInfo, ...]] = (
     ModelInfo("claude-pro/claude-opus-4-20250514", "claude-pro", "claude-pro: opus 4", 200_000, 32_000, thinking=True, role_hint="planner"),
     ModelInfo("openai-chatgpt/gpt-4o", "openai-chatgpt", "chatgpt: gpt-4o", 128_000, 16_384, role_hint="implementer"),
     ModelInfo("openai-chatgpt/gpt-4.1", "openai-chatgpt", "chatgpt: gpt-4.1", 1_000_000, 32_768, role_hint="planner"),
-    ModelInfo("o3", "openai", "o3", 200_000, 100_000, thinking=True, role_hint="critic"),
-    ModelInfo("o4-mini", "openai", "o4 mini", 200_000, 100_000, thinking=True, role_hint="critic"),
     ModelInfo("google-antigravity/gemini-3.1-pro", "google-antigravity", "antigravity: gemini 3.1 pro", 1_048_576, 65_536, thinking=True, role_hint="critic"),
     ModelInfo("google-antigravity/gemini-3-flash", "google-antigravity", "antigravity: gemini 3 flash", 1_048_576, 65_536, thinking=True, role_hint="cheap"),
     ModelInfo("google-antigravity/gemini-3.1-flash-lite", "google-antigravity", "antigravity: gemini 3.1 flash lite", 1_048_576, 65_536, role_hint="bulk"),
@@ -201,11 +199,33 @@ PREFIXES: Final[tuple[tuple[str, str], ...]] = (
 )
 
 
+def catalogue() -> list[ModelInfo]:
+    """Every model we know of: the table above, plus whatever the providers
+    last said they had.
+
+    Imported lazily because `catalogue` reads this module: the live listing is
+    built on top of the static table, not beside it.  A cold cache, a disabled
+    fetch or a broken cache file all fall back to `MODELS`, which is what
+    shipped before live listing existed.
+    """
+    try:
+        from offset.providers.catalogue import merged
+    except ImportError:
+        return list(MODELS)
+    try:
+        return merged()
+    except Exception:
+        return list(MODELS)
+
+
 def info(model_id: str) -> ModelInfo:
     """Catalogue entry, or a synthesised one for an unknown id."""
     known = BY_ID.get(model_id)
     if known:
         return known
+    for model in catalogue():
+        if model.id == model_id:
+            return model
     lowered = model_id.lower()
     provider = next((p for prefix, p in PREFIXES if lowered.startswith(prefix)), "ollama")
     return ModelInfo(model_id, provider, model_id, local=provider == "ollama")
@@ -214,9 +234,10 @@ def info(model_id: str) -> ModelInfo:
 def search(query: str) -> list[ModelInfo]:
     """Substring match over id and label, for the picker."""
     q = query.strip().lower()
+    everything = catalogue()
     if not q:
-        return list(MODELS)
-    return [m for m in MODELS if q in m.id.lower() or q in m.label.lower()]
+        return everything
+    return [m for m in everything if q in m.id.lower() or q in m.label.lower()]
 
 
 def provider_for(name: str) -> Provider:
@@ -348,9 +369,23 @@ def listening(meta: ModelInfo, timeout: float = 0.15) -> bool:
 
 def available() -> list[ModelInfo]:
     """Models we could actually run right now: local, or key present."""
+    # One credential lookup per provider, not per model.  The catalogue is now
+    # hundreds of entries deep once live listings land, and `provider_for`
+    # imports and constructs a class every time it is called.
+    seen: dict[str, bool] = {}
     out: list[ModelInfo] = []
-    for m in MODELS:
-        if m.local or credential(provider_for(m.provider)):
+    for m in catalogue():
+        if m.local:
+            out.append(m)
+            continue
+        has = seen.get(m.provider)
+        if has is None:
+            try:
+                has = bool(credential(provider_for(m.provider)))
+            except Exception:
+                has = False
+            seen[m.provider] = has
+        if has:
             out.append(m)
     return out
 

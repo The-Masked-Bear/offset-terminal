@@ -30,3 +30,30 @@ jobs:
     - name: Run Test Suite
       run: |
         PYTHONPATH=. pytest tests/
+
+  client:
+    name: typescript client
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    # `npm ci` because the client commits its lockfile.  The extension below
+    # does not: its only dependency is a `file:` link to this package, which a
+    # lockfile pins to a resolved path that is not portable between checkouts.
+    - name: Build and test the client
+      working-directory: clients/typescript
+      run: |
+        npm ci --no-audit --no-fund
+        npm test
+
+    # The extension is the first consumer of the client, so a protocol type
+    # that drifts from `bridge.py` breaks here rather than in somebody's editor.
+    - name: Typecheck the VS Code extension against it
+      working-directory: editors/vscode
+      run: |
+        npm install --no-audit --no-fund
+        npx tsc --noEmit -p .

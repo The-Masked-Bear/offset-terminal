@@ -141,6 +141,76 @@ answer rather than the network, so an offline start costs nothing. Opt out with
 
 ---
 
+## WHAT'S NEW IN 0.7
+
+### The model list is asked for, not remembered
+
+A hardcoded catalogue goes stale the day a provider ships something. Against a
+real key this machine found **38 Google models live and 4 in the table** — so
+offset now asks each provider what it has, caches the answer, and merges it
+over the curated list.
+
+```
+/models                 # what you can run, plus the curated set
+/models gpt-5           # search everything, live included
+/models --all           # the lot
+/models --refresh       # re-ask now, and say where each list came from
+```
+
+The refresh is a background thread, so startup waits for nothing; a cold cache
+shows exactly what shipped before. A provider with no key is never asked, and a
+provider that fails keeps the models it last reported rather than emptying your
+picker. `OFFSET_NO_MODEL_FETCH=1` turns it off entirely.
+
+### Sign in to Google Antigravity
+
+Antigravity used to ask for an API key, which was really the plain Gemini
+provider wearing an Antigravity label. Signing in now goes where a signed-in
+account actually lives — Cloud Code Assist — with the project discovered once
+per token and the model list scoped to your account.
+
+```
+/login          # pick google-antigravity, sign in with your browser
+```
+
+Google does not publish the client id its own binary carries, and every
+community client declines to embed it: a credential lifted out of a shipped
+binary gets rotated and takes every user with it. So create a Desktop OAuth
+client and register the redirect URI `/login` prints. An API key still works
+and takes the ordinary Gemini path, which is the right answer on a headless box.
+
+### Headless daemon
+
+The editor bridge only existed while a TUI was open. Now it does not need one.
+
+```bash
+offset daemon                          # unix socket, this machine
+offset daemon --listen 127.0.0.1:8791  # a port, for a client across an SSH hop
+offset daemon --idle 900               # exit after 15 minutes with no client
+```
+
+It prints a descriptor naming where to connect, saves the session on the way
+out, and stops on SIGINT, SIGTERM or SIGHUP.
+
+### A TypeScript client
+
+The agent is Python and stays Python. Everything on the *other* side of the
+socket is better served by TypeScript, so `@offset/client` is a real package
+with no runtime dependencies:
+
+```ts
+import { OffsetClient } from "@offset/client";
+
+const offset = new OffsetClient({ name: "my-editor" });
+await offset.connect();
+offset.on("tool.started", ({ name }) => console.log("running", name));
+const { text } = await offset.prompt("add a test for the parser");
+```
+
+The VS Code extension is its first consumer — it no longer carries its own copy
+of the protocol — and CI typechecks the extension against the client, so a type
+that drifts from `bridge.py` breaks the build rather than somebody's editor.
+
 ## WHAT'S NEW IN 0.5
 
 ### Code intelligence, not text search
@@ -234,6 +304,7 @@ offset update          # or let it update itself on startup
 | `offset` | **Lite** | Start interactive terminal coding session |
 | `offset --continue` | **Lite** | Resume the most recent session |
 | `offset --resume <id>` | **Lite** | Resume a specific session |
+| `offset daemon` | **Lite** | Run headless for an editor or a remote client |
 | `offset update` | **Lite** | Check for and install a newer offset |
 | `/spec <N> <task>` | **Plus** | **Speculative Branching**: fork N worktrees, race models, score and merge the winner |
 | `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic |

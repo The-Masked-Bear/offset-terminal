@@ -5,4 +5,6 @@
 .venv/
 __pycache__/
 build/
+clients/typescript/node_modules/
+clients/typescript/out/
 dist/

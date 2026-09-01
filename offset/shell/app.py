@@ -83,6 +83,7 @@ from offset.core.index import close_all as close_indexes
 from offset.tools import plugins as plugin_registry
 from offset.core import jobs as job_store
 from offset.core import update as updater
+from offset.providers import catalogue as model_catalogue
 
 
 class SlashCompleter(Completer):
@@ -861,6 +862,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         ("plugins", plugin_registry.install),
         ("jobs", job_store.install),
         ("update", updater.install),
+        ("models", model_catalogue.install),
     ):
         try:
             hook(state)

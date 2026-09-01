@@ -229,12 +229,49 @@ def _model(state: ShellState, args: list[str]) -> Outcome:
 
 
 def _models(state: ShellState, args: list[str]) -> Outcome:
+    """What you can run, what else exists, and where the list came from.
+
+    The catalogue used to be a fixed forty-odd entries and printing all of them
+    was fine.  Live listing makes it hundreds, so the default is now the models
+    you actually have a key for; everything else is a query or `--all` away.
+    """
+    from offset.providers import catalogue as live
+    from offset.providers.registry import catalogue as everything, search
+
+    flags = {a.lower() for a in args if a.startswith("-")}
+    query = " ".join(a for a in args if not a.startswith("-")).strip()
+
+    if "--refresh" in flags or "-r" in flags:
+        live.refresh(force=True)
+
     ready = {m.id for m in available()}
+    if query:
+        shown, title = search(query), f"matching {query!r}"
+    elif "--all" in flags or "-a" in flags:
+        shown, title = everything(), "every model known"
+    else:
+        # Curated, plus anything live you hold a key for.  Showing only what is
+        # ready would hide providers worth signing up to, and showing all four
+        # hundred would bury the dozen that matter: the shipped table is the
+        # "worth knowing about" set, and a live model you can run is the whole
+        # point of asking the provider in the first place.
+        curated = {m.id for m in MODELS}
+        shown = [m for m in everything() if m.id in curated or m.id in ready]
+        title = "shipped, or ready to run"
+
     lines = [
-        f"{'*' if m.id == state.model else ' '} {m.label:<22} {m.provider:<11} "
+        f"{'*' if m.id == state.model else ' '} {m.label[:30]:<30} {m.provider:<19} "
         f"{'ready' if m.id in ready else 'no key':<7} {m.role_hint}"
-        for m in MODELS
+        for m in shown
     ]
+    if not lines:
+        lines = ["nothing matched. /login to add a key, or /models --all"]
+
+    total = len(everything())
+    lines.append("")
+    lines.append(f"{len(shown)} {title} \u2014 {total} known, {len(ready)} usable")
+    if "--refresh" in flags or "-r" in flags or "--where" in flags:
+        lines.extend(live.report())
     return Outcome(lines, TONE_INFO)
 
 
@@ -970,7 +1007,8 @@ def _quit(state: ShellState, args: list[str]) -> Outcome:
 COMMANDS: list[Command] = [
     Command("help", "this list", _help, aliases=("?",)),
     Command("model", "switch model, or open the picker", _model, usage="/model [name]"),
-    Command("models", "list every model and whether it is usable", _models),
+    Command("models", "which models you can run, and what else exists", _models,
+            usage="/models [query] [--all] [--refresh]"),
     Command("seats", "which models a multi-model run uses", _seats, usage="/seats [auto|off|<id>...]"),
     Command("flow", "several models work one task together", _flow, usage="/flow <task>"),
     Command("council", "ask every seat the same thing", _council,

@@ -15,7 +15,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { BridgeClient, ChangePayload, offsetHome, StatusPayload } from "./bridge";
+import { ChangePayload, OffsetClient, offsetHome, StatusPayload } from "@offset/client";
 
 /** A row in the Offset view: either a heading or a leaf with a command. */
 class Row extends vscode.TreeItem {
@@ -117,7 +117,7 @@ class DiffProvider implements vscode.TextDocumentContentProvider {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const client = new BridgeClient();
+  const client = new OffsetClient({ name: "vscode", retry: 0 });
   const view = new ActivityView();
   const diffs = new DiffProvider();
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -169,7 +169,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       await client.connect(offsetHome(settings().get<string>("home")));
       view.problem = undefined;
-      log.appendLine(`connected to offset (pid ${client.descriptor?.pid ?? "?"})`);
+      log.appendLine(`connected to offset (pid ${client.connection?.pid ?? "?"}) at ${client.address}`);
       await sync();
       if (announce) {
         vscode.window.setStatusBarMessage("$(check) offset connected", 2000);

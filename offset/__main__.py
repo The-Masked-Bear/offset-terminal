@@ -57,6 +57,16 @@ def main(argv: list[str] | None = None) -> int:
     upd.add_argument("--check", action="store_true",
                  help="only report whether an update exists")
 
+    dmn = sub.add_parser("daemon", help="run headless, for an editor or a remote client")
+    dmn.add_argument("--workspace", default=".", help="directory the tools may touch")
+    dmn.add_argument("--model", default=None, help="model id; defaults to the configured one")
+    dmn.add_argument("--listen", default="", metavar="ADDR",
+                     help="bind TCP instead of a unix socket: 'tcp', 'host:port' or ':port'. "
+                          "Anything other than loopback exposes the agent to that network")
+    dmn.add_argument("--idle", type=float, default=0.0, metavar="SECONDS",
+                     help="exit after this long with no client connected; 0 never exits")
+    dmn.add_argument("--quiet", action="store_true", help="do not print the descriptor")
+
     demo = sub.add_parser("demo", help="render the design system")
     demo.add_argument("--once", action="store_true", help="print one frame and exit")
     demo.add_argument("--time", type=float, default=2.4, help="timestamp of the frame to print")
@@ -82,6 +92,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "update":
         from offset.core.update import update_command
         return update_command(check_only=args.check)
+
+    if args.cmd == "daemon":
+        from offset.core.daemon import command as daemon_command
+        return daemon_command(args)
 
     if args.cmd == "demo":
         from offset.ui import demo as demo_mod

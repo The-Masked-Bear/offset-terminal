@@ -105,17 +105,10 @@ class OAuthApp:
     device_url: str | None = None
     redirect_host: str = "127.0.0.1"
     redirect_path: str = "/callback"
-    redirect_param: str = "redirect_uri"
+    #: Fixed loopback port, for a provider that registered one exact redirect
+    #: URI and will refuse any other.  0 means "any free port", which is what
+    #: most flows allow and what every provider here used before Antigravity.
     redirect_port: int = 0
-    exchange: str = "form"
-    authorize_url: str
-    token_url: str
-    client_id: str | None = None
-    client_secret: str | None = None
-    scopes: tuple[str, ...] = ()
-    device_url: str | None = None
-    redirect_host: str = "127.0.0.1"
-    redirect_path: str = "/callback"
     #: Query parameter carrying the loopback URL.  OpenRouter calls it
     #: `callback_url`; RFC 6749 calls it `redirect_uri`.
     redirect_param: str = "redirect_uri"
@@ -213,6 +206,37 @@ APPS: Final[dict[str, OAuthApp]] = {
         paste_param="redirect_uri",
         note="Claude Code sign-in; requires a Claude Pro or Max subscription",
     ),
+    #: google-antigravity — https://antigravity.google/docs/cli/install/ for the
+    #:   flow, and the Cloud Code Assist protocol for what the token is then used
+    #:   against.  Standard Google OAuth with PKCE, but three details are not
+    #:   negotiable: the redirect is a *fixed* port, because the registered URI is
+    #:   exact; `cclog` and `experimentsandconfigs` are required alongside the
+    #:   usual scopes; and the resulting token talks to cloudcode-pa, not to
+    #:   generativelanguage.
+    #:
+    #:   Google does not publish the client id its own binary carries, and every
+    #:   community client deliberately declines to embed it - a credential lifted
+    #:   out of a shipped binary gets rotated, and takes every user with it.  So
+    #:   this asks for yours, exactly as the `google` entry above does.  Create a
+    #:   Desktop app client and give it the redirect URI printed by `/login`.
+    "google-antigravity": OAuthApp(
+        provider="google-antigravity",
+        authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
+        token_url="https://oauth2.googleapis.com/token",
+        scopes=(
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/cclog",
+            "https://www.googleapis.com/auth/experimentsandconfigs",
+        ),
+        redirect_host="localhost",
+        redirect_path="/oauth-callback",
+        redirect_port=51121,
+        auth_extra=(("access_type", "offline"), ("prompt", "consent")),
+        needs=("client_id", "client_secret"),
+        note="sign in with your Google account; needs a Desktop OAuth client you own",
+    ),
 }
 
 
@@ -228,6 +252,30 @@ def _setting(key: str, default: Any = None) -> Any:
         return default
 
 
+#: Environment names the wider ecosystem already uses.  Somebody who has
+#: already configured another Antigravity client should not have to re-export
+#: the same secret under a second name to satisfy us.
+ENV_ALIASES: Final[dict[str, tuple[str, ...]]] = {
+    "google-antigravity": ("ANTIGRAVITY",),
+}
+
+
+def env_names(provider: str, field_name: str) -> tuple[str, ...]:
+    """Every environment variable that may carry one config field.
+
+    Provider ids are hyphenated and shell variable names cannot be: `export
+    GOOGLE-ANTIGRAVITY_CLIENT_ID=x` is a syntax error, so the name printed in
+    the "configure this" message was one nobody could act on.  Hyphens
+    normalise to underscores; the hyphenated form was never settable, so there
+    is nothing to stay compatible with.
+    """
+    stem = provider.upper().replace("-", "_")
+    field = field_name.upper()
+    names = [f"OFFSET_{stem}_{field}", f"{stem}_{field}"]
+    names.extend(f"{alias}_{field}" for alias in ENV_ALIASES.get(provider, ()))
+    return tuple(names)
+
+
 def _configured(provider: str, field_name: str) -> str | None:
     """Settings first, then env.  Empty strings count as absent."""
     camel = "".join(p.title() if i else p for i, p in enumerate(field_name.split("_")))
@@ -235,7 +283,7 @@ def _configured(provider: str, field_name: str) -> str | None:
     if not value:
         import os
 
-        for name in (f"OFFSET_{provider.upper()}_{field_name.upper()}", f"{provider.upper()}_{field_name.upper()}"):
+        for name in env_names(provider, field_name):
             value = os.environ.get(name)
             if value:
                 break
@@ -280,19 +328,27 @@ def app(provider: str) -> OAuthApp:
     )
     missing = _missing(resolved)
     if missing:
-        keys = ", ".join(f"auth.{provider}.{k}" for k in missing)
-        env = ", ".join(f"{provider.upper()}_{n.upper()}" for n in missing)
-        raise AuthConfigError(f"configure {keys} (or set {env}) — {resolved.note or provider}")
+        camel = {"client_id": "clientId", "client_secret": "clientSecret"}
+        keys = ", ".join(f"auth.{provider}.{camel.get(k, k)}" for k in missing)
+        # The plain form, not the OFFSET_-prefixed one: shorter, and both work.
+        env = ", ".join(env_names(provider, k)[1] for k in missing)
+        hint = f"configure {keys} (or set {env})"
+        if resolved.note:
+            hint += f" \u2014 {resolved.note}"
+        if resolved.redirect_port:
+            # The failure this prevents is silent: an OAuth client registered
+            # without this exact URI gets `redirect_uri_mismatch` at the very
+            # end of the flow, after the user has already signed in.
+            hint += (f"\nregister this redirect URI on the client: "
+                     f"http://{resolved.redirect_host}:{resolved.redirect_port}"
+                     f"{resolved.redirect_path}")
+        raise AuthConfigError(hint)
     return resolved
 
 
 def _missing(entry: OAuthApp) -> tuple[str, ...]:
-    camel = {"client_id": "clientId", "client_secret": "clientSecret"}
-    out = []
-    for name in entry.needs:
-        if not getattr(entry, name, None):
-            out.append(camel.get(name, name))
-    return tuple(out)
+    """Field names, in their real snake_case form, that are still empty."""
+    return tuple(name for name in entry.needs if not getattr(entry, name, None))
 
 
 def needs(provider: str) -> tuple[str, ...]:
