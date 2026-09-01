@@ -13,7 +13,7 @@
 ```
 
 [![Official Website](https://img.shields.io/badge/OFFICIAL_WEBSITE-VISIT_PORTAL-black?style=for-the-badge&logo=googlechrome&logoColor=white&colorA=111111&colorB=FFDE59)](https://the-masked-bear.github.io/offset-terminal/)
-[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-SUBSCRIBE-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
+[![Sponsor](https://img.shields.io/badge/SPONSOR-FUND_THE_WORK-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
 
 <br>
 
@@ -64,9 +64,14 @@ No other coding agent does this.
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Speculative Branching** (race N models in parallel git worktrees) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Multi-Model /flow** (Planner → Implementer → Critic pipeline) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Terminal multiplayer** (`/collab` — several humans, one session) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Loopback** (running code calls the agent's own tools) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Hash-anchored patching** (refuses a moved region, never guesses) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Live model discovery** (asks each provider, never a hardcoded list) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **12+ models from one agent** (Claude, GPT, Gemini, Antigravity, Ollama) | ✅ | Partial | ❌ | ✅ | ❌ |
 | **Local-first, no Electron** | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **Runs on ARM64 / Raspberry Pi** | ✅ | ❌ | ❌ | ✅ | ✅ |
+| **Everything free, no tier** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Open Source (AGPL-3.0)** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Built-in Easter Egg Engine** | ✅ | ❌ | ❌ | ❌ | ❌ |
 
@@ -129,9 +134,9 @@ curl -fsSL https://.../install.sh | sh -s -- --method venv --pypi
 offset          # start a session
 ```
 
-*On first startup, sign in with your **Google** or **GitHub** account. No licence
-codes needed — if your account has an active Offset Plus subscription, it unlocks
-automatically.*
+*Signing in is optional. `offset login` links a Google or GitHub account so
+session sync can find you — it has never been required to use offset, and since
+0.8 there is nothing for it to unlock.*
 
 **Offset keeps itself current.** It checks for a release in the background, and
 installs a waiting one on the next launch before the shell opens — then
@@ -442,17 +447,28 @@ account-scoped features find you. It has never been required to use offset.
 
 ## SUPPORTED PROVIDERS
 
-| Provider | Models | Auth |
-| :--- | :--- | :--- |
-| **Anthropic** | Claude Opus 4, Sonnet 4, Haiku 3.5 | API Key or OAuth |
-| **OpenAI** | GPT-4.1, GPT-4o, o3, o4-mini | API Key |
-| **Google** | Gemini 3 Pro, 3 Flash | API Key |
-| **Google Antigravity** | Gemini 3.1 Pro, 3 Flash, Flash Lite | OAuth Account Link |
-| **Claude Pro** | Claude Opus 4, Sonnet 4 | OAuth via claude.ai |
-| **ChatGPT** | GPT-4o, o3 | OAuth via chatgpt.com |
-| **Ollama** | Any local model | Local (no key needed) |
-| **DeepSeek** | DeepSeek V3 | API Key |
-| **OpenCode** | Zen models | API Key |
+Since 0.7 the model list is **asked for, not remembered** — offset queries each
+provider on a background thread and merges the answer over its curated table.
+A model released this morning is in `/models` this afternoon, and one you type
+that nothing has heard of still works.
+
+| Provider | Models | Auth | Live listing |
+| :--- | :--- | :--- | :---: |
+| **Anthropic** | whatever your key can reach | API Key or OAuth | ✅ |
+| **OpenAI** | whatever your key can reach | API Key | ✅ |
+| **Google** | whatever your key can reach | API Key | ✅ |
+| **Google Antigravity** | scoped to your account | OAuth account link | ✅ |
+| **OpenRouter** | 400+, no key needed to browse | API Key | ✅ |
+| **DeepSeek** | whatever your key can reach | API Key | ✅ |
+| **Ollama** | whatever you have pulled | none | ✅ |
+| **Claude Pro** | Opus, Sonnet | OAuth via claude.ai | curated |
+| **ChatGPT** | GPT-4o, o3 | OAuth via chatgpt.com | curated |
+| **OpenCode** | Zen and Go models | API Key | curated |
+
+```
+/models gpt-5      # search everything, live included
+/models --refresh  # re-ask now, and say where each list came from
+```
 
 ---
 

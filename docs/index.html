@@ -312,7 +312,7 @@
   /* STATS */
   .stats-section { padding: 0 40px; max-width: 1400px; margin: 0 auto 80px; position: relative; z-index: 1; }
   .stats-grid {
-    display: grid; grid-template-columns: repeat(3,1fr);
+    display: grid; grid-template-columns: repeat(4,1fr);
     border: 5px solid var(--black); background: var(--pink);
     box-shadow: 12px 12px 0px var(--black);
   }
@@ -642,9 +642,12 @@
     .terminal-box { height: 350px; }
 
     .pricing-grid { grid-template-columns: 1fr; }
-    .stats-grid { grid-template-columns: 1fr; }
-    .stat-item { border-right: none; border-bottom: 3px solid var(--black); padding: 35px 20px; }
-    .stat-item:last-child { border-bottom: none; }
+    /* Two by two rather than a four-high stack: at four stats a single
+       column pushes everything below it off the first screen. */
+    .stats-grid { grid-template-columns: repeat(2,1fr); }
+    .stat-item { border-bottom: 3px solid var(--black); padding: 35px 12px; }
+    .stat-item:nth-child(even) { border-right: none; }
+    .stat-item:nth-last-child(-n+2) { border-bottom: none; }
     .stat-number { font-size: 3.5rem; }
 
     .features { padding: 60px 20px; }
@@ -815,9 +818,9 @@
     <nav id="main-nav">
       <a href="#features" class="nav-link">FEATURES</a>
       <a href="#sandbox" class="nav-link">SANDBOX</a>
-      <a href="#pricing" class="nav-link">PRICING</a>
+      <a href="#pricing" class="nav-link">FREE</a>
       <a href="https://github.com/The-Masked-Bear/offset-terminal" class="nav-link" target="_blank">GITHUB</a>
-      <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
+      <a class="brutal-btn color-yellow" href="#install">INSTALL</a>
     </nav>
   </header>
 
@@ -830,12 +833,12 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-content">
-      <div class="hero-badge">⚡ NEW — LSP, DEBUGGER, BROWSER AGENT</div>
+      <div class="hero-badge">⚡ 0.8 — GHOST TEXT, MULTIPLAYER, NO PAYWALL</div>
       <h1 id="hero-title"></h1>
-      <p class="reveal">Terminal-native coding agent. Race Claude vs GPT vs Gemini across parallel worktrees and keep what passes. Now with real code intelligence, a live debugger, and a browser that checks your UI. Pure Python, one dependency.</p>
+      <p class="reveal">Terminal-native coding agent. Race Claude vs GPT vs Gemini across parallel worktrees and keep what passes. Ghost-text completion, a headless daemon, hash-anchored patching and sessions that never run out of context. Pure Python, one dependency, and nothing behind a paywall.</p>
       <div class="hero-actions reveal">
         <a href="#install" class="brutal-btn color-pink">INSTALL NOW</a>
-        <a class="gumroad-button brutal-btn color-mint" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
+        <a class="brutal-btn color-mint" href="https://github.com/The-Masked-Bear/offset-terminal">SOURCE</a>
       </div>
     </div>
     <div class="terminal-box" id="main-terminal">
@@ -919,6 +922,56 @@
         <h3>SURVIVES THE TERMINAL</h3>
         <p>Background agents outlive the window. Tasks resume mid-pipeline after a restart. Sessions reopen where you left them. It updates itself.</p>
       </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--pink);transition-delay:0.1s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 7h10M4 12h16M4 17h7"/><path d="M17 15l3 2-3 2"/></svg>
+        <h3>GHOST TEXT</h3>
+        <p>Dim completions ahead of the cursor, from commands, paths and your own history. A 40&nbsp;ms deadline: a slow suggestion is absent, never a stutter.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--cyan);transition-delay:0.2s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <h3>PATCHES THAT REFUSE</h3>
+        <p>Edits anchored to the hash of a region and its surroundings. If the file moved, the patch is refused — never applied to the wrong place.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--yellow);transition-delay:0.3s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M12 11l-6 6M12 11l6 6"/></svg>
+        <h3>ARCHITECT + CODERS</h3>
+        <p>One model plans a dependency graph, others build it in parallel waves. Two units touching one file are serialised before anything runs.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--mint);transition-delay:0.4s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M9 12h6M9 16h4"/></svg>
+        <h3>SESSIONS THAT DON'T END</h3>
+        <p>History is summarised automatically before a turn would overflow the window. 60,566 tokens to 8,351 — with every original still on disk.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--red);transition-delay:0.5s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/><circle cx="12" cy="12" r="4"/></svg>
+        <h3>HALTS HALLUCINATIONS</h3>
+        <p>The stream is watched as it arrives. A generation that loops, or claims to have edited a file that isn't there, is stopped with its evidence named.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--cyan);transition-delay:0.1s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><rect x="3" y="4" width="8" height="16"/><rect x="13" y="4" width="8" height="16"/></svg>
+        <h3>FREE SNAPSHOTS</h3>
+        <p>Copy-on-write workspace isolation via btrfs, zfs or APFS — probed by trying it, not guessing. Falls back to a real copy and says so.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--pink);transition-delay:0.2s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M12 20v-8"/><path d="M8 20h8"/></svg>
+        <h3>LOOPBACK BRIDGE</h3>
+        <p>Code the agent runs can call the agent's own tools — over an authenticated socket, with the permission system still in force.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--yellow);transition-delay:0.3s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M2 20c0-3 3-5 6-5s6 2 6 5"/><path d="M14 20c0-3 3-5 6-5"/></svg>
+        <h3>MULTIPLAYER</h3>
+        <p><code>/collab</code> shares one session with other humans. One driver at a time, and the second is told who has it rather than silently queued.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--mint);transition-delay:0.4s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M3 6h18l-2 13H5z"/><path d="M8 6V4a4 4 0 0 1 8 0v2"/></svg>
+        <h3>MCP MARKETPLACE</h3>
+        <p>Find, install and remove MCP servers. Installing records a server — it never executes one — and anything unofficial is untrusted until you say so.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--red);transition-delay:0.5s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><rect x="4" y="10" width="16" height="10"/><path d="M8 10V7a4 4 0 0 1 8 0"/><path d="M2 4l20 16" stroke-width="3"/></svg>
+        <h3>NO PAYWALL</h3>
+        <p>Every feature, free. The licence gate wasn't weakened — the function was deleted. A gate that always opens is still a gate somebody has to read.</p>
+      </div>
     </div>
   </section>
 
@@ -926,9 +979,14 @@
   <div class="stats-section">
     <div class="stats-grid reveal from-scale">
       <div class="stat-item">
-        <span class="stat-number" data-target="23">0</span>
+        <span class="stat-number" data-target="24">0</span>
         <span class="stat-unit"></span>
         <span class="stat-label">AGENT TOOLS</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" data-target="45">0</span>
+        <span class="stat-unit"></span>
+        <span class="stat-label">COMMANDS</span>
       </div>
       <div class="stat-item">
         <span class="stat-number" data-target="1">0</span>
@@ -936,7 +994,7 @@
         <span class="stat-label">DEPENDENCIES</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number" data-target="1097">0</span>
+        <span class="stat-number" data-target="1425">0</span>
         <span class="stat-unit"></span>
         <span class="stat-label">PASSING TESTS</span>
       </div>
@@ -983,42 +1041,58 @@
       </div>
       <div class="faq-item reveal" style="transition-delay:0.3s">
         <div class="faq-question">Is it really free? <span class="faq-icon">+</span></div>
-        <div class="faq-answer">Offset Lite is free and open-source (AGPL-3.0). Bring your own API keys for any supported provider. Offset Plus ($15/mo) adds multi-model orchestration, priority cloud inference, OAuth integrations, and advanced /flow workflows.</div>
+        <div class="faq-answer">All of it. Every feature — speculative branching, multi-model pipelines, persistent tasks, the GitHub workflow, multiplayer — runs on your machine against your own API keys, so there was never a cost behind the paywall to justify it. The licence gate was deleted outright rather than made to always pass. Sponsorship funds the work; it does not unlock anything. AGPL-3.0.</div>
+      </div>
+      <div class="faq-item reveal" style="transition-delay:0.4s">
+        <div class="faq-question">Can I use it from my editor? <span class="faq-icon">+</span></div>
+        <div class="faq-answer">Yes. <code>offset daemon</code> runs it headless, so an editor talks to it whether or not a terminal is open — and <code>--listen host:port</code> reaches it across an SSH hop. There is a VS Code extension and a zero-dependency TypeScript client for writing your own.</div>
+      </div>
+      <div class="faq-item reveal" style="transition-delay:0.5s">
+        <div class="faq-question">What happens when a session gets long? <span class="faq-icon">+</span></div>
+        <div class="faq-answer">Nothing. History is summarised automatically before a turn would overflow the model's window, so a session does not die at the point it holds the most work. Nothing is destroyed — the original entries stay on disk and stay reachable in <code>/tree</code>.</div>
       </div>
     </div>
   </section>
 
   <!-- Pricing -->
   <section id="pricing" class="pricing">
-    <h2 class="reveal">CHOOSE YOUR TIER</h2>
+    <h2 class="reveal">EVERYTHING IS FREE</h2>
     <div class="pricing-grid">
       <div class="brutal-card price-card reveal from-left">
         <div class="price-header">
-          <h3>LITE</h3>
+          <h3>OFFSET</h3>
           <div class="price-amount">$0<span style="font-size:1rem;font-family:'Space Mono',monospace">/forever</span></div>
-        </div>
-        <ul class="price-features">
-          <li>Full Terminal REPL</li>
-          <li>12+ Model Support</li>
-          <li>Code intelligence &amp; debugger</li>
-          <li>Browser agent &amp; code search</li>
-          <li>MCP servers, plugins, self-update</li>
-        </ul>
-        <a href="#install" class="brutal-btn color-mint" >DOWNLOAD FREE</a>
-      </div>
-      <div class="brutal-card price-card plus reveal from-right">
-        <div class="price-header">
-          <h3>PLUS</h3>
-          <div class="price-amount">$15<span style="font-size:1rem;font-family:'Space Mono',monospace">/mo</span></div>
         </div>
         <ul class="price-features">
           <li>Speculative Branching (/spec)</li>
           <li>Multi-Model Pipeline (/flow)</li>
+          <li>Architect + coders (/decompose)</li>
           <li>Persistent tasks (/task)</li>
           <li>GitHub workflow (/pr, /fix-ci)</li>
-          <li>Priority Cloud Inference</li>
+          <li>Multiplayer (/collab)</li>
+          <li>MCP marketplace (/market)</li>
+          <li>Code intelligence, debugger, browser</li>
+          <li>Ghost text, snapshots, loopback</li>
+          <li>Bring your own API keys</li>
         </ul>
-        <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" >GET PLUS</a>
+        <a href="#install" class="brutal-btn color-mint">INSTALL IT</a>
+      </div>
+      <div class="brutal-card price-card plus reveal from-right">
+        <div class="price-header">
+          <h3>WHY?</h3>
+          <div class="price-amount" style="font-size:2rem">NO GATE</div>
+        </div>
+        <ul class="price-features">
+          <li>It runs on your machine</li>
+          <li>It uses your own API keys</li>
+          <li>So there was no cost to charge for</li>
+          <li>And one function to delete to bypass it</li>
+          <li>A gate that always opens is still a gate</li>
+          <li>&nbsp;</li>
+          <li>Sponsorship funds the work.</li>
+          <li>It does not unlock it.</li>
+        </ul>
+        <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk">SPONSOR IT</a>
       </div>
     </div>
   </section>
@@ -1039,8 +1113,8 @@
   <!-- Footer -->
   <footer class="brutal-footer">
     <h2>KEEP IT ALIVE</h2>
-    <p class="subtitle">If Offset helped you, consider subscribing to Plus.</p>
-    <a class="gumroad-button brutal-btn" href="https://debarghya47.gumroad.com/l/qzqnxk">SUBSCRIBE TO PLUS</a>
+    <p class="subtitle">Offset is free and always will be. If it saved you an afternoon, you can fund the next one.</p>
+    <a class="gumroad-button brutal-btn" href="https://debarghya47.gumroad.com/l/qzqnxk">SPONSOR THE WORK</a>
     <div class="footer-links">
       <a href="https://github.com/The-Masked-Bear" target="_blank" class="brutal-btn color-white btn-small" style="color:var(--black);">GITHUB PROFILE</a>
       <a href="https://instagram.com/the_masked_bear_" target="_blank" class="brutal-btn color-pink btn-small" style="color:var(--black);">INSTAGRAM</a>
@@ -1236,7 +1310,12 @@
         if (cmd === '/help') {
           tLine('Available commands:'); tLine('  /spec     - speculative branching demo');
           tLine('  /flow     - workflow pipeline demo'); tLine('  /models   - list supported models');
+          tLine('  /decompose - architect plans, coders build in parallel');
+          tLine('  /collab   - share this session with other humans');
+          tLine('  /market   - find and install MCP servers');
+          tLine('  /compact  - summarise history (it also happens by itself)');
           tLine('  /task     - persistent task that survives a restart');
+          tLine('  patch     - hash-anchored editing that refuses to guess');
           tLine('  lsp       - code intelligence'); tLine('  debug     - real breakpoints');
           tLine('  browser   - drive a real browser'); tLine('  search    - code-aware search');
           tLine('  /pr       - open a pull request');
@@ -1304,6 +1383,33 @@
           tLine('[*] summarising 6 commits against main...', false, 'var(--yellow)');
           setTimeout(() => tLine('title: Add token refresh to the auth middleware'), 700);
           setTimeout(() => tLine('[+] opened: github.com/you/repo/pull/128', false, 'var(--mint)'), 1100);
+        } else if (cmd === '/decompose') {
+          tLine('[*] architect planning...', false, 'var(--yellow)');
+          setTimeout(() => tLine('plan: 4 units, 2 waves'), 500);
+          setTimeout(() => tLine('wave 1  store.py (Sonnet) │ schema.py (GPT-5)   <span style="color:var(--mint)">both done</span>'), 1000);
+          setTimeout(() => tLine('wave 2  api.py consumes Store (Opus)          <span style="color:var(--mint)">done</span>'), 1600);
+          setTimeout(() => tLine('[!] routes.py claimed twice - serialised before running', false, 'var(--yellow)'), 2000);
+        } else if (cmd === '/collab') {
+          tLine('[*] room open on 192.168.1.5:8792', false, 'var(--yellow)');
+          setTimeout(() => tLine('+ ada joined  (observer)'), 600);
+          setTimeout(() => tLine('+ bob joined  (observer)'), 1000);
+          setTimeout(() => tLine('ada took the wheel'), 1400);
+          setTimeout(() => tLine('bob: drive refused - ada is driving', false, 'var(--red)'), 1800);
+        } else if (cmd === '/market') {
+          tLine('[*] searching 41 servers...', false, 'var(--yellow)');
+          setTimeout(() => tLine('  filesystem   official   local file access'), 500);
+          setTimeout(() => tLine('  github       official   issues, PRs, actions'), 800);
+          setTimeout(() => tLine('  postgres     community  <span style="color:var(--red)">untrusted</span> - confirm to install'), 1100);
+          setTimeout(() => tLine('[+] installing records the server. it never runs one.', false, 'var(--mint)'), 1500);
+        } else if (cmd === '/compact') {
+          tLine('[*] 60,566 tokens of roughly 64,000...', false, 'var(--yellow)');
+          setTimeout(() => tLine('summarising 69 entries'), 700);
+          setTimeout(() => tLine('[+] 60,566 -> 8,351 tokens. originals still in /tree.', false, 'var(--mint)'), 1300);
+        } else if (cmd === 'patch') {
+          tLine('[*] applying 2 hunks to parser.py', false, 'var(--yellow)');
+          setTimeout(() => tLine('  hunk 1  anchor ok        <span style="color:var(--mint)">applied</span>'), 500);
+          setTimeout(() => tLine('  hunk 2  region changed   <span style="color:var(--red)">REFUSED</span>'), 900);
+          setTimeout(() => tLine('[!] all or nothing - the file is untouched.', false, 'var(--yellow)'), 1300);
         } else if (cmd === 'bear') {
           tLine(ascii_bear);
           tLine('GRAVITY IS A MYTH. THE MATRIX IS REAL.', false, 'var(--pink)');
