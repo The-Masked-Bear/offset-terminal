@@ -53,6 +53,20 @@ class ToolFinished(Event):
 
 
 @dataclass(slots=True)
+class Compacted(Event):
+    """History was summarised to make room, before the turn ran.
+
+    Surfaced rather than done silently: the user is entitled to know that the
+    model can no longer see the start of the conversation verbatim, and where
+    to find it if they want it.
+    """
+
+    before: int
+    after: int
+    summarised: int
+
+
+@dataclass(slots=True)
 class Finished(Event):
     reason: str
     usage: Usage
@@ -147,6 +161,17 @@ class AgentConfig:
     temperature: float | None = None
     thinking_budget: int | None = None
     timeout: float = 300.0
+    #: Summarise the oldest history when the next turn would not fit.
+    #:
+    #: On by default because the failure it prevents is the worst one this
+    #: program has: the provider rejects an over-long request outright, so a
+    #: long session dies exactly when it holds the most work.  Nothing is
+    #: destroyed - the summary is appended as a new root and the original
+    #: entries stay on disk and in `/tree`.
+    auto_compact: bool = True
+    #: Fraction of the window at which to act.  Below 1.0 so compaction happens
+    #: *before* a request is refused rather than in response to one.
+    compact_at: float = 0.8
 
 
 @dataclass(slots=True)
@@ -243,6 +268,11 @@ class Agent:
         # previous turn, so one cancellation cannot brick the session.
         self.runtime.reset()
 
+        # Before the turn, never during it.  Compacting between tool steps
+        # would rewrite history that the half-finished turn is still pairing
+        # `tool_use` against, and the provider rejects a mismatched pair.
+        yield from self._autocompact()
+
         provider, _meta = self._endpoint()
         # An explicit api_key beats everything (tests and branch agents pass one).
         # Otherwise resolve a Credential, which also covers OAuth and refreshes
@@ -290,6 +320,47 @@ class Agent:
             reason = "max_steps"
 
         yield Finished(reason, total, steps, last_text)
+
+    def _autocompact(self) -> Iterator[Event]:
+        """Summarise the oldest history if this turn would not otherwise fit.
+
+        Never raises.  A session that cannot be summarised - no summariser
+        reachable, a provider having a bad minute - should still get its turn
+        attempted: failing here would turn "your history is long" into "offset
+        does not work", which is strictly worse than the over-long request the
+        compaction was trying to avoid.
+        """
+        if not self.config.auto_compact:
+            return
+
+        from offset.core import compaction
+
+        try:
+            messages = to_messages(self.session.transcript())
+            budget = compaction.budget_for(self.config.model)
+            before = compaction.estimate_tokens(messages)
+            if not compaction.over_budget(before, budget, self.config.compact_at):
+                return
+        except Exception:
+            return  # if we cannot even measure, do not gamble on rewriting
+
+        try:
+            report = compaction.compact(
+                self.session,
+                compaction.model_summariser(self.config.model),
+                budget=budget,
+                threshold=self.config.compact_at,
+            )
+        except Exception:
+            # The turn still goes out.  An over-long request fails with the
+            # provider's own message, which is more useful than ours.
+            return
+
+        # `compact` reports rather than raises when the summariser refuses or
+        # returns nothing, and leaves history untouched in that case.  Saying
+        # "compacted" then would be a lie about what the model can still see.
+        if report.done:
+            yield Compacted(report.before, report.after, report.replaced)
 
     def _dispatch(self, calls: list[ToolCall]) -> list[Invocation]:
         """Execute a batch and persist every result."""

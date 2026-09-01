@@ -38,7 +38,7 @@ from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.styles import Style
 
-from offset.core.agent import Agent, AgentConfig, Finished, ToolFinished
+from offset.core.agent import Agent, AgentConfig, Compacted, Finished, ToolFinished
 from offset.core.entries import CONVERSATIONAL
 from offset.core.multimodel import seat_roster
 from offset.core.session import Session
@@ -389,6 +389,17 @@ class Shell:
                 reveal = self.state.eggs.event("tool_call", suppress=not inv.result.ok)
                 if reveal:
                     self.reveal, self.reveal_until = reveal, self.now() + reveal.duration
+            elif isinstance(event, Compacted):
+                # Announced, not silent: the model can no longer see the start
+                # of this conversation verbatim, and the user should learn that
+                # from us rather than from an answer that has forgotten
+                # something.  The originals are still on disk.
+                saved = max(0, event.before - event.after)
+                self.messages.append((
+                    "info",
+                    f"compacted {event.summarised} entries to fit the context "
+                    f"(~{saved:,} tokens freed); the originals are still in /tree",
+                ))
             elif isinstance(event, StreamError):
                 # Nothing used to handle this, so a failing provider produced
                 # total silence: no reply, no error, forever.
