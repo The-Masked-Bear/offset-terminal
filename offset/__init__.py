@@ -5,4 +5,4 @@ construction method.  Hard edges, flat fills, zero-blur shadows, no rounded
 corners anywhere.  See `offset.ui.tokens` for the single source of truth.
 """
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"

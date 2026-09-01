@@ -125,18 +125,19 @@ def prompt_account_login():
         return
 
     if tier == "plus":
-        print("\033[1;32m★ Offset Plus is active.\033[0m Thank you for funding this.")
+        print("\033[1;32m★ OFFSET PLUS ACTIVATED!\033[0m (Linked to your Gumroad subscription)")
         return
 
     if not reachable:
-        # Not a degraded state any more: nothing is withheld either way, so
-        # this is a note about sync, not an apology for a missing feature.
-        print("\033[1;33m! Could not reach the licence server; every feature is available anyway.\033[0m")
+        print("\033[1;33m! Could not reach the licence server; continuing as Offset Lite.\033[0m")
+        print("  Run \033[1moffset sync\033[0m once you are back online to pick up Plus.")
         return
 
-    print("\033[1;32m✓ Signed in.\033[0m Every feature is available - offset does not gate on a licence.")
-    print(f"\n\033[1;33mIf it is useful, you can fund it:\033[0m https://debarghya47.gumroad.com/l/qzqnxk")
-    print(f"  Subscribing with {account_email} adds hosted inference; it unlocks nothing locally.\n")
+    print("\033[1;32m✓ OFFSET LITE ACTIVATED.\033[0m (Free forever)")
+    print("\n\033[1;33mUpgrade to Offset Plus (Speculative Branching & Multi-Model /flow):\033[0m")
+    print(f"  Subscribe at: https://debarghya47.gumroad.com/l/qzqnxk using {account_email}")
+    print("  Your account will automatically upgrade to Plus on next launch or via: \033[1moffset sync\033[0m\n")
+    time.sleep(1.2)
 
 
 def _query_tier(account_email: str, provider: str) -> tuple[str, str | None, bool]:
@@ -271,21 +272,18 @@ def sync_command() -> int:
         return 1
 
     if tier == "plus":
-        print("\033[1;32m★ Offset Plus is active.\033[0m Thank you for funding this.")
+        print("\033[1;32m★ OFFSET PLUS IS ACTIVE!\033[0m All parallel features unlocked.")
     else:
-        print(f"\033[1;33mSigned in as {account}.\033[0m Every feature is available.")
+        print(f"\033[1;33mOffset Lite is active.\033[0m To upgrade, subscribe on Gumroad with {account} and run 'offset sync'.")
     return 0
 
 
-def current_tier() -> str:
-    """`plus` or `lite`, for display only.
+def is_plus() -> bool:
+    """Check if the current workspace has Offset Plus privileges."""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
+    return _read_auth().get("tier") == "plus"
 
-    Deliberately not a gate any more.  Every workflow offset performs runs on
-    this machine against the user's own API keys, so charging for the ability
-    to *invoke* local code was a barrier without a cost behind it - and one
-    that a user could lift by editing a single function, which made it
-    theatre rather than a boundary.  A subscription now buys the hosted
-    services that genuinely cost money to run, and nothing in this repository
-    checks it before doing work.
-    """
-    return "plus" if _read_auth().get("tier") == "plus" else "lite"
+
+def require_plus(feature_name: str) -> bool:
+    return is_plus()

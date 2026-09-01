@@ -57,6 +57,18 @@ Be specific about the file and the line. If the log is inconclusive, say what
 further output would settle it rather than guessing."""
 
 
+def _plus(feature: str) -> Outcome | None:
+    """The licence gate, in the shape every premium command uses."""
+    from offset.auth import require_plus
+
+    if require_plus(feature):
+        return None
+    return Outcome.error(
+        f"Offset Lite does not support /{feature}.",
+        "Upgrade to Offset Plus via 'offset upgrade <key>'.",
+    )
+
+
 def _ask(state: ShellState, system: str, prompt: str, *, max_tokens: int = 1200) -> tuple[str, str]:
     """One model call through the session's own agent config.
 
@@ -120,6 +132,10 @@ def _pr_number(state: ShellState, args: list[str], linked: forge_mod.Forge) -> t
 
 def _pr(state: ShellState, args: list[str]) -> Outcome:
     """Summarise the branch and open a pull request for it."""
+    gate = _plus("pr")
+    if gate is not None:
+        return gate
+
     linked, problem = _forge(state)
     if problem is not None:
         return problem
@@ -178,6 +194,10 @@ def _pr(state: ShellState, args: list[str]) -> Outcome:
 
 def _review(state: ShellState, args: list[str]) -> Outcome:
     """Review a pull request.  Prints unless told to post."""
+    gate = _plus("review")
+    if gate is not None:
+        return gate
+
     linked, problem = _forge(state)
     if problem is not None:
         return problem
@@ -218,6 +238,10 @@ def _review(state: ShellState, args: list[str]) -> Outcome:
 
 def _fix_ci(state: ShellState, args: list[str]) -> Outcome:
     """Find the failing check, excerpt its log, and say what broke."""
+    gate = _plus("fix-ci")
+    if gate is not None:
+        return gate
+
     linked, problem = _forge(state)
     if problem is not None:
         return problem
@@ -270,6 +294,10 @@ def _check_runs(reply: forge_mod.Reply) -> list[dict[str, Any]]:
 
 def _resolve_comments(state: ShellState, args: list[str]) -> Outcome:
     """List unresolved review threads, and optionally answer them."""
+    gate = _plus("resolve-comments")
+    if gate is not None:
+        return gate
+
     linked, problem = _forge(state)
     if problem is not None:
         return problem

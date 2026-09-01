@@ -107,7 +107,7 @@
   .brutal-btn.color-red { background: var(--red); color: var(--white); }
   .brutal-btn.color-white { background: var(--white); }
   .brutal-btn.btn-small { padding: 8px 16px; font-size: 0.8rem; }
-  /* Gumroad override — the sponsor button */
+  /* Gumroad override — premium GET PLUS style */
   .gumroad-button.brutal-btn {
     all: unset !important;
     box-sizing: border-box !important;
@@ -818,9 +818,9 @@
     <nav id="main-nav">
       <a href="#features" class="nav-link">FEATURES</a>
       <a href="#sandbox" class="nav-link">SANDBOX</a>
-      <a href="#pricing" class="nav-link">FREE</a>
+      <a href="#pricing" class="nav-link">PRICING</a>
       <a href="https://github.com/The-Masked-Bear/offset-terminal" class="nav-link" target="_blank">GITHUB</a>
-      <a class="brutal-btn color-yellow" href="#install">INSTALL</a>
+      <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
     </nav>
   </header>
 
@@ -838,7 +838,7 @@
       <p class="reveal">Terminal-native coding agent. Race Claude vs GPT vs Gemini across parallel worktrees and keep what passes. Ghost-text completion, a headless daemon, hash-anchored patching and sessions that never run out of context. Pure Python, one dependency, and nothing behind a paywall.</p>
       <div class="hero-actions reveal">
         <a href="#install" class="brutal-btn color-pink">INSTALL NOW</a>
-        <a class="brutal-btn color-mint" href="https://github.com/The-Masked-Bear/offset-terminal">SOURCE</a>
+        <a class="gumroad-button brutal-btn color-mint" href="https://debarghya47.gumroad.com/l/qzqnxk">GET PLUS</a>
       </div>
     </div>
     <div class="terminal-box" id="main-terminal">
@@ -1041,7 +1041,7 @@
       </div>
       <div class="faq-item reveal" style="transition-delay:0.3s">
         <div class="faq-question">Is it really free? <span class="faq-icon">+</span></div>
-        <div class="faq-answer">All of it. Every feature — speculative branching, multi-model pipelines, persistent tasks, the GitHub workflow, multiplayer — runs on your machine against your own API keys, so there was never a cost behind the paywall to justify it. The licence gate was deleted outright rather than made to always pass. Sponsorship funds the work; it does not unlock anything. AGPL-3.0.</div>
+        <div class="faq-answer">Offset Lite is free and open-source (AGPL-3.0). Bring your own API keys for any supported provider. Offset Plus adds Speculative Branching, the multi-model /flow pipeline, persistent tasks and the GitHub workflow.</div>
       </div>
       <div class="faq-item reveal" style="transition-delay:0.4s">
         <div class="faq-question">Can I use it from my editor? <span class="faq-icon">+</span></div>
@@ -1056,43 +1056,35 @@
 
   <!-- Pricing -->
   <section id="pricing" class="pricing">
-    <h2 class="reveal">EVERYTHING IS FREE</h2>
+    <h2 class="reveal">CHOOSE YOUR TIER</h2>
     <div class="pricing-grid">
       <div class="brutal-card price-card reveal from-left">
         <div class="price-header">
-          <h3>OFFSET</h3>
+          <h3>LITE</h3>
           <div class="price-amount">$0<span style="font-size:1rem;font-family:'Space Mono',monospace">/forever</span></div>
+        </div>
+        <ul class="price-features">
+          <li>Full Terminal REPL</li>
+          <li>12+ Model Support</li>
+          <li>Code intelligence &amp; debugger</li>
+          <li>Browser agent &amp; code search</li>
+          <li>MCP servers, plugins, self-update</li>
+        </ul>
+        <a href="#install" class="brutal-btn color-mint" >DOWNLOAD FREE</a>
+      </div>
+      <div class="brutal-card price-card plus reveal from-right">
+        <div class="price-header">
+          <h3>PLUS</h3>
+          <div class="price-amount">$15<span style="font-size:1rem;font-family:'Space Mono',monospace">/mo</span></div>
         </div>
         <ul class="price-features">
           <li>Speculative Branching (/spec)</li>
           <li>Multi-Model Pipeline (/flow)</li>
-          <li>Architect + coders (/decompose)</li>
           <li>Persistent tasks (/task)</li>
           <li>GitHub workflow (/pr, /fix-ci)</li>
-          <li>Multiplayer (/collab)</li>
-          <li>MCP marketplace (/market)</li>
-          <li>Code intelligence, debugger, browser</li>
-          <li>Ghost text, snapshots, loopback</li>
-          <li>Bring your own API keys</li>
+          <li>Priority Cloud Inference</li>
         </ul>
-        <a href="#install" class="brutal-btn color-mint">INSTALL IT</a>
-      </div>
-      <div class="brutal-card price-card plus reveal from-right">
-        <div class="price-header">
-          <h3>WHY?</h3>
-          <div class="price-amount" style="font-size:2rem">NO GATE</div>
-        </div>
-        <ul class="price-features">
-          <li>It runs on your machine</li>
-          <li>It uses your own API keys</li>
-          <li>So there was no cost to charge for</li>
-          <li>And one function to delete to bypass it</li>
-          <li>A gate that always opens is still a gate</li>
-          <li>&nbsp;</li>
-          <li>Sponsorship funds the work.</li>
-          <li>It does not unlock it.</li>
-        </ul>
-        <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk">SPONSOR IT</a>
+        <a class="gumroad-button brutal-btn color-yellow" href="https://debarghya47.gumroad.com/l/qzqnxk" >GET PLUS</a>
       </div>
     </div>
   </section>
@@ -1113,8 +1105,8 @@
   <!-- Footer -->
   <footer class="brutal-footer">
     <h2>KEEP IT ALIVE</h2>
-    <p class="subtitle">Offset is free and always will be. If it saved you an afternoon, you can fund the next one.</p>
-    <a class="gumroad-button brutal-btn" href="https://debarghya47.gumroad.com/l/qzqnxk">SPONSOR THE WORK</a>
+    <p class="subtitle">If Offset helped you, consider subscribing to Plus.</p>
+    <a class="gumroad-button brutal-btn" href="https://debarghya47.gumroad.com/l/qzqnxk">SUBSCRIBE TO PLUS</a>
     <div class="footer-links">
       <a href="https://github.com/The-Masked-Bear" target="_blank" class="brutal-btn color-white btn-small" style="color:var(--black);">GITHUB PROFILE</a>
       <a href="https://instagram.com/the_masked_bear_" target="_blank" class="brutal-btn color-pink btn-small" style="color:var(--black);">INSTAGRAM</a>

@@ -13,7 +13,7 @@
 ```
 
 [![Official Website](https://img.shields.io/badge/OFFICIAL_WEBSITE-VISIT_PORTAL-black?style=for-the-badge&logo=googlechrome&logoColor=white&colorA=111111&colorB=FFDE59)](https://the-masked-bear.github.io/offset-terminal/)
-[![Sponsor](https://img.shields.io/badge/SPONSOR-FUND_THE_WORK-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
+[![Offset Plus Subscription](https://img.shields.io/badge/OFFSET_PLUS-SUBSCRIBE-black?style=for-the-badge&logo=gumroad&logoColor=white&colorA=111111&colorB=FF90E8)](https://debarghya47.gumroad.com/l/qzqnxk)
 
 <br>
 
@@ -71,7 +71,6 @@ No other coding agent does this.
 | **12+ models from one agent** (Claude, GPT, Gemini, Antigravity, Ollama) | ✅ | Partial | ❌ | ✅ | ❌ |
 | **Local-first, no Electron** | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **Runs on ARM64 / Raspberry Pi** | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **Everything free, no tier** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Open Source (AGPL-3.0)** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Built-in Easter Egg Engine** | ✅ | ❌ | ❌ | ❌ | ❌ |
 
@@ -134,9 +133,9 @@ curl -fsSL https://.../install.sh | sh -s -- --method venv --pypi
 offset          # start a session
 ```
 
-*Signing in is optional. `offset login` links a Google or GitHub account so
-session sync can find you — it has never been required to use offset, and since
-0.8 there is nothing for it to unlock.*
+*On first startup, sign in with your **Google** or **GitHub** account. No licence
+codes needed — if your account has an active Offset Plus subscription, it unlocks
+automatically.*
 
 **Offset keeps itself current.** It checks for a release in the background, and
 installs a waiting one on the next launch before the shell opens — then
@@ -149,7 +148,7 @@ answer rather than the network, so an offline start costs nothing. Opt out with
 
 ## WHAT'S NEW IN 0.8
 
-Nine features. Every one of them runs locally, and none of them is gated.
+Nine features.
 
 ### Ghost text
 
@@ -381,31 +380,28 @@ offset update          # or let it update itself on startup
 
 ## COMMAND MATRIX
 
-Everything below is free. There is no tier column any more because there is no
-tier: nothing here checks a licence before doing work.
-
-| Command | What It Does |
-| :--- | :--- |
-| `offset` | Start an interactive terminal coding session |
-| `offset --continue` | Resume the most recent session |
-| `offset --resume <id>` | Resume a specific session |
-| `offset daemon` | Run headless for an editor or a remote client |
-| `offset update` | Check for and install a newer offset |
-| `offset login` | Sign in with Google or GitHub |
-| `/spec <N> <task>` | **Speculative Branching**: fork N worktrees, race models, merge the winner |
-| `/flow <task>` | **Multi-Model Pipeline**: Planner → Implementer → Critic |
-| `/decompose <goal>` | **Architect + coders**: a dependency graph, executed in parallel waves |
-| `/task <goal>` | **Persistent task**: plan, implement, test, fix, retest — survives a restart |
-| `/collab host\|join\|drive\|say` | **Multiplayer**: share this session with other humans |
-| `/pr` `/review` `/fix-ci` `/resolve-comments` | GitHub-native workflow |
-| `/market search\|install\|remove` | MCP marketplace |
-| `/compact` | Summarise old history — or let it happen by itself |
-| `/jobs` `/job` `/cancel` | Background agents that outlive the terminal |
-| `/models [query] [--all] [--refresh]` | Every model, live from each provider |
-| `/model` | Interactive model picker |
-| `/login` | Manage API credentials |
-| `/plugins` | Loaded plugins, load errors, and the trust gate |
-| `/mcp reload\|connect\|resources` | MCP servers without a restart |
+| Command | Tier | What It Does |
+| :--- | :---: | :--- |
+| `offset` | **Lite** | Start an interactive terminal coding session |
+| `offset --continue` | **Lite** | Resume the most recent session |
+| `offset --resume <id>` | **Lite** | Resume a specific session |
+| `offset daemon` | **Lite** | Run headless for an editor or a remote client |
+| `offset update` | **Lite** | Check for and install a newer offset |
+| `offset login` | **All** | Sign in with Google or GitHub |
+| `/spec <N> <task>` | **Plus** | **Speculative Branching**: fork N worktrees, race models, merge the winner |
+| `/flow <task>` | **Plus** | **Multi-Model Pipeline**: Planner → Implementer → Critic |
+| `/decompose <goal>` | **Lite** | **Architect + coders**: a dependency graph, executed in parallel waves |
+| `/task <goal>` | **Plus** | **Persistent task**: plan, implement, test, fix, retest — survives a restart |
+| `/collab host\|join\|drive\|say` | **Lite** | **Multiplayer**: share this session with other humans |
+| `/pr` `/review` `/fix-ci` `/resolve-comments` | **Plus** | GitHub-native workflow |
+| `/market search\|install\|remove` | **Lite** | MCP marketplace |
+| `/compact` | **Lite** | Summarise old history — or let it happen by itself |
+| `/jobs` `/job` `/cancel` | **Lite** | Background agents that outlive the terminal |
+| `/models [query] [--all] [--refresh]` | **Lite** | Every model, live from each provider |
+| `/model` | **Lite** | Interactive model picker |
+| `/login` | **Lite** | Manage API credentials |
+| `/plugins` | **Lite** | Loaded plugins, load errors, and the trust gate |
+| `/mcp reload\|connect\|resources` | **Lite** | MCP servers without a restart |
 
 ### Tools the model can call
 
@@ -415,35 +411,45 @@ tier: nothing here checks a licence before doing work.
 
 ---
 
-## EVERYTHING IS FREE
+## LITE vs PLUS
 
-Every workflow offset performs runs **on your machine, against your own API
-keys**. Charging for permission to invoke local code was a barrier with no cost
-behind it — and one any user could lift by editing a single function, which
-made it theatre rather than a boundary. So it is gone.
+| Feature | Offset Lite (Free) | Offset Plus (Subscription) |
+| :--- | :---: | :---: |
+| **Pricing** | Free Forever | Monthly (Cancel Anytime) |
+| **Bring Your Own API Keys** | ✅ | ✅ |
+| **Terminal Interface & REPL** | ✅ | ✅ |
+| **12+ Model Support** | ✅ | ✅ |
+| **Code intelligence (LSP)** | ✅ | ✅ |
+| **Debugging (DAP)** | ✅ | ✅ |
+| **Browser agent** | ✅ | ✅ |
+| **Code search & symbol graph** | ✅ | ✅ |
+| **MCP servers & plugins** | ✅ | ✅ |
+| **Background agents (`/jobs`)** | ✅ | ✅ |
+| **Session resume** | ✅ | ✅ |
+| **Self-update** | ✅ | ✅ |
+| **VS Code companion** | ✅ | ✅ |
+| **Easter Egg Engine** | ✅ | ✅ |
+| **Ghost text completion** | ✅ | ✅ |
+| **Hash-anchored patching** | ✅ | ✅ |
+| **Auto-compacting context** | ✅ | ✅ |
+| **Filesystem snapshots** | ✅ | ✅ |
+| **Loopback bridge** | ✅ | ✅ |
+| **Headless daemon** | ✅ | ✅ |
+| **Multiplayer (`/collab`)** | ✅ | ✅ |
+| **MCP marketplace (`/market`)** | ✅ | ✅ |
+| **Architect + coders (`/decompose`)** | ✅ | ✅ |
+| **Speculative Branching (`/spec`)** | ❌ | ✅ |
+| **Multi-Model Pipeline (`/flow`)** | ❌ | ✅ |
+| **Persistent tasks (`/task`)** | ❌ | ✅ |
+| **GitHub workflow (`/pr`, `/fix-ci`)** | ❌ | ✅ |
+| **Auto-Worktree Diff & Merge** | ❌ | ✅ |
+| **Cloud API Key Pool** | ❌ | ✅ |
 
-| Was gated | Now |
-| :--- | :---: |
-| **Speculative Branching** (`/spec`) | free |
-| **Multi-Model Pipeline** (`/flow`) | free |
-| **Persistent tasks** (`/task`) | free |
-| **GitHub workflow** (`/pr`, `/review`, `/fix-ci`, `/resolve-comments`) | free |
-| **Auto-Worktree Diff & Merge** | free |
+👉 **[Subscribe to Offset Plus on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)**
 
-Nothing in this repository checks a licence before doing work. There is no
-`require_plus`; the function was deleted rather than made to return `True`,
-because a gate that always opens is still a gate somebody has to read.
+> **⚠️ Before subscribing:** Sign in to Offset first (`offset login`) with your **Google** or **GitHub** account. Use that **exact same email** on Gumroad checkout so your account upgrades automatically.
 
-### So what is the subscription for?
-
-Hosted things that genuinely cost money to run — a shared inference pool for
-people without their own keys, and priority capacity. If you bring your own
-keys, which is the normal case, you need none of it.
-
-👉 **[Support the project on Gumroad](https://debarghya47.gumroad.com/l/qzqnxk)** — it funds the work, it does not unlock it.
-
-`offset login` still exists, because signing in is how session sync and the
-account-scoped features find you. It has never been required to use offset.
+---
 
 ## SUPPORTED PROVIDERS
 
