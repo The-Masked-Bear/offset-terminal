@@ -140,23 +140,53 @@ def prompt_account_login():
     time.sleep(1.2)
 
 
-def _query_tier(account_email: str, provider: str) -> tuple[str, str | None, bool]:
+#: A warm server answers in about a second.  This is the fast path.
+QUICK_TIMEOUT = 8
+
+#: A free-tier host that has gone to sleep takes up to a minute to wake, which
+#: no eight-second timeout can survive - so the first person to sign in after a
+#: quiet spell was always told the server could not be reached.  Both callers
+#: are interactive (`offset login`, `offset sync`), so waiting is acceptable as
+#: long as it is explained rather than looking like a hang.
+WAKE_TIMEOUT = 75
+
+
+def _query_tier(account_email: str, provider: str,
+                *, patient: bool = True) -> tuple[str, str | None, bool]:
     """Ask the server for an entitlement: `(tier, token, reachable)`.
 
     `reachable` separates "we asked and you are not a subscriber" from "we never
     got an answer", which are the same value of `tier` but very different things
     to tell a customer who has just paid.
+
+    Tries fast, then patiently.  A sleeping host is the overwhelmingly common
+    cause of a timeout here, and reporting it as unreachable meant a paying
+    customer got "continuing as Offset Lite" for no reason other than that
+    nobody had used the server in fifteen minutes.
     """
-    req = urllib.request.Request(
-        f"{AUTH_SERVER_URL}/auth/verify_account",
-        data=json.dumps({"email": account_email, "provider": provider}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
+    def ask(timeout: int) -> dict[str, Any]:
+        req = urllib.request.Request(
+            f"{AUTH_SERVER_URL}/auth/verify_account",
+            data=json.dumps({"email": account_email, "provider": provider}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+
     try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            result = json.loads(response.read().decode())
-    except (urllib.error.URLError, OSError, ValueError, TimeoutError):
+        result = ask(QUICK_TIMEOUT)
+    except urllib.error.HTTPError:
+        # The server answered, it just did not answer 200.  It is awake, so
+        # retrying would only repeat the same refusal.
         return "lite", None, False
+    except (urllib.error.URLError, OSError, ValueError, TimeoutError):
+        if not patient:
+            return "lite", None, False
+        print("  the licence server is waking up; this can take a minute...")
+        try:
+            result = ask(WAKE_TIMEOUT)
+        except (urllib.error.URLError, OSError, ValueError, TimeoutError):
+            return "lite", None, False
 
     if result.get("tier") == "plus":
         return "plus", result.get("access_token"), True
@@ -202,14 +232,28 @@ def verify_direct_license_key(key: str) -> int:
     print(f"Verifying license key '{key}' with server...")
 
     result: dict[str, Any] | None = None
-    req = urllib.request.Request(
-        f"{AUTH_SERVER_URL}/auth/verify_license",
-        data=json.dumps({"license_key": key}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
+
+    def ask(timeout: int) -> dict[str, Any]:
+        req = urllib.request.Request(
+            f"{AUTH_SERVER_URL}/auth/verify_license",
+            data=json.dumps({"license_key": key}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+
     try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            result = json.loads(response.read().decode())
+        try:
+            result = ask(QUICK_TIMEOUT)
+        except (urllib.error.URLError, OSError, TimeoutError) as first:
+            if isinstance(first, urllib.error.HTTPError):
+                raise
+            # A sleeping host, almost certainly.  Somebody who has just pasted a
+            # licence key is waiting on purpose; telling them their key could
+            # not be checked because the server was idle is the worst possible
+            # moment to be impatient.
+            print("  the licence server is waking up; this can take a minute...")
+            result = ask(WAKE_TIMEOUT)
     except urllib.error.HTTPError as exc:
         # 402 is the server's "this key is not valid" - a definite answer, so
         # it falls through to the rejection message below.

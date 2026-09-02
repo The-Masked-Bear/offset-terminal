@@ -8,6 +8,8 @@ secret never reaches a log line.
 
 from __future__ import annotations
 
+import urllib
+
 import base64
 import hashlib
 import json
@@ -455,3 +457,108 @@ def test_a_registered_client_still_has_its_state_enforced():
 def test_sends_state_follows_the_client_id():
     assert oauth.sends_state(replace(oauth.app("openrouter"), client_id="abc123"))
     assert not oauth.sends_state(replace(oauth.app("openrouter"), client_id=""))
+
+
+# -- surviving a sleeping licence server ---------------------------------------
+
+# The free tier this backend runs on spins the service down after fifteen
+# minutes and takes up to a minute to wake. An eight-second timeout cannot
+# survive that, so the first person to sign in after a quiet spell was told the
+# server could not be reached - and a paying subscriber saw "continuing as
+# Offset Lite" for no reason but that nobody had used the server recently.
+
+
+class _Recorder:
+    """Stands in for `urlopen`, failing the first call the way a sleep does."""
+
+    def __init__(self, *, fail_first: int = 1, payload: dict | None = None):
+        self.timeouts: list[int] = []
+        self.fail_first = fail_first
+        self.payload = payload or {"tier": "plus", "access_token": "tok"}
+
+    def __call__(self, request, timeout=None):
+        self.timeouts.append(timeout)
+        if len(self.timeouts) <= self.fail_first:
+            raise TimeoutError("the read operation timed out")
+        return _Body(json.dumps(self.payload).encode())
+
+
+class _Body:
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read(self):
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+def test_a_sleeping_server_is_retried_patiently(monkeypatch, capsys):
+    from offset import auth
+
+    recorder = _Recorder()
+    monkeypatch.setattr(auth.urllib.request, "urlopen", recorder)
+    tier, token, reachable = auth._query_tier("payer@example.com", "google")
+
+    assert (tier, reachable) == ("plus", True), "a subscriber was told they were not one"
+    assert recorder.timeouts == [auth.QUICK_TIMEOUT, auth.WAKE_TIMEOUT], \
+        "it did not try fast then patiently"
+    assert "waking up" in capsys.readouterr().out, "the wait was silent, so it looks like a hang"
+
+
+def test_a_warm_server_is_never_waited_on(monkeypatch, capsys):
+    """The fast path has to stay fast: a one-second answer must not acquire a
+    minute-long timeout or a message about waking anything up."""
+    from offset import auth
+
+    recorder = _Recorder(fail_first=0)
+    monkeypatch.setattr(auth.urllib.request, "urlopen", recorder)
+    auth._query_tier("payer@example.com", "google")
+
+    assert recorder.timeouts == [auth.QUICK_TIMEOUT]
+    assert "waking up" not in capsys.readouterr().out
+
+
+def test_a_server_that_stays_asleep_is_reported_unreachable(monkeypatch):
+    """Still honest when the patience runs out: unreachable, not "you are Lite"."""
+    from offset import auth
+
+    recorder = _Recorder(fail_first=99)
+    monkeypatch.setattr(auth.urllib.request, "urlopen", recorder)
+    tier, _token, reachable = auth._query_tier("payer@example.com", "google")
+
+    assert reachable is False
+    assert len(recorder.timeouts) == 2, "it gave up too early or kept hammering"
+
+
+def test_an_http_error_is_not_retried(monkeypatch):
+    """A server that answered 503 is awake; asking again just repeats it, and
+    the wait would be a minute of nothing for the user."""
+    from offset import auth
+
+    calls: list[int] = []
+
+    def refusing(request, timeout=None):
+        calls.append(timeout)
+        raise urllib.error.HTTPError(request.full_url, 503, "nope", {}, None)
+
+    monkeypatch.setattr(auth.urllib.request, "urlopen", refusing)
+    _tier, _token, reachable = auth._query_tier("payer@example.com", "google")
+
+    assert reachable is False
+    assert len(calls) == 1, "it retried a server that had already answered"
+
+
+def test_the_impatient_path_does_not_wait(monkeypatch):
+    """`patient=False` exists so a non-interactive caller can stay quick."""
+    from offset import auth
+
+    recorder = _Recorder(fail_first=99)
+    monkeypatch.setattr(auth.urllib.request, "urlopen", recorder)
+    auth._query_tier("payer@example.com", "google", patient=False)
+
+    assert recorder.timeouts == [auth.QUICK_TIMEOUT]
