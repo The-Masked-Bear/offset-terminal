@@ -96,11 +96,38 @@ def test_a_narrow_pane_does_not_use_two_annotated_columns(state):
     layout no longer fits the pane's *height*, and packing the bare names is
     strictly better than dropping the summaries' owners.  What still has to
     hold is that no line carries two summaries side by side.
+
+    The detection has to say that and only that.  Counting words per line
+    caught the bare-name grid too - the very shape the paragraph above
+    endorses - so it began failing the moment the command list grew again.
+    A paired *summary* is specifically a line with prose sitting between two
+    command names; a line of nothing but names is the dense grid working.
     """
     state.width, state.height = 50, 60
     lines = [line for line in dispatch(state, "/help").lines if line.strip()]
-    doubled = [line for line in lines if line.count("  /") >= 1 and len(line.split()) > 4]
-    assert not doubled, f"narrow pane paired commands up anyway: {doubled[:2]}"
+
+    def pairs_summaries(line: str) -> bool:
+        words = line.split()
+        at = [i for i, word in enumerate(words) if word.startswith("/")]
+        if len(at) < 2:
+            return False
+        return any(not words[i].startswith("/") for i in range(at[0], at[-1]))
+
+    doubled = [line for line in lines if pairs_summaries(line)]
+    assert not doubled, f"narrow pane paired summaries up anyway: {doubled[:2]}"
+
+
+def test_a_narrow_pane_still_lists_every_command(state):
+    """The grid may drop summaries; it may never drop a command.
+
+    This is the invariant the test above was reaching for.  A user on a
+    50-column terminal who cannot see that `/spec` exists has no way to
+    discover it.
+    """
+    state.width, state.height = 50, 60
+    body = " ".join(dispatch(state, "/help").lines)
+    missing = [c.name for c in COMMANDS if f"/{c.name}" not in body]
+    assert not missing, f"unreachable at 50 columns: {missing}"
 
 
 def test_a_wide_pane_uses_two_columns(state):

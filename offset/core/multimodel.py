@@ -38,7 +38,13 @@ from offset.providers.base import (
 from offset.providers.registry import ModelInfo, credential, info
 
 #: Conventional roles.  Nothing enforces them; the scheduler just routes by name.
-ROLES = ("planner", "implementer", "critic", "referee", "cheap", "bulk")
+#:
+#: `security` and `researcher` are seats a pipeline can fill rather than
+#: behaviours the scheduler knows: an auditor is only useful if it is a
+#: *different* model from the one that wrote the code, and naming the role is
+#: what lets `/flow` and `/decompose` guarantee that.
+ROLES = ("planner", "researcher", "implementer", "critic", "security",
+         "referee", "cheap", "bulk")
 
 
 @dataclass(slots=True)

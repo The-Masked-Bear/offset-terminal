@@ -20,7 +20,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-yellow.svg?style=for-the-badge&colorA=111111&colorB=FFDE59)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-cyan.svg?style=for-the-badge&colorA=111111&colorB=8CFFFB)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/offset-terminal?style=for-the-badge&label=PYPI&colorA=111111&colorB=FF90E8)](https://pypi.org/project/offset-terminal/)
-[![Tests](https://img.shields.io/badge/tests-1425_passing-mint.svg?style=for-the-badge&colorA=111111&colorB=B2FF9E)](https://github.com/The-Masked-Bear/offset-terminal/actions)
+[![Tests](https://img.shields.io/badge/tests-1831_passing-mint.svg?style=for-the-badge&colorA=111111&colorB=B2FF9E)](https://github.com/The-Masked-Bear/offset-terminal/actions)
 
 <br><br>
 
@@ -143,6 +143,99 @@ re-executes, so you are already running the new version. It reads a cached
 answer rather than the network, so an offline start costs nothing. Opt out with
 `OFFSET_NO_AUTO_UPDATE=1`, or `{"update": {"auto": false}}` in
 `~/.offset/config.json`. A git checkout is never touched.
+
+---
+
+## WHAT'S NEW IN 0.9
+
+Offset stops being a coding terminal and starts being a platform that checks
+its own work. Seven features, and the first two change what `/spec` means.
+
+### Branches are audited and benchmarked, not just tested
+
+`/spec` used to rank branches on verification, regressions, diff size, lint
+and a reviewer. None of those notice a branch that passes every test and
+introduces a shell injection, or one that fixes the bug and doubles a hot
+loop. Two criteria now do.
+
+**Security** runs a static audit of every branch's worktree - hardcoded
+credentials, `shell=True` on interpolated input, `eval` on a non-literal,
+`pickle.loads`, `yaml.load` without a loader, SQL built by concatenation,
+`verify=False`. One high-severity finding zeroes the criterion outright rather
+than being averaged away, and at weight 3.0 that costs more than diff, lint
+and reviewer preference combined. So a clean branch with a sixty-line diff
+beats a one-line branch that unpickles untrusted bytes.
+
+Every rule is paired with a near-miss it must stay silent on, because a
+scanner that cries wolf gets switched off: `{"password": value}` is a field
+name, `password = os.environ["PW"]` is the fix, an `eval` inside a string
+literal is documentation, and an XML namespace is not a plaintext request.
+`/audit` runs it by hand, `/audit --diff` over just the pending change.
+
+**Performance** is measured as a distribution - twelve runs, a discarded
+warmup, min/median/stdev and peak RSS - and it **refuses to name a winner it
+cannot distinguish**. If the two sample sets overlap, the verdict is
+`indistinguishable` and the criterion is excluded from the ranking rather than
+scored. Reporting "3% faster" from twelve samples on a Raspberry Pi is a
+fabricated result, and a ranking built on fabricated results moves
+confidently in random directions. `/bench --save` records a baseline; `/bench`
+compares against it.
+
+Both criteria are *excluded* when they did not run, never scored zero: whether
+an audit was reachable is not a property of your code.
+
+### Where the money went
+
+`Usage` events used to fly past and nothing caught them. `/cost` now answers
+what a turn cost, by model, by day, by session, and `/cost failures` lists
+every turn that broke and why. `/trace` shows the last turn's span tree -
+steps, tool calls, durations, which one failed.
+
+**An unknown price is reported as unknown, never as zero.** A model the table
+has not heard of yields no cost figure, and a total that omits one says so
+with a `+`. A confident zero looks like an answer and nobody re-checks an
+answer. `~/.offset/pricing.json` overrides any price.
+
+### GitLab, first class
+
+Issues, merge requests, pipelines and job logs, with the same shape as the
+GitHub support: `/issues`, `/mr`, `/mrs`, `/pipeline`. Self-hosted works via
+`GITLAB_HOST`; the token is read from `GITLAB_TOKEN` or `glab`'s own config
+and is sent as a header, never in argv and never as a query parameter.
+
+### Issue to pull request
+
+`/issue <number>` reads the issue, restates what it thinks you want, plans,
+branches, implements, tests, and opens a pull request - checkpointed at every
+stage, so `/issue resume` picks up where a crash or a closed laptop left off.
+Works against either forge.
+
+### Watch it from your phone
+
+`/monitor start` serves a single self-contained page - no CDN, no framework -
+showing the current turn, background jobs, and token spend, with a button to
+cancel a job.
+
+It binds **127.0.0.1 by default**; a wider interface has to be asked for by
+name and warns you when you do. Every route including the page needs a bearer
+token, generated with `secrets.token_urlsafe`, stored 0600, and compared with
+`secrets.compare_digest` - not `==`, which short-circuits on the first wrong
+byte and leaks the token's prefix to anyone timing the responses. The one
+mutating route additionally requires the token in a *header*, which a
+cross-origin navigation cannot set. There is no static file route at all, so
+no request path ever reaches the filesystem.
+
+### Cloud and remote execution
+
+`/remote add` registers a machine; `/remote run` executes a task on its daemon
+over SSH. The heavy work happens on the box with the cores, the transcript
+arrives here.
+
+### A security seat in the pipeline
+
+`ROLES` gained `security` and `researcher`, so `/flow` and `/decompose` can
+seat an auditor that is a *different model* from the one that wrote the code.
+A model reviewing its own work is not a review.
 
 ---
 
@@ -402,12 +495,20 @@ offset update          # or let it update itself on startup
 | `/login` | **Lite** | Manage API credentials |
 | `/plugins` | **Lite** | Loaded plugins, load errors, and the trust gate |
 | `/mcp reload\|connect\|resources` | **Lite** | MCP servers without a restart |
+| `/audit [path\|--diff]` | **Lite** | Static security audit — findings with evidence, not rule names |
+| `/bench [--save] [cmd]` | **Lite** | Time a command against its baseline, and say when it cannot tell |
+| `/cost [models\|today\|failures]` | **Lite** | What it cost, by model, day or session |
+| `/trace` | **Lite** | The last turn's span tree — steps, tool calls, what failed |
+| `/issues` `/mr` `/mrs` `/pipeline` | **Lite** | GitLab issues, merge requests and pipelines |
+| `/issue <n>` `/issue resume` | **Lite** | Issue → branch → tests → pull request, checkpointed |
+| `/monitor start\|stop\|status` | **Lite** | Watch this session from a phone, token-gated, loopback by default |
+| `/remote add\|run\|remove` | **Lite** | Run a task on another machine's daemon over SSH |
 
 ### Tools the model can call
 
 `read` `write` `edit` `patch` `bash` `glob` `grep` `list` `fetch` `web_search`
 `task` `todo` `document` `system` `file` `open` `lsp` `lsp_edit` `debug`
-`debug_inspect` `browser` `search` `symbols` `github`
+`debug_inspect` `browser` `search` `symbols` `github` `gitlab`
 
 ---
 

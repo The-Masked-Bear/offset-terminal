@@ -728,3 +728,131 @@ def test_weights_are_a_statement_of_priority_not_a_scale():
 
     churn_blind = score(attempts, weights=Weights(diff=0.0))
     assert churn_blind[0].total == pytest.approx(churn_blind[1].total)
+
+
+# -- security and performance in the ranking ---------------------------------
+
+# These two criteria were the point of adding them: a branch that passes every
+# test can still be the wrong branch to keep.  What the tests below defend is
+# not the arithmetic but the two exclusions - an audit that did not run and a
+# benchmark that could not tell must leave the ranking alone rather than
+# quietly penalising whichever branch they failed to measure.
+
+
+def tree(tmp_path: Path, name: str, body: str) -> Path:
+    path = tmp_path / name
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "fix.py").write_text(body, encoding="utf-8")
+    return path
+
+
+def comparison(before: list[float], after: list[float]):
+    from offset.core.bench import Result, Sample, compare
+
+    def side(times):
+        return Result(command="c", samples=[Sample(seconds=t) for t in times])
+
+    return compare(side(before), side(after))
+
+
+def test_a_branch_that_introduces_a_vulnerability_loses(tmp_path):
+    """Both pass every test with the same churn; only the audit separates them."""
+    from offset.core.scoring import default_auditor
+
+    clean = make("clean", output="10 passed",
+                 path=tree(tmp_path, "clean", "def h(x):\n    return int(x) + 1\n"))
+    risky = make("risky", output="10 passed",
+                 path=tree(tmp_path, "risky", "def h(x):\n    return eval(x) + 1\n"))
+    cards = score([clean, risky], auditor=default_auditor)
+    assert cards[0].name == "clean"
+    losing = next(c for c in cards if c.name == "risky")
+    finding = next(k for k in losing.criteria if k.name == "security")
+    assert finding.score == 0.0
+    assert "eval-exec" in finding.reason
+
+
+def test_a_clean_worktree_scores_the_security_criterion_full(tmp_path):
+    from offset.core.scoring import default_auditor
+
+    card = score([make("a", output="5 passed",
+                       path=tree(tmp_path, "a", "x = 1\n"))],
+                 auditor=default_auditor)[0]
+    assert next(k for k in card.criteria if k.name == "security").score == 1.0
+
+
+def test_no_auditor_leaves_security_out_of_the_denominator():
+    """The default is a real scan, but a caller can switch it off - and doing
+    so must not change any branch's score relative to the others."""
+    cards = score([make("a", output="5 passed"), make("b", output="5 passed")],
+                  auditor=None)
+    criterion = next(k for k in cards[0].criteria if k.name == "security")
+    assert criterion.applies is False
+
+
+def test_an_auditor_that_raises_does_not_penalise_the_branch():
+    def broken(_attempt):
+        raise RuntimeError("the scanner fell over")
+
+    card = score([make("a", output="5 passed")], auditor=broken)[0]
+    assert next(k for k in card.criteria if k.name == "security").applies is False
+
+
+def test_an_attempt_with_no_worktree_is_not_audited():
+    card = score([make("a", output="5 passed", path=None)])[0]
+    assert next(k for k in card.criteria if k.name == "security").applies is False
+
+
+def test_a_measurably_faster_branch_wins_a_tie():
+    marks = {"quick": comparison([0.200, 0.201], [0.050, 0.051]),
+             "slug": comparison([0.200, 0.201], [0.800, 0.801])}
+    cards = score([make("quick", output="5 passed"), make("slug", output="5 passed")],
+                  auditor=None, benchmarks=marks)
+    assert cards[0].name == "quick"
+
+
+def test_an_indistinguishable_benchmark_does_not_move_the_ranking():
+    """The whole honesty argument, expressed as a ranking property: a 2% blip
+    must not decide which branch the user keeps."""
+    marks = {"a": comparison([0.200, 0.204], [0.200, 0.208])}
+    card = score([make("a", output="5 passed")], auditor=None, benchmarks=marks)[0]
+    criterion = next(k for k in card.criteria if k.name == "performance")
+    assert criterion.applies is False
+
+
+def test_an_unbenchmarked_branch_is_excluded_not_penalised():
+    card = score([make("a", output="5 passed")], auditor=None)[0]
+    assert next(k for k in card.criteria if k.name == "performance").applies is False
+
+
+def test_benchmarks_are_matched_by_approach_name():
+    """Keyed on the `Approach` object instead of its name, every lookup misses
+    and every branch silently goes unbenchmarked."""
+    marks = {"a": comparison([0.200, 0.201], [0.050, 0.051])}
+    card = score([make("a", output="5 passed")], auditor=None, benchmarks=marks)[0]
+    assert next(k for k in card.criteria if k.name == "performance").applies is True
+
+
+def test_a_high_severity_finding_costs_more_than_the_soft_criteria_combined(tmp_path):
+    """The weight is a claim about priorities; this is the claim made testable.
+
+    A branch with a vulnerability must lose to a clean branch even when the
+    clean one is worse on diff size, lint and reviewer preference.
+    """
+    from offset.core.scoring import default_auditor
+
+    clean = make("clean", output="10 passed", churn=60,
+                 path=tree(tmp_path, "clean2", "x = 1\n"))
+    risky = make("risky", output="10 passed", churn=1,
+                 path=tree(tmp_path, "risky2", "import pickle\nd = pickle.loads(b)\n"))
+    cards = score([clean, risky], auditor=default_auditor)
+    assert cards[0].name == "clean", [(c.name, round(c.total, 3)) for c in cards]
+
+
+def test_scoring_stays_deterministic_with_the_new_criteria(tmp_path):
+    from offset.core.scoring import default_auditor
+
+    attempts = [make("a", output="5 passed", path=tree(tmp_path, "a2", "x = 1\n")),
+                make("b", output="5 passed", path=tree(tmp_path, "b2", "y = 2\n"))]
+    first = [c.name for c in score(attempts, auditor=default_auditor)]
+    second = [c.name for c in score(list(reversed(attempts)), auditor=default_auditor)]
+    assert first == second

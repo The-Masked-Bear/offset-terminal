@@ -39,6 +39,7 @@ from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.styles import Style
 
+from offset.core import telemetry
 from offset.core.agent import Agent, AgentConfig, Compacted, Finished, ToolFinished
 from offset.core.entries import CONVERSATIONAL, MESSAGE
 from offset.core.multimodel import seat_roster
@@ -80,6 +81,7 @@ from offset.tools.debug import debug_tools
 from offset.tools.lsp import lsp_tools
 from offset.tools.web import browser_tools, close_all as close_browsers
 from offset.tools.github import github_tools
+from offset.tools.gitlab import gitlab_tools
 from offset.tools.patch import patch_tools
 from offset.tools.retrieve import retrieve_tools
 from offset.tools.mcp import marketplace as mcp_marketplace
@@ -394,6 +396,10 @@ class Shell:
         def work() -> None:
             try:
                 for event in self.state.agent.run(text):
+                    # On the worker thread, not in `drain`: recording a turn
+                    # touches the disk, and the UI thread must not stutter for
+                    # accounting.  `observe` swallows its own failures.
+                    telemetry.observe(event)
                     self.events.put(event)
             except Exception as exc:  # never let a worker die silently
                 self.events.put(RuntimeError(f"{type(exc).__name__}: {exc}"))
@@ -867,6 +873,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         *debug_tools(),
         *browser_tools(),
         *github_tools(),
+        *gitlab_tools(),
         *retrieve_tools(workspace),
         *patch_tools(),
     ])
@@ -933,6 +940,7 @@ def build_state(workspace: Path | str = ".", *, model: str | None = None,
         ("plugins", plugin_registry.install),
         ("jobs", job_store.install),
         ("update", updater.install),
+        ("telemetry", telemetry.install),
         ("models", model_catalogue.install),
         # `refresh_on_start`, not `install`: the marketplace's `install` takes
         # a server id and installs *that server*, so handing it a ShellState

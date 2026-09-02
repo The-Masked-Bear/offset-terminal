@@ -39,7 +39,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Final, Sequence
+from typing import Any, Callable, Final, Mapping, Sequence
 
 from offset.core.speculate import Attempt, Speculation, TestCounts
 
@@ -110,9 +110,27 @@ class Weights:
     #: Enough to break a near-tie between two branches the machine cannot
     #: separate, never enough to overturn verification or a regression.
     review: float = 1.5
+    #: Above every soft criterion and below verification.  A branch that fixes
+    #: the bug and introduces a shell injection should lose to one that fixes
+    #: it cleanly - but a security finding is still not more important than
+    #: whether the change works at all, because an unproven fix helps nobody.
+    #: `security_criterion` zeroes this outright on any high-severity finding
+    #: rather than averaging, so at this weight one such finding costs more
+    #: than diff, static and health combined.
+    security: float = 3.0
+    #: The same as diff size, and for the same reason: a measured slowdown is
+    #: a real cost, but it is a tie-breaker between branches that work rather
+    #: than a reason to prefer a fast wrong answer.  Excluded entirely unless
+    #: a benchmark actually ran and produced a distinguishable difference.
+    performance: float = 1.0
 
 
 DEFAULT_WEIGHTS: Final = Weights()
+
+#: How `score()` obtains a security report for one attempt.  A callable rather
+#: than a hard call so a test can inject a verdict, and so a caller that has
+#: already audited does not pay for a second scan.
+Auditor = Callable[["Attempt"], Any]
 
 
 @dataclass(slots=True)
@@ -597,6 +615,32 @@ def _review(attempt: Attempt, pick: tuple[str, str] | None, weight: float) -> Cr
     return Criterion(REVIEW, 0.0, weight, f"the reviewer preferred {name}")
 
 
+def _audit_of(attempt: Attempt, auditor: Auditor | None) -> Any:
+    """The security report for one attempt, or None.
+
+    Defaults to a real static scan of the attempt's worktree, because that
+    needs no configuration, no network and no model - there is no reason to
+    make the user opt in to it.  A raise yields None, which
+    `security_criterion` excludes from the denominator: a scanner that fell
+    over must not silently penalise the branch it failed to read.
+    """
+    if auditor is None:
+        return None
+    try:
+        return auditor(attempt)
+    except Exception:
+        return None
+
+
+def default_auditor(attempt: Attempt) -> Any:
+    """Scan an attempt's worktree for security findings."""
+    from offset.core.security import scan
+
+    if not attempt.path:
+        return None
+    return scan(attempt.path)
+
+
 def score(
     attempts: Sequence[Attempt],
     *,
@@ -604,6 +648,8 @@ def score(
     reviewer: Reviewer | None = None,
     baseline: Baseline | None = None,
     linters: Sequence[Linter] = DEFAULT_LINTERS,
+    auditor: Auditor | None = default_auditor,
+    benchmarks: Mapping[str, Any] | None = None,
 ) -> list[Scorecard]:
     """Score every attempt and return the scorecards best first.
 
@@ -612,18 +658,37 @@ def score(
     tiebreakers `Speculation.rank` uses, and for the same reason, so a replayed
     session shows the same winner.  Speed and name are *only* tiebreakers here;
     neither is a criterion, because being fast is not evidence of being right.
+
+    `auditor` runs a static security scan per attempt and defaults to a real
+    one - it is cheap and needs nothing.  `benchmarks` maps an approach name to
+    a `bench.Comparison` and has no default, because benchmarking N branches
+    means N x twelve subprocess runs: minutes of invisible work is not
+    something a ranking function should decide to do on its own.  Both are
+    excluded from the denominator when absent rather than scored zero.
     """
     if not attempts:
         return []
     pick = _ask_reviewer(reviewer, attempts)
     analysis = Analysis(linters)
     cards: list[Scorecard] = []
+    # Imported here, not at module scope: `offset.core.security` imports
+    # `Criterion` from this module, so a top-level import is a cycle.
+    from offset.core.bench import bench_criterion
+    from offset.core.security import security_criterion
+
     for attempt in attempts:
         criteria = [
             _verification(attempt, weights.verification),
             _regressions(attempt, baseline, weights.regressions),
+            security_criterion(_audit_of(attempt, auditor), weights.security),
             _diff(attempt, weights.diff),
             _static(attempt, analysis, weights.static),
+            # Keyed by the approach *name*: `attempt.approach` is an
+            # `Approach` object, so keying on it would never match a caller's
+            # {"name": Comparison} map and every branch would silently go
+            # unbenchmarked.
+            bench_criterion((benchmarks or {}).get(attempt.approach.name),
+                            weights.performance),
             _health(attempt, weights.health),
             _review(attempt, pick, weights.review),
         ]

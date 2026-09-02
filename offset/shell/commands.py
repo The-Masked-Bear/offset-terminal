@@ -1150,9 +1150,16 @@ for _module in (
     "offset.core.update",
     "offset.core.tasks",
     "offset.tools.github",
+    "offset.tools.gitlab",
     "offset.core.collab",
     "offset.core.decompose",
     "offset.tools.mcp.marketplace",
+    "offset.core.telemetry",
+    "offset.core.security",
+    "offset.core.bench",
+    "offset.core.monitor",
+    "offset.core.remote",
+    "offset.core.issue_to_pr",
 ):
     _extend(_module)
 

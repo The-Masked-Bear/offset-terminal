@@ -833,7 +833,7 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-content">
-      <div class="hero-badge">⚡ 0.8 — GHOST TEXT, MULTIPLAYER, LIVE DEBUGGER</div>
+      <div class="hero-badge">⚡ 0.9 — SELF-VERIFYING: AUDITED BRANCHES, BENCHMARKS, COST TRACES</div>
       <h1 id="hero-title"></h1>
       <p class="reveal">Terminal-native coding agent. Race Claude vs GPT vs Gemini across parallel worktrees and keep what passes. Ghost-text completion, a headless daemon, hash-anchored patching and sessions that never run out of context. Pure Python, one dependency.</p>
       <div class="hero-actions reveal">
@@ -852,7 +852,7 @@
         <span style="font-size:0.8rem;opacity:0.6">~/project</span>
       </div>
       <div class="terminal-body" id="term-body">
-        <div class="terminal-line" style="color:var(--yellow)">Welcome to offset REPL v1.0.0</div>
+        <div class="terminal-line" style="color:var(--yellow)">Welcome to offset REPL v0.9.0</div>
         <div class="terminal-line">Type /help for commands.</div>
         <div class="terminal-input-line">
           <span class="terminal-prompt">❯</span>
@@ -967,9 +967,44 @@
         <h3>MCP MARKETPLACE</h3>
         <p>Find, install and remove MCP servers. Installing records a server — it never executes one — and anything unofficial is untrusted until you say so.</p>
       </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--red);transition-delay:0.1s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <h3>BRANCHES GET AUDITED</h3>
+        <p><code>/spec</code> now scores security too. A branch that passes every test and adds an <code>eval</code> loses to a clean one with a bigger diff. One high-severity finding zeroes the criterion — it is never averaged away.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--cyan);transition-delay:0.2s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M3 20h18"/><path d="M6 20V10M11 20V5M16 20v-7"/></svg>
+        <h3>BENCHMARKS THAT ADMIT DOUBT</h3>
+        <p>Twelve runs, a discarded warmup, median and spread. If the samples overlap the verdict is <em>indistinguishable</em> and it is dropped from the ranking. Inventing a 3% winner is worse than no benchmark at all.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--yellow);transition-delay:0.3s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>
+        <h3>WHERE THE MONEY WENT</h3>
+        <p><code>/cost</code> by model, day or session. <code>/trace</code> for the last turn's span tree. An unknown price reports as unknown, never as zero — a confident zero is an answer nobody re-checks.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--pink);transition-delay:0.4s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M12 3l9 6-9 12-9-12z"/></svg>
+        <h3>GITLAB, FIRST CLASS</h3>
+        <p>Issues, merge requests, pipelines and job logs. Self-hosted via <code>GITLAB_HOST</code>. The token goes in a header — never argv, never a query parameter.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--mint);transition-delay:0.5s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/><path d="M8 9l3 3 5-5"/></svg>
+        <h3>ISSUE TO PULL REQUEST</h3>
+        <p><code>/issue 42</code> reads it, restates it, plans, branches, implements, tests and opens the PR. Checkpointed at every stage, so <code>/issue resume</code> survives a closed laptop.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--cyan);transition-delay:0.6s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>
+        <h3>WATCH IT FROM YOUR PHONE</h3>
+        <p><code>/monitor start</code> serves one self-contained page: current turn, jobs, spend. Loopback by default, bearer token on every route, compared with <code>compare_digest</code> — and no static file route at all.</p>
+      </div>
+      <div class="brutal-card feature-card reveal" style="background:var(--yellow);transition-delay:0.7s">
+        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="14" cy="12" r="1.5"/><circle cx="10" cy="18" r="1.5"/></svg>
+        <h3>ANOTHER MACHINE'S CORES</h3>
+        <p><code>/remote run</code> executes on a registered box's daemon over SSH. The heavy work happens where the cores are; the transcript arrives here.</p>
+      </div>
       <div class="brutal-card feature-card reveal" style="background:var(--red);transition-delay:0.5s">
         <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--black)" stroke-width="3" stroke-linecap="square"><path d="M4 20V8M10 20V4M16 20v-8M22 20h-20"/></svg>
-        <h3>1425 TESTS</h3>
+        <h3>1831 TESTS</h3>
         <p>Every feature here is defended by tests that fail on a plausible bug, not on a typo. One dependency, three Python versions, ARM64 included.</p>
       </div>
     </div>
@@ -979,12 +1014,12 @@
   <div class="stats-section">
     <div class="stats-grid reveal from-scale">
       <div class="stat-item">
-        <span class="stat-number" data-target="24">0</span>
+        <span class="stat-number" data-target="25">0</span>
         <span class="stat-unit"></span>
         <span class="stat-label">AGENT TOOLS</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number" data-target="45">0</span>
+        <span class="stat-number" data-target="56">0</span>
         <span class="stat-unit"></span>
         <span class="stat-label">COMMANDS</span>
       </div>
@@ -994,7 +1029,7 @@
         <span class="stat-label">DEPENDENCIES</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number" data-target="1425">0</span>
+        <span class="stat-number" data-target="1831">0</span>
         <span class="stat-unit"></span>
         <span class="stat-label">PASSING TESTS</span>
       </div>
@@ -1263,9 +1298,13 @@
       if (w === '<br>') { heroTitle.appendChild(document.createElement('br')); wi++; typeWord(); return; }
       const span = document.createElement('span');
       span.className = 'word';
-      span.textContent = w + ' ';
+      // The word only. A trailing space *inside* an inline-block collapses at
+      // the box boundary, which rendered the hero as "RACEAI MODELSIN".
+      // The separator has to be a sibling text node.
+      span.textContent = w;
       span.style.opacity = '0'; span.style.transform = 'translateY(20px)';
       heroTitle.appendChild(span);
+      heroTitle.appendChild(document.createTextNode(' '));
       requestAnimationFrame(() => {
         span.style.transition = 'opacity 0.4s, transform 0.4s cubic-bezier(.175,.885,.32,1.275)';
         span.style.opacity = '1'; span.style.transform = 'translateY(0)';
@@ -1437,7 +1476,7 @@
         } else if (cmd === 'neofetch') {
           tLine(ascii_bear);
           tLine('OS:     Linux arm64'); tLine('Kernel: 6.18.39+rpt-rpi-v8');
-          tLine('Shell:  offset-repl v1.0.0'); tLine('Theme:  Neubrutalism');
+          tLine('Shell:  offset-repl v0.9.0'); tLine('Theme:  Neubrutalism');
           tLine('Models: 12+ providers'); tLine('Uptime: ∞');
         } else if (cmd === 'hunter2') {
           tLine('*******');
