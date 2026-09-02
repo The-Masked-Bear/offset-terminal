@@ -211,9 +211,21 @@ def verify_direct_license_key(key: str) -> int:
         with urllib.request.urlopen(req, timeout=8) as response:
             result = json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
-        # 402 is the server's "this key is not valid" - a definite answer.
+        # 402 is the server's "this key is not valid" - a definite answer, so
+        # it falls through to the rejection message below.
         if exc.code != 402:
+            # Anything else is the server saying it could not check, which is
+            # not a verdict on the key.  Show what it actually said: "try
+            # again shortly" is the difference between a retry and a support
+            # ticket about a key that was never broken.
+            detail = ""
+            try:
+                detail = str(json.loads(exc.read().decode()).get("detail") or "")
+            except (ValueError, OSError, AttributeError):
+                pass
             print(f"\033[1;31m✗ Licence server error ({exc.code}).\033[0m")
+            if detail:
+                print(f"  {detail}")
             return 1
     except (urllib.error.URLError, OSError, ValueError, TimeoutError):
         if _dev_mode() and key == "test-plus-key":
